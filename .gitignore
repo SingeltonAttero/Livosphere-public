@@ -1,0 +1,27 @@
+# macOS and IDE
+.DS_Store
+.idea/
+*.iml
+
+# Local configuration and secrets
+local.properties
+*.jks
+*.keystore
+.env
+.env.*
+
+# Android / Gradle
+.gradle/
+build/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Python tooling
+__pycache__/
+*.py[cod]
+.venv/
+
+# Generated local files
+*.log
