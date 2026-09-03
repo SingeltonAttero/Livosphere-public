@@ -1,0 +1,176 @@
+package app.livosphere.buildlogic;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
+import org.gradle.api.GradleException;
+
+final class SetContractEngine {
+    private SetContractEngine() {}
+
+    static List<SetManifest> validate(List<Path> manifestPaths) {
+        return SetManifestReader.readAll(manifestPaths);
+    }
+
+    static void generateResources(List<Path> manifestPaths, String setId, String surface, Path outputDirectory) {
+        List<SetManifest> manifests = validate(manifestPaths);
+        SetManifest manifest = manifests.stream()
+                .filter(candidate -> candidate.setId().equals(setId))
+                .findFirst()
+                .orElseThrow(() -> new GradleException(
+                        "Set '" + setId + "' не найден среди явно подключённых manifests: " + manifestPaths));
+        SetManifest.Contribution contribution = manifest.contributionFor(surface);
+        recreate(outputDirectory);
+        contribution.assets().stream()
+                .sorted(Comparator.comparing(SetManifest.Asset::resourcePath))
+                .forEach(asset -> copy(manifest.sourceAssetsRoot().resolve(asset.relativePath()),
+                        outputDirectory.resolve(asset.resourcePath())));
+
+        String prefix = "ls_" + setId.replace('-', '_') + "_" + surface.replace('-', '_') + "_";
+        Path values = outputDirectory.resolve("values/" + prefix + "contract.xml");
+        String xml = """
+                <?xml version="1.0" encoding="utf-8"?>
+                <resources>
+                    <integer name="%sset_revision">%d</integer>
+                    <integer name="%sresource_revision">%d</integer>
+                    <string name="%scomponent_id" translatable="false">%s</string>
+                </resources>
+                """.formatted(prefix, manifest.setRevision(), prefix, contribution.resourceRevision(), prefix,
+                contribution.componentId());
+        write(values, xml);
+
+        Path provenance = outputDirectory.resolve("raw/" + prefix + "provenance.txt");
+        String provenanceText = contribution.assets().stream()
+                .sorted(Comparator.comparing(SetManifest.Asset::id))
+                .map(asset -> asset.id() + "=" + asset.provenance() + " sha256=" + asset.sha256())
+                .collect(Collectors.joining("\n", "setId=" + setId + "\nsetRevision=" + manifest.setRevision() + "\n", "\n"));
+        write(provenance, provenanceText);
+    }
+
+    static void generateRegistry(List<Path> manifestPaths, Path outputDirectory) {
+        List<SetManifest> selected = validate(manifestPaths);
+        recreate(outputDirectory);
+        Path output = outputDirectory.resolve("app/livosphere/generated/GeneratedSetRegistry.kt");
+        String entries = selected.stream().sorted(Comparator.comparing(SetManifest::setId))
+                .map(SetContractEngine::descriptorKotlin)
+                .collect(Collectors.joining(",\n"));
+        String kotlin = """
+                package app.livosphere.generated
+
+                import app.livosphere.contract.*
+
+                object GeneratedSetRegistry : SetRegistry {
+                    override val sets: List<SetDescriptor> = listOf(
+                %s
+                    )
+                }
+                """.formatted(indent(entries, 8));
+        write(output, kotlin);
+    }
+
+    private static String descriptorKotlin(SetManifest manifest) {
+        return """
+                SetDescriptor(
+                    schemaVersion = %d,
+                    setId = SetId(%s),
+                    setRevision = Revision(%d),
+                    sourceAssetsRevision = Revision(%d),
+                    contentStatus = ContentStatus.APPROVED_FOR_START,
+                    preview = %s,
+                    wallpaper = %s,
+                    watchFace = %s,
+                )
+                """.formatted(
+                manifest.schemaVersion(), quote(manifest.setId()), manifest.setRevision(), manifest.sourceAssetsRevision(),
+                contributionKotlin("PreviewContribution", manifest.contributionFor("preview")),
+                contributionKotlin("WallpaperContribution", manifest.contributionFor("wallpaper")),
+                contributionKotlin("WatchFaceContribution", manifest.contributionFor("watchface"))).stripTrailing();
+    }
+
+    private static String contributionKotlin(String type, SetManifest.Contribution contribution) {
+        String settings = contribution.supportedSettings().stream()
+                .map(value -> "SupportedSetting." + enumName(value))
+                .sorted()
+                .collect(Collectors.joining(", "));
+        String resources = contribution.assets().stream().sorted(Comparator.comparing(SetManifest.Asset::id))
+                .map(asset -> "ResourceReference(" + quote(asset.id()) + ", " + quote(asset.resourcePath()) + ", " + quote(asset.sha256())
+                        + ", Revision(" + asset.revision() + "), " + quote(asset.provenance()) + ")")
+                .collect(Collectors.joining(", "));
+        return type + "(componentId = ComponentId(" + quote(contribution.componentId()) + ")"
+                + ", componentRevision = Revision(" + contribution.componentRevision() + ")"
+                + ", resourceRevision = Revision(" + contribution.resourceRevision() + ")"
+                + ", compatibility = Compatibility(Platform." + enumName(contribution.platform()) + ", "
+                + contribution.minimumApi() + ")"
+                + ", installRoute = InstallRoute." + installRouteName(contribution.installRoute())
+                + ", supportedSettings = setOf(" + settings + ")"
+                + ", artifact = ArtifactReference(ArtifactId(" + quote(contribution.artifactId()) + "), "
+                + quote(contribution.artifactProject()) + ")"
+                + ", resources = listOf(" + resources + "))";
+    }
+
+    private static String installRouteName(String value) {
+        return switch (value) {
+            case "embedded-preview" -> "EmbeddedPreview";
+            case "system-wallpaper-preview" -> "SystemWallpaperPreview";
+            case "separate-watchface-package" -> "SeparateWatchFacePackage";
+            default -> throw new IllegalArgumentException(value);
+        };
+    }
+
+    private static String enumName(String value) {
+        return value.toUpperCase(Locale.ROOT).replace('-', '_');
+    }
+
+    private static String quote(String value) {
+        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$")
+                .replace("\r", "\\r").replace("\n", "\\n") + "\"";
+    }
+
+    private static String indent(String value, int spaces) {
+        String prefix = " ".repeat(spaces);
+        return value.lines().map(line -> prefix + line).collect(Collectors.joining("\n"));
+    }
+
+    private static void recreate(Path directory) {
+        try {
+            if (Files.exists(directory)) {
+                try (var paths = Files.walk(directory)) {
+                    paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                        try {
+                            Files.delete(path);
+                        } catch (IOException error) {
+                            throw new GradleException("Не удалось очистить generated output " + path, error);
+                        }
+                    });
+                }
+            }
+            Files.createDirectories(directory);
+        } catch (IOException error) {
+            throw new GradleException("Не удалось подготовить generated output " + directory, error);
+        }
+    }
+
+    private static void copy(Path source, Path target) {
+        try {
+            Files.createDirectories(target.getParent());
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+        } catch (IOException error) {
+            throw new GradleException("Не удалось сгенерировать resource " + target.getFileName(), error);
+        }
+    }
+
+    private static void write(Path target, String contents) {
+        try {
+            Files.createDirectories(target.getParent());
+            Files.writeString(target, contents, StandardCharsets.UTF_8);
+        } catch (IOException error) {
+            throw new GradleException("Не удалось записать generated output " + target.getFileName(), error);
+        }
+    }
+}

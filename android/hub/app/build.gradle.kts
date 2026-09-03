@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    id("livosphere.set-registry")
 }
 
 android {
@@ -14,7 +15,7 @@ android {
         minSdk = 29
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = providers.gradleProperty("livosphere.productRelease").get()
     }
 
     buildFeatures {
@@ -29,8 +30,6 @@ android {
 
 dependencies {
     implementation(project(":hub:domain"))
-    implementation(project(":wallpapers:contour"))
-    implementation(project(":sets:contour:preview"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)

@@ -1,7 +1,7 @@
 SHELL := /bin/sh
 
 ANDROID_DIR := android
-GRADLE := cd $(ANDROID_DIR) && ./gradlew --console=plain --no-daemon
+GRADLE = cd $(ANDROID_DIR) && $(if $(strip $(LIVOSPHERE_JAVA_HOME)),JAVA_HOME="$(LIVOSPHERE_JAVA_HOME)",) ./gradlew --console=plain --no-daemon $(if $(strip $(LIVOSPHERE_JAVA_HOME)),"-Dorg.gradle.java.home=$(LIVOSPHERE_JAVA_HOME)",)
 
 ifeq ($(shell uname -s),Darwin)
 HOMEBREW_JAVA_17 := $(shell brew --prefix openjdk@17 2>/dev/null)/libexec/openjdk.jdk/Contents/Home
@@ -17,16 +17,19 @@ export JAVA_HOME := $(LIVOSPHERE_JAVA_HOME)
 endif
 export ANDROID_SDK_ROOT
 
-.PHONY: doctor phone watchfaces check offline-smoke verify
+.PHONY: doctor assets-check phone watchfaces check offline-smoke verify
 
 doctor:
 	./android/scripts/doctor.sh
 	$(GRADLE) doctor
 
-phone: doctor
+assets-check:
+	$(GRADLE) assetsCheck
+
+phone: doctor assets-check
 	$(GRADLE) :hub:app:assembleDebug
 
-watchfaces: doctor
+watchfaces: doctor assets-check
 	$(GRADLE) :watchfaces:contour-wff:bundleDebug
 
 check: doctor

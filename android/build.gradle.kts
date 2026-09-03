@@ -1,4 +1,6 @@
+import com.android.build.api.dsl.ApplicationExtension
 import org.gradle.api.artifacts.ProjectDependency
+import java.util.Properties
 
 plugins {
     base
@@ -51,6 +53,53 @@ tasks.register("testDoctorContract") {
         check(doctorErrors(17, fixture.resolve("missing")).single().contains("не найден"))
         check(doctorErrors(17, emptySdk).single().contains("Platform 37"))
     }
+}
+
+tasks.register("verifyProductRelease") {
+    group = "verification"
+    doLast {
+        val productRelease = providers.gradleProperty("livosphere.productRelease").orNull
+        check(!productRelease.isNullOrBlank()) {
+            "Gradle property livosphere.productRelease обязателен как отдельный build input."
+        }
+        check(Regex("^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[a-z0-9.-]+)?$").matches(productRelease)) {
+            "livosphere.productRelease имеет неверный формат: $productRelease"
+        }
+        val phoneConfig = project(":hub:app").extensions.getByType(ApplicationExtension::class.java).defaultConfig
+        val watchConfig = project(":watchfaces:contour-wff").extensions
+            .getByType(ApplicationExtension::class.java).defaultConfig
+        check(phoneConfig.versionName == productRelease) {
+            ":hub:app versionName=${phoneConfig.versionName} не совпадает с livosphere.productRelease=$productRelease"
+        }
+        check(watchConfig.versionName == productRelease) {
+            ":watchfaces:contour-wff versionName=${watchConfig.versionName} не совпадает с livosphere.productRelease=$productRelease"
+        }
+        check(phoneConfig.versionCode != null && watchConfig.versionCode != null) {
+            "Phone и WFF обязаны сохранять собственные versionCode"
+        }
+    }
+}
+
+tasks.register("assetsCheck") {
+    group = "verification"
+    description = "Проверяет все manifest-driven set contracts и локальные assets."
+    dependsOn(
+        ":hub:app:validateSetRegistry",
+        ":sets:contour:preview:validateSetContract",
+        ":wallpapers:contour:validateSetContract",
+        ":watchfaces:contour-wff:validateSetContract",
+    )
+}
+
+tasks.register("generateSetContracts") {
+    group = "build"
+    description = "Восстанавливает generated registry и resources всех surfaces."
+    dependsOn(
+        ":hub:app:generateSetRegistry",
+        ":sets:contour:preview:generateSetResources",
+        ":wallpapers:contour:generateSetResources",
+        ":watchfaces:contour-wff:generateSetResources",
+    )
 }
 
 tasks.register("verifyModuleGraph") {
@@ -120,13 +169,94 @@ tasks.register("verifyModuleGraph") {
         check(hiltRoots.size == 1 && hiltRoots.single().first == ":hub:app") {
             "Ожидался единственный @HiltAndroidApp в :hub:app, обнаружено: $hiltRoots"
         }
+
+        val setConsumers = subprojects.filter {
+            it.pluginManager.hasPlugin("livosphere.set-consumer")
+        }.map { it.path }.toSet()
+        check(setConsumers == setOf(
+            ":sets:contour:preview",
+            ":wallpapers:contour",
+            ":watchfaces:contour-wff",
+        )) { "Set consumer conventions подключены неверно: $setConsumers" }
+        check(project(":hub:app").pluginManager.hasPlugin("livosphere.set-registry")) {
+            ":hub:app обязан получать registry через livosphere.set-registry"
+        }
+
+        fun org.gradle.api.Task.transitivelyDependsOn(requiredPath: String): Boolean {
+            val visited = mutableSetOf<String>()
+            fun visit(task: org.gradle.api.Task): Boolean {
+                if (!visited.add(task.path)) return false
+                return task.path == requiredPath || task.taskDependencies.getDependencies(task).any(::visit)
+            }
+            return visit(this)
+        }
+        val realPackagePredecessors = mapOf(
+            ":hub:app:assembleDebug" to listOf(":hub:app:validateSetRegistry", ":hub:app:generateSetRegistry"),
+            ":sets:contour:preview:assembleDebug" to listOf(
+                ":sets:contour:preview:validateSetContract", ":sets:contour:preview:generateSetResources"),
+            ":wallpapers:contour:assembleDebug" to listOf(
+                ":wallpapers:contour:validateSetContract", ":wallpapers:contour:generateSetResources"),
+            ":watchfaces:contour-wff:bundleDebug" to listOf(
+                ":watchfaces:contour-wff:validateSetContract", ":watchfaces:contour-wff:generateSetResources"),
+        )
+        realPackagePredecessors.forEach { (packageTaskPath, requiredTasks) ->
+            val packageTask = tasks.getByPath(packageTaskPath)
+            requiredTasks.forEach { required ->
+                check(packageTask.transitivelyDependsOn(required)) {
+                    "$required обязан быть predecessor реального package path $packageTaskPath"
+                }
+            }
+        }
+
+        val coreContractSources = project(":core:contract").fileTree("src/main") {
+            include("**/*.kt", "**/*.java")
+        }
+        val androidType = Regex("(?:^|[^A-Za-z0-9_])android\\.[a-z][A-Za-z0-9_.]*")
+        check(coreContractSources.none { source ->
+            androidType.containsMatchIn(source.readText())
+        }) { ":core:contract не должен содержать Android API" }
+
+        val manualRegistry = subprojects.flatMap { module ->
+            module.fileTree("src") { include("**/*.kt", "**/*.java") }
+                .filter { source ->
+                    Regex("\\bimplements\\s+(?:app\\.livosphere\\.contract\\.)?SetRegistry\\b|" +
+                        ":\\s*(?:app\\.livosphere\\.contract\\.)?SetRegistry\\b")
+                        .containsMatchIn(source.readText())
+                }
+                .map { source -> module.path to source }
+        }
+        check(manualRegistry.isEmpty()) { "Обнаружен ручной SetRegistry: $manualRegistry" }
+
+        val manifestPaths = providers.gradleProperty("livosphere.setManifests").get()
+            .split(',').map(String::trim)
+        val setPrefixes = manifestPaths.map { path ->
+            val properties = Properties().apply { file(path).inputStream().use(::load) }
+            "ls_${properties.getProperty("setId").replace('-', '_')}_"
+        }.toSet()
+        val manuallyOwnedSetResources = subprojects.flatMap { module ->
+            module.fileTree("src") { include("**/*") }
+                .filter { source ->
+                    source.isFile && setPrefixes.any { prefix ->
+                        source.name.startsWith(prefix) ||
+                            (source.extension == "xml" && Regex("<[^>]+\\bname=\\\"$prefix")
+                                .containsMatchIn(source.readText()))
+                    }
+                }
+                .map { source -> module.path to source }
+        }
+        check(manuallyOwnedSetResources.isEmpty()) {
+            "Set-owned resources должны поступать только из manifest generation: $manuallyOwnedSetResources"
+        }
     }
 }
 
 tasks.named("check") {
     dependsOn(
         "testDoctorContract",
+        "verifyProductRelease",
+        "assetsCheck",
         "verifyModuleGraph",
+        gradle.includedBuild("build-logic").task(":test"),
         ":hub:app:check",
         ":hub:domain:check",
         ":core:contract:check",
