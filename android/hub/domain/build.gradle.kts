@@ -8,4 +8,5 @@ kotlin {
 
 dependencies {
     api(project(":core:contract"))
+    testImplementation(libs.junit4)
 }

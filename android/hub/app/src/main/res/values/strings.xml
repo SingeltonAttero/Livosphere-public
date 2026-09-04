@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Livosphere</string>
+    <string name="hub_section_theme">Тема</string>
+    <string name="hub_section_devices">Устройства</string>
+    <string name="hub_section_settings">Настройки</string>
+    <string name="hub_theme_description">Здесь появится preview первого визуального набора.</string>
+    <string name="hub_devices_description">Здесь будут показаны только проверенные факты телефона и часов.</string>
+    <string name="hub_settings_description">Здесь появится независимое управление оформлением и приложением.</string>
 </resources>
