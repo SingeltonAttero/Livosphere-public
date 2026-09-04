@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,10 +23,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -332,17 +335,36 @@ private fun PreviewImage(
     asset: PreviewAsset,
     surface: HubSurface,
 ) {
-    val isWallpaper = surface == HubSurface.WALLPAPER
-    Image(
-        painter = painterResource(asset.drawableId),
-        contentDescription = null,
-        contentScale = if (isWallpaper) ContentScale.Crop else ContentScale.Fit,
-        alignment = if (isWallpaper) WallpaperPreviewAlignment else Alignment.Center,
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(if (isWallpaper) 0.dp else 16.dp)
-            .semantics { testTag = "theme-preview-art-${asset.symbolicName}" },
-    )
+    val artTag = "theme-preview-art-${asset.symbolicName}"
+    when (surface) {
+        HubSurface.WALLPAPER -> Image(
+            painter = painterResource(asset.drawableId),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            alignment = WallpaperPreviewAlignment,
+            modifier = Modifier
+                .fillMaxSize()
+                .semantics { testTag = artTag },
+        )
+
+        HubSurface.WATCH_FACE -> BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            val previewSize = minOf(maxWidth, maxHeight)
+            Image(
+                painter = painterResource(asset.drawableId),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .size(previewSize)
+                    .clip(CircleShape)
+                    .semantics { testTag = artTag },
+            )
+        }
+    }
 }
 
 @Composable
