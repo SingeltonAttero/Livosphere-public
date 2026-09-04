@@ -15,5 +15,14 @@
     <string name="hub_wallpaper_action_explanation">Системная примерка пока недоступна. Этот preview ничего не применяет.</string>
     <string name="hub_watchface_action_explanation">Путь установки пока недоступен. Этот preview не устанавливает циферблат.</string>
     <string name="hub_devices_description">Здесь будут показаны только проверенные факты телефона и часов.</string>
+    <string name="hub_phone_fact">Обои на телефоне: не удалось определить</string>
+    <string name="hub_watch_fact">Циферблат на часах: не удалось определить</string>
+    <string name="hub_unknown_explanation">Приложение пока не может проверить применение оформления. Preview доступен в «Теме»; просмотр не означает установку.</string>
+    <string name="hub_settings_failure">История приглашений недоступна. Автоматическое знакомство отключено; помощь и просмотр доступны.</string>
+    <string name="hub_onboarding_help">Знакомство с оформлением</string>
+    <string name="hub_onboarding_title">Один мир, две поверхности</string>
+    <string name="hub_onboarding_description">В «Теме» можно отдельно рассмотреть обои и циферблат. Они связаны оформлением, но устанавливаются и применяются отдельно. Preview ничего не устанавливает. Системная примерка и путь установки пока недоступны.</string>
+    <string name="hub_onboarding_go">Перейти к оформлению</string>
+    <string name="hub_onboarding_skip">Пропустить</string>
     <string name="hub_settings_description">Здесь появится независимое управление оформлением и приложением.</string>
 </resources>

@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
@@ -45,6 +47,8 @@ import app.livosphere.hub.navigation.ThemeKey
 import app.livosphere.hub.navigation.toSection
 import app.livosphere.hub.settings.SettingsScreen
 import app.livosphere.hub.theme.ThemeScreen
+import app.livosphere.hub.onboarding.OnboardingDialog
+import app.livosphere.hub.onboarding.Outcome
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -56,6 +60,13 @@ fun HubApp(
     val backStack = rememberNavBackStack(ThemeKey)
     val navigator = remember(backStack) { HubNavigator(backStack) }
     val restoredSection = backStack.lastOrNull().toSection()
+    val latestRestoredSection by rememberUpdatedState(restoredSection)
+
+    LifecycleStartEffect(viewModel) {
+        // The actual restored destination and foreground eligibility enter the reducer together.
+        viewModel.onAction(HubAction.ForegroundStarted(latestRestoredSection))
+        onStopOrDispose { viewModel.onAction(HubAction.ForegroundStopped) }
+    }
 
     LaunchedEffect(restoredSection) {
         viewModel.onAction(HubAction.NavigationRestored(restoredSection))
@@ -91,7 +102,10 @@ fun HubApp(
                                 },
                             )
                         }
-                        entry<DevicesKey> { DevicesScreen() }
+                        entry<DevicesKey> {
+                            DevicesScreen(settingsFailed = state.settings is Outcome.Failure,
+                                onHelp = { viewModel.onAction(HubAction.OpenOnboarding) })
+                        }
                         entry<SettingsKey> { SettingsScreen() }
                     },
                 )
@@ -106,6 +120,12 @@ fun HubApp(
                     },
                 )
             }
+        }
+        if (state.onboardingVisible) {
+            OnboardingDialog(
+                onDismiss = { viewModel.onAction(HubAction.DismissOnboarding) },
+                onGo = { viewModel.onAction(HubAction.GoToTheme) },
+            )
         }
     }
 }
