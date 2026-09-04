@@ -39,6 +39,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
@@ -76,6 +77,10 @@ import kotlinx.coroutines.launch
 
 internal const val STARTUP_DURATION_MILLIS = 440
 internal const val SWITCH_DURATION_MILLIS = 220
+private val WallpaperPreviewAlignment = BiasAlignment(
+    horizontalBias = 0f,
+    verticalBias = 0.4f,
+)
 internal fun isMotionComplete(elapsedMillis: Long, durationMillis: Int): Boolean =
     elapsedMillis >= durationMillis
 
@@ -281,20 +286,22 @@ private fun ArtworkStage(
                 previewStartupAlpha = renderedStartupAlpha
                 previewTargetAsset = targetAsset.symbolicName
                 previewCurrentAsset = currentAsset.symbolicName
-            }
-            .padding(16.dp),
+            },
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            modifier = Modifier.graphicsLayer {
-                alpha = renderedStartupAlpha
-                translationY = renderedStartupTranslationY
-                scaleX = renderedStartupScale
-                scaleY = renderedStartupScale
-            },
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    alpha = renderedStartupAlpha
+                    translationY = renderedStartupTranslationY
+                    scaleX = renderedStartupScale
+                    scaleY = renderedStartupScale
+                },
             contentAlignment = Alignment.Center,
         ) {
             surfaceTransition.AnimatedContent(
+                modifier = Modifier.fillMaxSize(),
                 transitionSpec = {
                     val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
                     (
@@ -309,21 +316,31 @@ private fun ArtworkStage(
                     )
                 },
                 contentKey = { it },
+                contentAlignment = Alignment.Center,
             ) { surface ->
-                PreviewImage(PreviewAssetResolver.resolve(context, surface))
+                PreviewImage(
+                    asset = PreviewAssetResolver.resolve(context, surface),
+                    surface = surface,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun PreviewImage(asset: PreviewAsset) {
+private fun PreviewImage(
+    asset: PreviewAsset,
+    surface: HubSurface,
+) {
+    val isWallpaper = surface == HubSurface.WALLPAPER
     Image(
         painter = painterResource(asset.drawableId),
         contentDescription = null,
-        contentScale = ContentScale.Fit,
+        contentScale = if (isWallpaper) ContentScale.Crop else ContentScale.Fit,
+        alignment = if (isWallpaper) WallpaperPreviewAlignment else Alignment.Center,
         modifier = Modifier
             .fillMaxSize()
+            .padding(if (isWallpaper) 0.dp else 16.dp)
             .semantics { testTag = "theme-preview-art-${asset.symbolicName}" },
     )
 }
