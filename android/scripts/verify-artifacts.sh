@@ -58,9 +58,10 @@ assert_phone_surface() {
     for asset in $refs; do
         resource_path=$(manifest_value "asset.$asset.resourcePath")
         resource_dir=${resource_path%%/*}
+        resource_type=${resource_dir%%-*}
         resource_file=${resource_path##*/}
         resource_name=${resource_file%.*}
-        if test "$resource_dir" = values; then
+        if test "$resource_type" = values; then
             source_path=$(manifest_value "asset.$asset.path")
             sed -n 's/.*<\([a-z][a-z0-9-]*\)[^>]* name="\([^"]*\)".*/\1 \2/p' \
                 "$repo_root/android/sets/contour/source-assets/$source_path" |
@@ -71,7 +72,9 @@ assert_phone_surface() {
                     }
                 done
         else
-            grep -Fq " $resource_dir/$resource_name" "$tmp_dir/phone-resources.txt" || {
+            awk -v expected="$resource_type/$resource_name" \
+                '$1 == "resource" && $3 == expected { found = 1 } END { exit !found }' \
+                "$tmp_dir/phone-resources.txt" || {
                 echo "Phone APK не содержит manifest-selected $surface resource: $resource_path" >&2
                 exit 1
             }
@@ -93,9 +96,10 @@ IFS=,
 for asset in $watch_refs; do
     resource_path=$(manifest_value "asset.$asset.resourcePath")
     resource_dir=${resource_path%%/*}
+    resource_type=${resource_dir%%-*}
     resource_file=${resource_path##*/}
     resource_name=${resource_file%.*}
-    if test "$resource_dir" = values; then
+    if test "$resource_type" = values; then
         source_path=$(manifest_value "asset.$asset.path")
         sed -n 's/.*<\([a-z][a-z0-9-]*\)[^>]* name="\([^"]*\)".*/\2/p' \
             "$repo_root/android/sets/contour/source-assets/$source_path" |
@@ -106,7 +110,7 @@ for asset in $watch_refs; do
                 }
             done
     else
-        strings "$tmp_dir/watch-resources.pb" | grep -Fq "$resource_name" || {
+        strings "$tmp_dir/watch-resources.pb" | grep -Fxq "$resource_name" || {
             echo "WFF AAB не содержит manifest-selected watchface resource: $resource_path" >&2
             exit 1
         }

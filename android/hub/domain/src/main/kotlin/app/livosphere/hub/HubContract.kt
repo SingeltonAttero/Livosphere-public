@@ -6,14 +6,25 @@ enum class HubSection {
     SETTINGS,
 }
 
+enum class HubSurface {
+    WALLPAPER,
+    WATCH_FACE,
+}
+
 data class HubState(
     val selectedSection: HubSection = HubSection.THEME,
+    val selectedSurface: HubSurface = HubSurface.WALLPAPER,
+    val hasSeenThemePreview: Boolean = false,
 )
 
 sealed interface HubAction {
     data class SectionSelected(val section: HubSection) : HubAction
 
     data class NavigationRestored(val section: HubSection) : HubAction
+
+    data class SurfaceSelected(val surface: HubSurface) : HubAction
+
+    data object ThemePreviewSeen : HubAction
 }
 
 sealed interface HubCommand {
@@ -30,6 +41,12 @@ object HubReducer {
         is HubAction.SectionSelected -> selectSection(state, action.section)
         is HubAction.NavigationRestored -> HubTransition(
             state = state.copy(selectedSection = action.section),
+        )
+        is HubAction.SurfaceSelected -> HubTransition(
+            state = state.copy(selectedSurface = action.surface),
+        )
+        HubAction.ThemePreviewSeen -> HubTransition(
+            state = state.copy(hasSeenThemePreview = true),
         )
     }
 

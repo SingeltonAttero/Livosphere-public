@@ -7,7 +7,11 @@ import org.junit.Test
 class HubReducerTest {
     @Test
     fun `theme is the only initial section`() {
-        assertEquals(HubSection.THEME, HubState().selectedSection)
+        val state = HubState()
+
+        assertEquals(HubSection.THEME, state.selectedSection)
+        assertEquals(HubSurface.WALLPAPER, state.selectedSurface)
+        assertEquals(false, state.hasSeenThemePreview)
     }
 
     @Test
@@ -45,5 +49,43 @@ class HubReducerTest {
 
         assertEquals(HubSection.DEVICES, transition.state.selectedSection)
         assertTrue(transition.commands.isEmpty())
+    }
+
+    @Test
+    fun `surface selection is immediate and never emits a command`() {
+        val transition = HubReducer.reduce(
+            state = HubState(selectedSurface = HubSurface.WALLPAPER),
+            action = HubAction.SurfaceSelected(HubSurface.WATCH_FACE),
+        )
+
+        assertEquals(HubSurface.WATCH_FACE, transition.state.selectedSurface)
+        assertTrue(transition.commands.isEmpty())
+    }
+
+    @Test
+    fun `latest rapid surface selection wins without a command queue`() {
+        val actions = listOf(
+            HubAction.SurfaceSelected(HubSurface.WATCH_FACE),
+            HubAction.SurfaceSelected(HubSurface.WALLPAPER),
+            HubAction.SurfaceSelected(HubSurface.WATCH_FACE),
+        )
+
+        val final = actions.fold(HubTransition(HubState())) { transition, action ->
+            HubReducer.reduce(transition.state, action)
+        }
+
+        assertEquals(HubSurface.WATCH_FACE, final.state.selectedSurface)
+        assertTrue(final.commands.isEmpty())
+    }
+
+    @Test
+    fun `preview first seen is session state and idempotent`() {
+        val first = HubReducer.reduce(HubState(), HubAction.ThemePreviewSeen)
+        val repeated = HubReducer.reduce(first.state, HubAction.ThemePreviewSeen)
+
+        assertTrue(first.state.hasSeenThemePreview)
+        assertEquals(first.state, repeated.state)
+        assertTrue(first.commands.isEmpty())
+        assertTrue(repeated.commands.isEmpty())
     }
 }

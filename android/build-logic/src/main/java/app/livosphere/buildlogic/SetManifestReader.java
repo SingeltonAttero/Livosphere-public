@@ -33,6 +33,8 @@ final class SetManifestReader {
     private static final Pattern RESOURCE_DIRECTORY = Pattern.compile(
             "^(?:drawable|mipmap|raw|values|xml|font|color)(?:-[a-z0-9]+)*$");
     private static final Pattern RESOURCE_FILE = Pattern.compile("^[a-z][a-z0-9_]*\\.[a-z0-9]+$");
+    private static final String PREVIEW_WALLPAPER_ROLE = "preview-wallpaper-";
+    private static final String PREVIEW_WATCHFACE_ROLE = "preview-watchface-";
 
     private SetManifestReader() {}
 
@@ -155,6 +157,7 @@ final class SetManifestReader {
             require(count == 1, normalizedManifest, "contributions",
                     "ожидалась ровно одна contribution surface=" + surface + ", найдено " + count);
         }
+        requirePreviewRoles(normalizedManifest, contributions);
         requireEntryPoints(normalizedManifest, setId, contributions);
         require(consumed.equals(values.keySet()), normalizedManifest, "schema",
                 "неизвестные или необъявленные поля: " + difference(values.keySet(), consumed));
@@ -361,6 +364,27 @@ final class SetManifestReader {
                         && asset.resourcePath().equals("raw/watchface.xml")),
                 manifest, "contribution." + watchface.key() + ".assetRefs",
                 "обязателен entrypoint watchface/raw/watchface.xml");
+    }
+
+    private static void requirePreviewRoles(Path manifest, List<SetManifest.Contribution> contributions) {
+        SetManifest.Contribution preview = contributions.stream()
+                .filter(value -> value.surface().equals("preview")).findFirst().orElseThrow();
+        require(preview.assets().size() == 2, manifest, "contribution." + preview.key() + ".assetRefs",
+                "preview schema v1 требует ровно два role refs");
+        requireSinglePreviewRole(manifest, preview, PREVIEW_WALLPAPER_ROLE);
+        requireSinglePreviewRole(manifest, preview, PREVIEW_WATCHFACE_ROLE);
+    }
+
+    private static void requireSinglePreviewRole(
+            Path manifest, SetManifest.Contribution preview, String rolePrefix) {
+        List<SetManifest.Asset> matches = preview.assets().stream()
+                .filter(asset -> asset.id().startsWith(rolePrefix)).toList();
+        require(matches.size() == 1, manifest, "contribution." + preview.key() + ".assetRefs",
+                "ожидался ровно один schema-v1 role " + rolePrefix + "*, найдено " + matches.size());
+        String resourcePath = matches.get(0).resourcePath();
+        require(resourcePath.startsWith("drawable-nodpi/") && resourcePath.endsWith(".png"),
+                manifest, "asset." + matches.get(0).id() + ".resourcePath",
+                "preview role обязан ссылаться на drawable-nodpi PNG");
     }
 
     private static void rejectGeneratedCollision(Path manifest, String setId, String surface, String resourcePath) {

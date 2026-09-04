@@ -79,7 +79,18 @@ fun HubApp(
                     modifier = Modifier.weight(1f),
                     onBack = onExit,
                     entryProvider = entryProvider {
-                        entry<ThemeKey> { ThemeScreen() }
+                        entry<ThemeKey> {
+                            ThemeScreen(
+                                selectedSurface = state.selectedSurface,
+                                hasSeenThemePreview = state.hasSeenThemePreview,
+                                onSurfaceSelected = { surface ->
+                                    viewModel.onAction(HubAction.SurfaceSelected(surface))
+                                },
+                                onThemePreviewSeen = {
+                                    viewModel.onAction(HubAction.ThemePreviewSeen)
+                                },
+                            )
+                        }
                         entry<DevicesKey> { DevicesScreen() }
                         entry<SettingsKey> { SettingsScreen() }
                     },

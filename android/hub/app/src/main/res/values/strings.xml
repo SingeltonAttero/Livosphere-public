@@ -4,7 +4,16 @@
     <string name="hub_section_theme">Тема</string>
     <string name="hub_section_devices">Устройства</string>
     <string name="hub_section_settings">Настройки</string>
-    <string name="hub_theme_description">Здесь появится preview первого визуального набора.</string>
+    <string name="hub_theme_name">Контур</string>
+    <string name="hub_theme_value">Живой мир для телефона и часов</string>
+    <string name="hub_surface_wallpaper">Обои</string>
+    <string name="hub_surface_watchface">Циферблат</string>
+    <string name="hub_wallpaper_preview_description">Preview обоев набора «Контур»</string>
+    <string name="hub_watchface_preview_description">Preview циферблата набора «Контур»</string>
+    <string name="hub_wallpaper_action">Примерить обои</string>
+    <string name="hub_watchface_action">К установке циферблата</string>
+    <string name="hub_wallpaper_action_explanation">Системная примерка пока недоступна. Этот preview ничего не применяет.</string>
+    <string name="hub_watchface_action_explanation">Путь установки пока недоступен. Этот preview не устанавливает циферблат.</string>
     <string name="hub_devices_description">Здесь будут показаны только проверенные факты телефона и часов.</string>
     <string name="hub_settings_description">Здесь появится независимое управление оформлением и приложением.</string>
 </resources>
