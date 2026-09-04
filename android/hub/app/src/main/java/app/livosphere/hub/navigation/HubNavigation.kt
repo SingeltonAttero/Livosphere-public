@@ -17,9 +17,6 @@ internal data object SettingsKey : NavKey
 internal class HubNavigator(
     private val backStack: MutableList<NavKey>,
 ) {
-    val currentSection: HubSection
-        get() = backStack.lastOrNull().toSection()
-
     fun execute(command: HubCommand) {
         when (command) {
             is HubCommand.ShowSection -> show(command.section)

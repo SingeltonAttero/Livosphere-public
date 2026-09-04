@@ -11,10 +11,11 @@ class HubReducerTest {
     }
 
     @Test
-    fun `selecting every other section produces matching state and command`() {
-        HubSection.entries.filterNot { it == HubSection.THEME }.forEach { section ->
+    fun `selecting any different section produces matching state and command`() {
+        HubSection.entries.forEach { currentSection ->
+            val section = HubSection.entries.first { it != currentSection }
             val transition = HubReducer.reduce(
-                state = HubState(),
+                state = HubState(selectedSection = currentSection),
                 action = HubAction.SectionSelected(section),
             )
 

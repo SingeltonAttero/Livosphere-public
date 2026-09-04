@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 @HiltViewModel
 class HubViewModel @Inject constructor() : ViewModel() {
     private val mutableState = MutableStateFlow(HubState())
-    private val commandChannel = Channel<HubCommand>(capacity = Channel.BUFFERED)
+    private val commandChannel = Channel<HubCommand>(capacity = Channel.CONFLATED)
 
     val state: StateFlow<HubState> = mutableState.asStateFlow()
     val commands = commandChannel.receiveAsFlow()

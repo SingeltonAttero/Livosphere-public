@@ -17,7 +17,7 @@ export JAVA_HOME := $(LIVOSPHERE_JAVA_HOME)
 endif
 export ANDROID_SDK_ROOT
 
-.PHONY: doctor assets-check phone watchfaces check offline-smoke verify
+.PHONY: doctor assets-check phone watchfaces check device-check offline-smoke verify
 
 doctor:
 	./android/scripts/doctor.sh
@@ -34,6 +34,9 @@ watchfaces: doctor assets-check
 
 check: doctor
 	$(GRADLE) check
+
+device-check: doctor
+	$(GRADLE) :hub:app:connectedDebugAndroidTest
 
 offline-smoke:
 	./android/scripts/doctor.sh
