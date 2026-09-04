@@ -1,15 +1,8 @@
 package app.livosphere.hub.theme
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.updateTransition
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,18 +33,26 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -63,8 +64,12 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.livosphere.R
@@ -82,10 +87,8 @@ internal const val STARTUP_DURATION_MILLIS = 440
 internal const val SWITCH_DURATION_MILLIS = 220
 private val WallpaperPreviewAlignment = BiasAlignment(
     horizontalBias = 0f,
-    verticalBias = 0.4f,
+    verticalBias = 0.24f,
 )
-internal fun isMotionComplete(elapsedMillis: Long, durationMillis: Int): Boolean =
-    elapsedMillis >= durationMillis
 
 internal val PreviewMotionPhaseKey = SemanticsPropertyKey<String>("PreviewMotionPhase")
 internal var SemanticsPropertyReceiver.previewMotionPhase by PreviewMotionPhaseKey
@@ -95,6 +98,8 @@ internal val PreviewTargetAssetKey = SemanticsPropertyKey<String>("PreviewTarget
 internal var SemanticsPropertyReceiver.previewTargetAsset by PreviewTargetAssetKey
 internal val PreviewCurrentAssetKey = SemanticsPropertyKey<String>("PreviewCurrentAsset")
 internal var SemanticsPropertyReceiver.previewCurrentAsset by PreviewCurrentAssetKey
+internal val PreviewSwitchProgressKey = SemanticsPropertyKey<Float>("PreviewSwitchProgress")
+internal var SemanticsPropertyReceiver.previewSwitchProgress by PreviewSwitchProgressKey
 
 @Composable
 internal fun ThemeScreen(
@@ -102,6 +107,7 @@ internal fun ThemeScreen(
     hasSeenThemePreview: Boolean,
     onSurfaceSelected: (HubSurface) -> Unit,
     onThemePreviewSeen: () -> Unit,
+    previewPainter: (@Composable (HubSurface) -> Painter)? = null,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -123,6 +129,7 @@ internal fun ThemeScreen(
                 selectedSurface = selectedSurface,
                 playStartup = !hasSeenThemePreview,
                 onThemePreviewSeen = onThemePreviewSeen,
+                previewPainter = previewPainter,
             )
             TryOnAction(selectedSurface)
         }
@@ -153,10 +160,38 @@ private fun SurfaceSelector(
     selectedSurface: HubSurface,
     onSurfaceSelected: (HubSurface) -> Unit,
 ) {
+    val reduced = rememberCoroutineScope().coroutineContext[MotionDurationScale]?.scaleFactor == 0f
+    val highlight by animateFloatAsState(
+        targetValue = selectedSurface.ordinal.toFloat(),
+        animationSpec = tween(if (reduced) 0 else SWITCH_DURATION_MILLIS),
+        label = "surface-selector-highlight",
+    )
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .selectableGroup()
+            .drawBehind {
+                val gap = 8.dp.toPx()
+                val itemWidth = (size.width - gap) / 2f
+                val radius = CornerRadius(12.dp.toPx())
+                repeat(2) { index ->
+                    drawRoundRect(
+                        surfaceColor,
+                        Offset(index * (itemWidth + gap), 0f),
+                        Size(itemWidth, size.height),
+                        radius,
+                    )
+                }
+                val position = if (reduced) selectedSurface.ordinal.toFloat() else highlight
+                drawRoundRect(
+                    HubSelected,
+                    Offset((if (rtl) 1f - position else position) * (itemWidth + gap), 0f),
+                    Size(itemWidth, size.height),
+                    radius,
+                )
+            }
             .semantics { testTag = "theme-surface-selector" },
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -177,7 +212,6 @@ private fun SurfaceSelector(
                     .weight(1f)
                     .heightIn(min = 52.dp)
                     .clip(shape)
-                    .background(if (selected) HubSelected else MaterialTheme.colorScheme.surface)
                     .border(
                         width = if (focused) 2.dp else 1.dp,
                         color = if (focused) HubPrimary else HubControlBorder,
@@ -217,6 +251,7 @@ private fun ArtworkStage(
     selectedSurface: HubSurface,
     playStartup: Boolean,
     onThemePreviewSeen: () -> Unit,
+    previewPainter: (@Composable (HubSurface) -> Painter)?,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -230,16 +265,18 @@ private fun ArtworkStage(
     val startupScale = remember { Animatable(if (startupRequested) 1.015f else 1f) }
     var startupRunning by remember { mutableStateOf(startupRequested) }
     var firstSeenSent by remember { mutableStateOf(false) }
+    var startupAttempted by remember { mutableStateOf(false) }
+    val reduced = rememberCoroutineScope().coroutineContext[MotionDurationScale]?.scaleFactor == 0f
 
-    LaunchedEffect(selectedSurface) {
+    LaunchedEffect(selectedSurface, reduced) {
         if (!firstSeenSent) {
             firstSeenSent = true
             onThemePreviewSeen()
         }
-        if (
-            !startupRequested ||
-            selectedSurface != initialSurface
-        ) {
+        val shouldPlayStartup =
+            !reduced && !startupAttempted && startupRequested && selectedSurface == initialSurface
+        startupAttempted = true
+        if (!shouldPlayStartup) {
             startupAlpha.snapTo(1f)
             startupTranslationY.snapTo(0f)
             startupScale.snapTo(1f)
@@ -255,21 +292,41 @@ private fun ArtworkStage(
         }
     }
 
-    val surfaceTransition = updateTransition(
-        targetState = selectedSurface,
-        label = "theme-surface-preview",
-    )
+    var previousSurface by remember { mutableStateOf(selectedSurface) }
+    var outgoingSurface by remember { mutableStateOf<HubSurface?>(null) }
+    val switchProgress = remember { Animatable(1f) }
+    LaunchedEffect(selectedSurface, reduced) {
+        val previous = previousSurface
+        previousSurface = selectedSurface
+        if (reduced || previous == selectedSurface) {
+            outgoingSurface = null
+            switchProgress.snapTo(1f)
+        } else {
+            // A new selection cancels the previous tween and replaces its decorative layer.
+            outgoingSurface = previous
+            switchProgress.snapTo(0f)
+            switchProgress.animateTo(1f, tween(SWITCH_DURATION_MILLIS))
+            outgoingSurface = null
+        }
+    }
     val targetAsset = PreviewAssetResolver.resolve(context, selectedSurface)
-    val currentAsset = PreviewAssetResolver.resolve(context, surfaceTransition.currentState)
+    val progress = when {
+        reduced -> 1f
+        previousSurface != selectedSurface -> 0f
+        else -> switchProgress.value
+    }
+    val outgoing = (if (previousSurface != selectedSurface) previousSurface else outgoingSurface)
+        .takeIf { progress < 1f && it != selectedSurface }
+    val currentAsset = PreviewAssetResolver.resolve(context, outgoing ?: selectedSurface)
     val startupVisuallyRunning =
         startupAlpha.value < 1f || startupTranslationY.value != 0f || startupScale.value != 1f
     val applyStartupTransform =
-        startupRunning && startupVisuallyRunning && selectedSurface == initialSurface
+        !reduced && startupRunning && startupVisuallyRunning && selectedSurface == initialSurface
     val renderedStartupAlpha = if (applyStartupTransform) startupAlpha.value else 1f
     val renderedStartupTranslationY = if (applyStartupTransform) startupTranslationY.value else 0f
     val renderedStartupScale = if (applyStartupTransform) startupScale.value else 1f
     val surfaceSwitchRunning =
-        surfaceTransition.currentState != surfaceTransition.targetState || surfaceTransition.isRunning
+        outgoing != null
     val motionPhase = when {
         applyStartupTransform -> "startup"
         surfaceSwitchRunning -> "switch"
@@ -289,6 +346,7 @@ private fun ArtworkStage(
                 previewStartupAlpha = renderedStartupAlpha
                 previewTargetAsset = targetAsset.symbolicName
                 previewCurrentAsset = currentAsset.symbolicName
+                previewSwitchProgress = progress
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -303,28 +361,24 @@ private fun ArtworkStage(
                 },
             contentAlignment = Alignment.Center,
         ) {
-            surfaceTransition.AnimatedContent(
-                modifier = Modifier.fillMaxSize(),
-                transitionSpec = {
-                    val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                    (
-                        fadeIn(tween(SWITCH_DURATION_MILLIS), initialAlpha = 0.25f) +
-                            scaleIn(tween(SWITCH_DURATION_MILLIS), initialScale = 0.985f) +
-                            slideInHorizontally(tween(SWITCH_DURATION_MILLIS)) {
-                                with(density) { (10.dp * direction).roundToPx() }
-                            }
-                        ).togetherWith(
-                        fadeOut(tween(SWITCH_DURATION_MILLIS)) +
-                            scaleOut(tween(SWITCH_DURATION_MILLIS), targetScale = 1.015f),
-                    )
-                },
-                contentKey = { it },
-                contentAlignment = Alignment.Center,
-            ) { surface ->
-                PreviewImage(
-                    asset = PreviewAssetResolver.resolve(context, surface),
-                    surface = surface,
-                )
+            outgoing?.let { surface ->
+                Box(Modifier.fillMaxSize().graphicsLayer {
+                    alpha = 1f - progress
+                    scaleX = 1f + 0.015f * progress
+                    scaleY = scaleX
+                }) {
+                    PreviewImage(PreviewAssetResolver.resolve(context, surface), surface, previewPainter)
+                }
+            }
+            Box(Modifier.fillMaxSize().graphicsLayer {
+                alpha = 0.25f + 0.75f * progress
+                scaleX = 0.985f + 0.015f * progress
+                scaleY = scaleX
+                val direction =
+                    if (selectedSurface.ordinal > (outgoing?.ordinal ?: selectedSurface.ordinal)) 1 else -1
+                translationX = with(density) { 10.dp.toPx() } * direction * (1f - progress)
+            }) {
+                PreviewImage(targetAsset, selectedSurface, previewPainter)
             }
         }
     }
@@ -334,11 +388,12 @@ private fun ArtworkStage(
 private fun PreviewImage(
     asset: PreviewAsset,
     surface: HubSurface,
+    previewPainter: (@Composable (HubSurface) -> Painter)?,
 ) {
     val artTag = "theme-preview-art-${asset.symbolicName}"
     when (surface) {
         HubSurface.WALLPAPER -> Image(
-            painter = painterResource(asset.drawableId),
+            painter = previewPainter?.invoke(surface) ?: painterResource(asset.drawableId),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             alignment = WallpaperPreviewAlignment,
@@ -355,7 +410,7 @@ private fun PreviewImage(
         ) {
             val previewSize = minOf(maxWidth, maxHeight)
             Image(
-                painter = painterResource(asset.drawableId),
+                painter = previewPainter?.invoke(surface) ?: painterResource(asset.drawableId),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
@@ -370,28 +425,41 @@ private fun PreviewImage(
 @Composable
 private fun TryOnAction(surface: HubSurface) {
     val explanation = stringResource(surface.actionExplanationResource)
+    val labels = HubSurface.entries.map { stringResource(it.actionLabelResource) }
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
+    val density = LocalDensity.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(
-            onClick = {},
-            enabled = false,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 52.dp)
-                .semantics {
-                    testTag = "theme-primary-action"
-                    stateDescription = explanation
-                },
-            colors = ButtonDefaults.buttonColors(
-                disabledContainerColor = HubDisabledContainer,
-                disabledContentColor = HubOnDisabledContainer,
-            ),
-            shape = RoundedCornerShape(16.dp),
-        ) {
-            Text(
-                text = stringResource(surface.actionLabelResource),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val labelWidth = with(density) { (maxWidth - 48.dp).roundToPx().coerceAtLeast(1) }
+            val labelHeight = labels.maxOf {
+                textMeasurer.measure(
+                    AnnotatedString(it),
+                    style = labelStyle,
+                    constraints = Constraints(maxWidth = labelWidth),
+                ).size.height
+            }
+            Button(
+                onClick = {},
+                enabled = false,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = maxOf(52.dp, with(density) { labelHeight.toDp() } + 16.dp))
+                    .semantics {
+                        testTag = "theme-primary-action"
+                        stateDescription = explanation
+                    },
+                colors = ButtonDefaults.buttonColors(
+                    disabledContainerColor = HubDisabledContainer,
+                    disabledContentColor = HubOnDisabledContainer,
+                ),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Text(
+                    text = stringResource(surface.actionLabelResource),
+                    style = labelStyle,
+                )
+            }
         }
         Text(
             text = explanation,

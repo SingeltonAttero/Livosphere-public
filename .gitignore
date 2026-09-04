@@ -12,6 +12,7 @@ local.properties
 
 # Android / Gradle
 .gradle/
+.kotlin/
 build/
 **/build/
 captures/
