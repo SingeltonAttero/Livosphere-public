@@ -4,6 +4,16 @@
         android:name="android.software.live_wallpaper"
         android:required="false" />
 
+    <queries>
+        <intent><action android:name="android.service.wallpaper.WallpaperService" /></intent>
+        <intent><action android:name="android.service.wallpaper.CHANGE_LIVE_WALLPAPER" /></intent>
+        <intent><action android:name="android.service.wallpaper.LIVE_WALLPAPER_CHOOSER" /></intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+    </queries>
+
     <application
         android:name=".LivosphereApplication"
         android:allowBackup="false"
