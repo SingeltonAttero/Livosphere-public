@@ -8,7 +8,9 @@ import app.livosphere.hub.onboarding.HubSettingsRepository
 import app.livosphere.hub.onboarding.InvitationClaim
 import app.livosphere.hub.onboarding.InvitationHistory
 import app.livosphere.hub.onboarding.Outcome
-import app.livosphere.hub.settings.UnknownApplicationKnowledgeProvider
+import app.livosphere.hub.onboarding.ApplicationKnowledgeProvider
+import app.livosphere.hub.onboarding.ApplicationKnowledge
+import kotlinx.coroutines.flow.MutableStateFlow
 import java.time.Clock
 import java.time.Instant
 import kotlinx.coroutines.flow.flowOf
@@ -21,8 +23,12 @@ internal fun rememberTestHubViewModel(): HubViewModel {
             override val history = flowOf(Outcome.Success(InvitationHistory()))
             override fun retryHistory() = Unit
             override suspend fun claimInvitation(now: Instant) = Outcome.Success(InvitationClaim.Suppressed)
-        }, UnknownApplicationKnowledgeProvider(), Clock.systemUTC()).also { store.put("hub", it) }
+        }, TestUnknownKnowledgeProvider(), Clock.systemUTC()).also { store.put("hub", it) }
     }
     DisposableEffect(store) { onDispose { store.clear() } }
     return viewModel
+}
+
+internal class TestUnknownKnowledgeProvider : ApplicationKnowledgeProvider {
+    override val knowledge = MutableStateFlow<ApplicationKnowledge>(ApplicationKnowledge.Unknown)
 }

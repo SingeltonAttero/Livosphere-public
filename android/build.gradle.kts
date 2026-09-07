@@ -112,6 +112,7 @@ tasks.register("verifyModuleGraph") {
                 "implementation" to ":wallpapers:contour",
                 "implementation" to ":sets:contour:preview",
                 "testImplementation" to ":core:testing",
+                "androidTestImplementation" to ":wallpapers:engine",
             ),
             ":hub:domain" to setOf("api" to ":core:contract"),
             ":wallpapers:engine" to setOf("api" to ":core:contract"),

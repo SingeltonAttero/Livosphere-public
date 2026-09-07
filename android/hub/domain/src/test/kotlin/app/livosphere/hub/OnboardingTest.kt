@@ -88,7 +88,9 @@ class OnboardingTest {
             assertTrue(HubReducer.reduce(it, HubAction.EvaluateInvitation(now)).commands.isEmpty())
         }
         val started = HubReducer.reduce(initial.copy(foreground = false), HubAction.ForegroundStarted(HubSection.SETTINGS))
-        assertEquals(listOf(HubCommand.RetryHistory), started.commands)
+        assertEquals(listOf(HubCommand.RetryHistory,
+            HubCommand.Phone(app.livosphere.hub.wallpaper.PhoneWallpaperEffect.Observe(1))), started.commands)
+        assertEquals(ApplicationKnowledge.Unknown, started.state.knowledge)
         assertTrue(HubReducer.reduce(started.state, HubAction.EvaluateInvitation(now)).commands.isEmpty())
     }
 

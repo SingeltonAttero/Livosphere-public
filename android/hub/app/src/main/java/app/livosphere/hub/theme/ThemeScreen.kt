@@ -1,5 +1,7 @@
 package app.livosphere.hub.theme
 
+import app.livosphere.hub.wallpaper.*
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -108,6 +110,10 @@ internal fun ThemeScreen(
     onSurfaceSelected: (HubSurface) -> Unit,
     onThemePreviewSeen: () -> Unit,
     previewPainter: (@Composable (HubSurface) -> Painter)? = null,
+    phoneState: PhoneWallpaperState? = null,
+    onTry: () -> Unit = {},
+    onPhoneRefresh: () -> Unit = {},
+    onPhoneHelp: () -> Unit = {},
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -131,7 +137,12 @@ internal fun ThemeScreen(
                 onThemePreviewSeen = onThemePreviewSeen,
                 previewPainter = previewPainter,
             )
-            TryOnAction(selectedSurface)
+            TryOnAction(selectedSurface, phoneState, onTry)
+            if (selectedSurface == HubSurface.WALLPAPER && phoneState != null &&
+                (phoneState.failure != null || phoneState.helpVisible ||
+                    (phoneState.path.route == null && !phoneState.refreshing && !phoneState.busy))) {
+                RecoveryPanel(phoneState, onPhoneRefresh, onPhoneHelp)
+            }
         }
     }
 }
@@ -423,9 +434,11 @@ private fun PreviewImage(
 }
 
 @Composable
-private fun TryOnAction(surface: HubSurface) {
-    val explanation = stringResource(surface.actionExplanationResource)
-    val labels = HubSurface.entries.map { stringResource(it.actionLabelResource) }
+private fun TryOnAction(surface: HubSurface, phoneState: PhoneWallpaperState?, onTry: () -> Unit) {
+    val phone = phoneState?.takeIf { surface == HubSurface.WALLPAPER }
+    val explanation = if (phone != null) phonePathExplanation(phone) else stringResource(surface.actionExplanationResource)
+    val label = if (phone?.path?.route == WallpaperRoute.CHOOSER) R.string.phone_chooser_action else surface.actionLabelResource
+    val labels = HubSurface.entries.map { stringResource(it.actionLabelResource) } + stringResource(R.string.phone_chooser_action)
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
     val density = LocalDensity.current
@@ -440,8 +453,8 @@ private fun TryOnAction(surface: HubSurface) {
                 ).size.height
             }
             Button(
-                onClick = {},
-                enabled = false,
+                onClick = onTry,
+                enabled = phone?.path?.route != null && !phone.busy && !phone.refreshing,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = maxOf(52.dp, with(density) { labelHeight.toDp() } + 16.dp))
@@ -456,7 +469,7 @@ private fun TryOnAction(surface: HubSurface) {
                 shape = RoundedCornerShape(16.dp),
             ) {
                 Text(
-                    text = stringResource(surface.actionLabelResource),
+                    text = stringResource(label),
                     style = labelStyle,
                 )
             }

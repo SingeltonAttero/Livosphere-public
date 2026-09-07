@@ -19,7 +19,7 @@ class OnboardingUiTest {
 
     private fun help() {
         composeRule.onNodeWithTag("hub-nav-devices").performClick()
-        composeRule.onNodeWithTag("devices-unknown").assertIsDisplayed()
+        composeRule.onNodeWithTag("devices-unknown").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("devices-help").performScrollTo().performClick()
         composeRule.onNodeWithTag("onboarding").assertIsDisplayed()
     }

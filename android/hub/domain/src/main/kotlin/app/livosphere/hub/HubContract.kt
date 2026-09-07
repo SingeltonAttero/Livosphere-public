@@ -7,6 +7,7 @@ import app.livosphere.hub.onboarding.InvitationPolicy
 import app.livosphere.hub.onboarding.Outcome
 import app.livosphere.hub.onboarding.SettingsFailure
 import java.time.Instant
+import app.livosphere.hub.wallpaper.*
 
 enum class HubSection {
     THEME,
@@ -30,9 +31,11 @@ data class HubState(
     val automaticAttempted: Boolean = false,
     val foreground: Boolean = false,
     val onboardingIsAutomatic: Boolean = false,
+    val phone: PhoneWallpaperState = PhoneWallpaperState(),
 )
 
 sealed interface HubAction {
+    data class Phone(val action: PhoneWallpaperAction) : HubAction
     data class SectionSelected(val section: HubSection) : HubAction
 
     data class NavigationRestored(val section: HubSection) : HubAction
@@ -57,6 +60,7 @@ sealed interface HubAction {
 }
 
 sealed interface HubCommand {
+    data class Phone(val effect: PhoneWallpaperEffect) : HubCommand
     data class ShowSection(val section: HubSection) : HubCommand
     data class ClaimInvitation(val now: Instant) : HubCommand
     data object RetryHistory : HubCommand
@@ -68,7 +72,29 @@ data class HubTransition(
 )
 
 object HubReducer {
-    fun reduce(state: HubState, action: HubAction): HubTransition = when (action) {
+    fun reduce(state: HubState, action: HubAction): HubTransition {
+        val base = reduceBase(state, action)
+        val phoneAction = when (action) {
+            is HubAction.Phone -> action.action
+            is HubAction.ForegroundStarted -> PhoneWallpaperAction.Foreground
+            HubAction.ForegroundStopped -> PhoneWallpaperAction.Background
+            else -> if (base.state.selectedSurface != state.selectedSurface || base.state.selectedSection != state.selectedSection)
+                PhoneWallpaperAction.SelectionChanged else null
+        } ?: return base
+        val phone = PhoneWallpaperReducer.reduce(base.state.phone, phoneAction, base.state.foreground,
+            base.state.foreground && base.state.selectedSurface == HubSurface.WALLPAPER && base.state.selectedSection == HubSection.THEME)
+        val projection = WallpaperRoutePolicy.knowledge(phone.state.snapshot).let {
+            if (it is ApplicationKnowledge.NotApplied && phone.state.path.route == null) ApplicationKnowledge.Unknown else it
+        }
+        val knowledge = if (phone.state.snapshot != state.phone.snapshot || phone.state.generation != state.phone.generation ||
+            phoneAction is PhoneWallpaperAction.Observed) projection else base.state.knowledge
+        return HubTransition(base.state.copy(phone = phone.state, knowledge = knowledge,
+            pendingInvitation = base.state.pendingInvitation?.takeIf { it == knowledge }),
+            base.commands + phone.effects.map(HubCommand::Phone))
+    }
+
+    private fun reduceBase(state: HubState, action: HubAction): HubTransition = when (action) {
+        is HubAction.Phone -> HubTransition(state)
         HubAction.RetryHistory -> HubTransition(state, listOf(HubCommand.RetryHistory))
         is HubAction.ForegroundStarted -> HubTransition(
             state.copy(foreground = true, selectedSection = action.restoredSection),
@@ -101,7 +127,7 @@ object HubReducer {
         is HubAction.EvaluateInvitation -> {
             val history = (state.settings as? Outcome.Success)?.value
             if (state.foreground && state.selectedSection == HubSection.THEME &&
-                !state.automaticAttempted && !state.onboardingVisible && history != null &&
+                !state.automaticAttempted && !state.onboardingVisible && !state.phone.busy && history != null &&
                 InvitationPolicy.eligible(history, action.now) &&
                 InvitationPolicy.freshNotApplied(state.knowledge, action.now)
             ) {
@@ -116,7 +142,7 @@ object HubReducer {
         }
         is HubAction.InvitationFinished -> {
             val granted = (action.result as? Outcome.Success)?.value is InvitationClaim.Granted
-            val show = granted && state.foreground && state.selectedSection == HubSection.THEME &&
+            val show = granted && state.foreground && !state.phone.busy && state.selectedSection == HubSection.THEME &&
                 state.settings !is Outcome.Failure && state.pendingInvitation != null &&
                 state.pendingInvitation == action.knowledge && state.knowledge == action.knowledge &&
                 InvitationPolicy.freshNotApplied(action.knowledge, action.now)
