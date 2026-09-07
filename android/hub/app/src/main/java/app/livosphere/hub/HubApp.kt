@@ -66,6 +66,7 @@ fun HubApp(
     wallpaperLauncher: WallpaperLauncher? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val touchReactions by viewModel.touchReactions.collectAsStateWithLifecycle()
     val backStack = rememberNavBackStack(ThemeKey)
     val navigator = remember(backStack) { HubNavigator(backStack) }
     val restoredSection = backStack.lastOrNull().toSection()
@@ -157,7 +158,12 @@ fun HubApp(
                                 onPhoneHelp = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.ToggleHelp)) },
                                 onHelp = { viewModel.onAction(HubAction.OpenOnboarding) })
                         }
-                        entry<SettingsKey> { SettingsScreen() }
+                        entry<SettingsKey> {
+                            SettingsScreen(
+                                touchReactionsEnabled = touchReactions,
+                                onTouchReactionsChanged = viewModel::setTouchReactionsEnabled,
+                            )
+                        }
                     },
                 )
                 HubBottomNavigation(

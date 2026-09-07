@@ -85,5 +85,10 @@
     <string name="phone_system_help">В «Теме» выберите обои и доступное системное действие. Если откроется список, выберите «Контур». Android запрашивает подтверждение применения. При недоступном пути проверьте раздел обоев в настройках телефона: его наличие и название зависят от устройства. Отмена безопасна; можно попробовать снова.</string>
     <string name="hub_onboarding_go">Перейти к оформлению</string>
     <string name="hub_onboarding_skip">Пропустить</string>
-    <string name="hub_settings_description">Здесь появится независимое управление оформлением и приложением.</string>
+    <string name="hub_settings_description">Управление реакциями применяется к обоям «Контур» независимо от хаба и циферблата.</string>
+    <string name="hub_touch_reactions_title">Реакции на касания</string>
+    <string name="hub_touch_reactions_description">Короткое касание может подсветить ядро обоев. Жесты Android не перехватываются.</string>
+    <string name="hub_touch_reactions_unavailable">Настройка реакций сейчас недоступна. Обои продолжают работать в безопасном базовом режиме.</string>
+    <string name="hub_touch_reactions_on">Включено</string>
+    <string name="hub_touch_reactions_off">Выключено</string>
 </resources>

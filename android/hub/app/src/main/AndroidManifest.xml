@@ -20,6 +20,8 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Livosphere">
+        <!-- SP-06 instrumentation can profile this debug target; it is not performance evidence. -->
+        <profileable android:shell="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

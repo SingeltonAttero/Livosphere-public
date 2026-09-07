@@ -24,6 +24,19 @@ android {
         compose = true
     }
 
+    /**
+     * Locally installable SP-06 target: profileable by manifest, not debuggable at runtime.
+     * It retains debug signing only so an owner can install the exact measurement APK locally.
+     */
+    buildTypes {
+        create("benchmark") {
+            initWith(getByName("release"))
+            isDebuggable = false
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release", "debug")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -32,6 +45,7 @@ android {
 
 dependencies {
     implementation(project(":hub:domain"))
+    implementation(project(":wallpapers:contour"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)

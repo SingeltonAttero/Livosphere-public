@@ -156,6 +156,26 @@ class WallpaperRenderLoopTest {
         assertTrue(h.queue.isEmpty())
     }
 
+    @Test fun invalidateDuringRedrawRetryKeepsSystemCallbackUntilReplacementAttempt() {
+        val h = Harness()
+        h.loop.setReducedMotion(true)
+        h.temporaryUnavailable = true
+        h.ready()
+        var completed = false
+        h.loop.requestRedraw { completed = true }
+        assertFalse(completed)
+        assertEquals(1, h.frames.size)
+
+        h.loop.invalidate()
+
+        assertFalse("invalidate must not acknowledge the pending Callback2 redraw", completed)
+        assertEquals(1, h.queue.size)
+        h.temporaryUnavailable = false
+        h.frame()
+        assertTrue(completed)
+        assertEquals(2, h.frames.size)
+    }
+
     @Test fun invalidDestroyAndHideCompletePendingRedrawWithoutFurtherDrawing() {
         listOf<(WallpaperRenderLoop) -> Unit>({ it.setSurfaceValid(false) },
             { it.close() }, { it.setVisible(false) }).forEach { stop ->

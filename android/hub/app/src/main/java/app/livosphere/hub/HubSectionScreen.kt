@@ -26,6 +26,7 @@ internal fun HubSectionScreen(
     @StringRes title: Int,
     @StringRes description: Int,
     testTag: String,
+    content: @Composable () -> Unit = {},
 ) {
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -52,6 +53,7 @@ internal fun HubSectionScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyLarge,
             )
+            content()
         }
     }
 }

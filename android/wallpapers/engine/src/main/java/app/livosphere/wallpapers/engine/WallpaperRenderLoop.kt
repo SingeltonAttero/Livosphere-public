@@ -52,6 +52,22 @@ class WallpaperRenderLoop(
         refresh()
     }
 
+    /** Re-sample current immutable scene inputs without retaining a stale effect or callback. */
+    @Synchronized fun invalidate() {
+        if (destroyed) return
+        // A Callback2 redraw owns an Android completion callback.  Do not route this through
+        // refresh()/cancel(): cancel() would acknowledge the system before a replacement frame
+        // has even attempted to render.  The new worker attempt is the acknowledgement boundary.
+        if (redrawComplete != null) {
+            generation++
+            pending?.let(scheduler::cancel)
+            pending = null
+            if (valid && !terminal) schedule(0) else finishRedraw()
+            return
+        }
+        refresh()
+    }
+
     private fun refresh() {
         cancel()
         if (visible && valid && !terminal) schedule(0) else release()

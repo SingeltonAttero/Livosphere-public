@@ -17,7 +17,7 @@ export JAVA_HOME := $(LIVOSPHERE_JAVA_HOME)
 endif
 export ANDROID_SDK_ROOT
 
-.PHONY: doctor assets-check phone watchfaces check device-check offline-smoke verify
+.PHONY: doctor assets-check phone watchfaces check device-check offline-smoke verify benchmark-sp06 protocol-sp07 evidence-validator-check
 
 doctor:
 	./android/scripts/doctor.sh
@@ -32,7 +32,7 @@ phone: doctor assets-check
 watchfaces: doctor assets-check
 	$(GRADLE) :watchfaces:contour-wff:bundleDebug
 
-check: doctor
+check: doctor evidence-validator-check
 	$(GRADLE) check
 
 device-check: doctor
@@ -44,3 +44,13 @@ offline-smoke:
 
 verify: phone watchfaces check offline-smoke
 	./android/scripts/verify-artifacts.sh
+
+benchmark-sp06:
+	$(GRADLE) :quality:macrobenchmark:verifySp06Setup
+	./android/scripts/validate-epic-3-evidence.sh _bmad-output/implementation-artifacts/evidence/story-3-7
+
+protocol-sp07:
+	./android/scripts/validate-epic-3-evidence.sh _bmad-output/implementation-artifacts/evidence/story-3-8
+
+evidence-validator-check:
+	./android/scripts/test-validate-epic-3-evidence.sh

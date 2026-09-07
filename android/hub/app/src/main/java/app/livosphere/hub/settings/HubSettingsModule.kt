@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.dataStoreFile
 import app.livosphere.hub.onboarding.HubSettingsRepository
+import app.livosphere.wallpapers.contour.WallpaperSettingsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -44,4 +45,8 @@ object HubSettingsModule {
         DataStoreFactory.create(serializer = HubSettingsSerializer, scope = scope) {
             context.dataStoreFile("hub-settings.json")
         }
+
+    @Provides @Singleton
+    fun wallpaperSettings(@ApplicationContext context: Context): WallpaperSettingsRepository =
+        WallpaperSettingsRepository(context)
 }

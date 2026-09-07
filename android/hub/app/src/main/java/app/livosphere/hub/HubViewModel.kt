@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.livosphere.hub.onboarding.ApplicationKnowledgeProvider
 import app.livosphere.hub.onboarding.HubSettingsRepository
 import app.livosphere.hub.wallpaper.*
+import app.livosphere.wallpapers.contour.WallpaperSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import java.time.Clock
@@ -26,29 +27,38 @@ class HubViewModel private constructor(
     private val knowledgeProvider: ApplicationKnowledgeProvider?,
     private val clock: Clock,
     private val wallpaperGateway: PhoneWallpaperGateway?,
+    private val wallpaperSettingsRepository: WallpaperSettingsRepository?,
     private val beforeAcknowledgement: (suspend (WallpaperLaunchRequest) -> Unit)? = null,
 ) : ViewModel() {
-    @Inject constructor(repository: HubSettingsRepository, wallpaperGateway: PhoneWallpaperGateway, clock: Clock) :
-        this(repository, null, clock, wallpaperGateway)
+    @Inject constructor(repository: HubSettingsRepository, wallpaperGateway: PhoneWallpaperGateway, clock: Clock,
+        wallpaperSettingsRepository: WallpaperSettingsRepository) :
+        this(repository, null, clock, wallpaperGateway, wallpaperSettingsRepository)
 
     /** Explicit onboarding test seam; production derives knowledge from the single phone gateway. */
     internal constructor(repository: HubSettingsRepository, knowledgeProvider: ApplicationKnowledgeProvider, clock: Clock) :
-        this(repository, knowledgeProvider, clock, null)
+        this(repository, knowledgeProvider, clock, null, null)
+
+    /** Production wallpaper gateway seam without the shared settings control, used by UI tests. */
+    internal constructor(repository: HubSettingsRepository, wallpaperGateway: PhoneWallpaperGateway, clock: Clock) :
+        this(repository, null, clock, wallpaperGateway, null)
 
     /** Delays only the UI acknowledgement in lifecycle tests; the real actor still consumes the request. */
     internal constructor(repository: HubSettingsRepository, wallpaperGateway: PhoneWallpaperGateway, clock: Clock,
         beforeAcknowledgement: suspend (WallpaperLaunchRequest) -> Unit) :
-        this(repository, null, clock, wallpaperGateway, beforeAcknowledgement)
+        this(repository, null, clock, wallpaperGateway, null, beforeAcknowledgement)
 
     private val mutableState = MutableStateFlow(HubState())
+    private val mutableTouchReactions = MutableStateFlow<Boolean?>(null)
     private val commandChannel = Channel<HubCommand.ShowSection>(capacity = Channel.CONFLATED)
     private data class ActionEnvelope(val action: HubAction, val consumed: CompletableDeferred<Boolean>? = null)
     private val actions = Channel<ActionEnvelope>(capacity = Channel.UNLIMITED)
     private var observationJob: Job? = null
     private var observationDeadline: Job? = null
+    private var touchSettingsWriteUnavailable = false
 
     val state: StateFlow<HubState> = mutableState.asStateFlow()
     val commands = commandChannel.receiveAsFlow()
+    val touchReactions = mutableTouchReactions.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -86,6 +96,13 @@ class HubViewModel private constructor(
             }
         }
         viewModelScope.launch { repository.history.collect { onAction(HubAction.HistoryChanged(it)) } }
+        wallpaperSettingsRepository?.let { settings -> viewModelScope.launch {
+            settings.touchReactionsEnabled.collect { value ->
+                // A failed edit must not be overwritten by a stale DataStore replay of the old
+                // value: that would put an enabled-looking switch back on screen without proof.
+                if (!touchSettingsWriteUnavailable) mutableTouchReactions.value = value
+            }
+        } }
         if (knowledgeProvider != null) viewModelScope.launch {
             knowledgeProvider.knowledge.collect { onAction(HubAction.KnowledgeChanged(it)) }
         }
@@ -93,6 +110,22 @@ class HubViewModel private constructor(
 
     fun onAction(action: HubAction) {
         actions.trySend(ActionEnvelope(action))
+    }
+
+    fun setTouchReactionsEnabled(enabled: Boolean) {
+        val settings = wallpaperSettingsRepository ?: return
+        viewModelScope.launch {
+            try {
+                settings.setTouchReactionsEnabled(enabled)
+                touchSettingsWriteUnavailable = false
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // Do not leave an optimistic enabled/disabled switch after a failed DataStore edit.
+                touchSettingsWriteUnavailable = true
+                mutableTouchReactions.value = null
+            }
+        }
     }
 
     suspend fun consumeWallpaperRequest(request: WallpaperLaunchRequest): Boolean {
