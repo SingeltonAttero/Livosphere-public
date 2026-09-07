@@ -35,6 +35,8 @@ final class SetManifestReader {
     private static final Pattern RESOURCE_FILE = Pattern.compile("^[a-z][a-z0-9_]*\\.[a-z0-9]+$");
     private static final String PREVIEW_WALLPAPER_ROLE = "preview-wallpaper-";
     private static final String PREVIEW_WATCHFACE_ROLE = "preview-watchface-";
+    private static final String WFF_ENTRYPOINT = "watchface/raw/watchface.xml";
+    private static final String WFF_METADATA = "watchface/xml/watch_face_info.xml";
 
     private SetManifestReader() {}
 
@@ -241,7 +243,10 @@ final class SetManifestReader {
                 "недопустимый Android resource directory: " + resourcePath);
         require(RESOURCE_FILE.matcher(parts[1]).matches(), manifest, "resourcePath",
                 "resource filename и extension должны быть lowercase Android-compatible: " + resourcePath);
-        if (surface.equals("watchface") && resourcePath.equals("raw/watchface.xml")) return;
+        if (surface.equals("watchface")
+                && (resourcePath.equals("raw/watchface.xml") || resourcePath.equals("xml/watch_face_info.xml"))) {
+            return;
+        }
         String fileName = parts[1];
         String prefix = "ls_" + setId.replace('-', '_') + "_" + surface + "_";
         require(fileName.startsWith(prefix), manifest, "resourcePath",
@@ -360,10 +365,14 @@ final class SetManifestReader {
                 "обязателен entrypoint " + wallpaperSource);
         SetManifest.Contribution watchface = contributions.stream()
                 .filter(value -> value.surface().equals("watchface")).findFirst().orElseThrow();
-        require(watchface.assets().stream().anyMatch(asset -> asset.relativePath().equals("watchface/raw/watchface.xml")
+        require(watchface.assets().stream().anyMatch(asset -> asset.relativePath().equals(WFF_ENTRYPOINT)
                         && asset.resourcePath().equals("raw/watchface.xml")),
                 manifest, "contribution." + watchface.key() + ".assetRefs",
-                "обязателен entrypoint watchface/raw/watchface.xml");
+                "обязателен entrypoint " + WFF_ENTRYPOINT);
+        require(watchface.assets().stream().anyMatch(asset -> asset.relativePath().equals(WFF_METADATA)
+                        && asset.resourcePath().equals("xml/watch_face_info.xml")),
+                manifest, "contribution." + watchface.key() + ".assetRefs",
+                "обязателен metadata " + WFF_METADATA);
     }
 
     private static void requirePreviewRoles(Path manifest, List<SetManifest.Contribution> contributions) {

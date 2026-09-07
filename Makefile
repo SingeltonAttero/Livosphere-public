@@ -17,7 +17,7 @@ export JAVA_HOME := $(LIVOSPHERE_JAVA_HOME)
 endif
 export ANDROID_SDK_ROOT
 
-.PHONY: doctor assets-check phone watchfaces check device-check offline-smoke verify benchmark-sp06 protocol-sp07 evidence-validator-check
+.PHONY: doctor assets-check phone watchfaces check device-check offline-smoke verify benchmark-sp06 protocol-sp07 wff-sp02-preflight protocol-sp02 evidence-validator-check
 
 doctor:
 	./android/scripts/doctor.sh
@@ -52,5 +52,14 @@ benchmark-sp06:
 protocol-sp07:
 	./android/scripts/validate-epic-3-evidence.sh _bmad-output/implementation-artifacts/evidence/story-3-8
 
+wff-sp02-preflight:
+	./android/scripts/run-wff-sp02-preflight.sh
+
+protocol-sp02:
+	./android/scripts/validate-sp02-evidence.sh _bmad-output/implementation-artifacts/evidence/story-4-1
+	./android/scripts/test-validate-sp02-evidence.sh
+
 evidence-validator-check:
 	./android/scripts/test-validate-epic-3-evidence.sh
+	./android/scripts/test-validate-sp02-evidence.sh
+	./android/scripts/test-run-wff-sp02-preflight.sh
