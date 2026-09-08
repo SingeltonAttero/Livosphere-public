@@ -17,7 +17,7 @@ export JAVA_HOME := $(LIVOSPHERE_JAVA_HOME)
 endif
 export ANDROID_SDK_ROOT
 
-.PHONY: doctor assets-check phone watchfaces check device-check offline-smoke verify validate-wff benchmark benchmark-sp06 protocol-sp07 wff-sp02-preflight protocol-sp02 evidence-validator-check release-pipeline-test candidate signed-candidate release
+.PHONY: doctor assets-check phone watchfaces check device-check offline-smoke verify validate-wff benchmark benchmark-sp06 protocol-sp07 wff-sp02-preflight protocol-sp02 evidence-validator-check release-pipeline-test contour-wff-assets-test candidate signed-candidate release
 
 doctor:
 	./android/scripts/doctor.sh
@@ -32,7 +32,7 @@ phone: doctor assets-check
 watchfaces: doctor assets-check
 	$(GRADLE) :watchfaces:contour-wff:bundleDebug
 
-check: doctor evidence-validator-check release-pipeline-test
+check: doctor evidence-validator-check release-pipeline-test contour-wff-assets-test
 	$(GRADLE) check
 
 device-check: doctor
@@ -90,3 +90,6 @@ evidence-validator-check:
 release-pipeline-test: doctor
 	$(GRADLE) :hub:app:assembleDebug :hub:app:bundleDebug :watchfaces:contour-wff:assembleDebug :watchfaces:contour-wff:bundleDebug
 	./android/scripts/test-release-pipeline.sh
+
+contour-wff-assets-test:
+	./android/scripts/test-contour-wff-assets.sh
