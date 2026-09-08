@@ -15,7 +15,10 @@ android {
         applicationId = "app.livosphere"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
+        versionCode = providers.gradleProperty("livosphere.phoneVersionCode")
+            .map(String::toInt)
+            .orElse(1)
+            .get()
         versionName = providers.gradleProperty("livosphere.productRelease").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -29,6 +32,20 @@ android {
      * It retains debug signing only so an owner can install the exact measurement APK locally.
      */
     buildTypes {
+        release {
+            val keystore = System.getenv("LIVOSPHERE_RELEASE_KEYSTORE")
+            val storePassword = System.getenv("LIVOSPHERE_RELEASE_STORE_PASSWORD")
+            val keyAlias = System.getenv("LIVOSPHERE_RELEASE_KEY_ALIAS")
+            val keyPassword = System.getenv("LIVOSPHERE_RELEASE_KEY_PASSWORD")
+            if (listOf(keystore, storePassword, keyAlias, keyPassword).all { !it.isNullOrBlank() }) {
+                signingConfig = signingConfigs.create("livosphereRelease") {
+                    storeFile = file(keystore!!)
+                    this.storePassword = storePassword
+                    this.keyAlias = keyAlias
+                    this.keyPassword = keyPassword
+                }
+            }
+        }
         create("benchmark") {
             initWith(getByName("release"))
             isDebuggable = false

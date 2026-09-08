@@ -1,7 +1,7 @@
 SHELL := /bin/sh
 
 ANDROID_DIR := android
-GRADLE = cd $(ANDROID_DIR) && $(if $(strip $(LIVOSPHERE_JAVA_HOME)),JAVA_HOME="$(LIVOSPHERE_JAVA_HOME)",) ./gradlew --console=plain --no-daemon $(if $(strip $(LIVOSPHERE_JAVA_HOME)),"-Dorg.gradle.java.home=$(LIVOSPHERE_JAVA_HOME)",)
+GRADLE = cd $(ANDROID_DIR) && $(if $(strip $(LIVOSPHERE_JAVA_HOME)),JAVA_HOME="$(LIVOSPHERE_JAVA_HOME)",) ./gradlew --console=plain --no-daemon --max-workers=2 $(if $(strip $(LIVOSPHERE_JAVA_HOME)),"-Dorg.gradle.java.home=$(LIVOSPHERE_JAVA_HOME)",)
 
 ifeq ($(shell uname -s),Darwin)
 HOMEBREW_JAVA_17 := $(shell brew --prefix openjdk@17 2>/dev/null)/libexec/openjdk.jdk/Contents/Home
@@ -17,7 +17,7 @@ export JAVA_HOME := $(LIVOSPHERE_JAVA_HOME)
 endif
 export ANDROID_SDK_ROOT
 
-.PHONY: doctor assets-check phone watchfaces check device-check offline-smoke verify benchmark-sp06 protocol-sp07 wff-sp02-preflight protocol-sp02 evidence-validator-check
+.PHONY: doctor assets-check phone watchfaces check device-check offline-smoke verify validate-wff benchmark benchmark-sp06 protocol-sp07 wff-sp02-preflight protocol-sp02 evidence-validator-check release-pipeline-test candidate signed-candidate release
 
 doctor:
 	./android/scripts/doctor.sh
@@ -32,7 +32,7 @@ phone: doctor assets-check
 watchfaces: doctor assets-check
 	$(GRADLE) :watchfaces:contour-wff:bundleDebug
 
-check: doctor evidence-validator-check
+check: doctor evidence-validator-check release-pipeline-test
 	$(GRADLE) check
 
 device-check: doctor
@@ -44,6 +44,29 @@ offline-smoke:
 
 verify: phone watchfaces check offline-smoke
 	./android/scripts/verify-artifacts.sh
+
+validate-wff: wff-sp02-preflight
+
+benchmark: benchmark-sp06
+
+candidate:
+	PRODUCT_RELEASE="$${PRODUCT_RELEASE:-0.1.0-dev}" \
+	PHONE_VERSION_CODE="$${PHONE_VERSION_CODE:-1}" \
+	WATCH_VERSION_CODE="$${WATCH_VERSION_CODE:-1}" \
+	LIVOSPHERE_EVIDENCE_DIR="$${LIVOSPHERE_EVIDENCE_DIR:-_bmad-output/implementation-artifacts/evidence/release-candidate}" \
+	./android/scripts/build-release-candidate.sh candidate
+
+signed-candidate:
+	PRODUCT_RELEASE="$${PRODUCT_RELEASE:-}" \
+	PHONE_VERSION_CODE="$${PHONE_VERSION_CODE:-}" \
+	WATCH_VERSION_CODE="$${WATCH_VERSION_CODE:-}" \
+	LIVOSPHERE_EVIDENCE_DIR="$${LIVOSPHERE_EVIDENCE_DIR:-_bmad-output/implementation-artifacts/evidence/release-candidate}" \
+	./android/scripts/build-release-candidate.sh signed-candidate
+
+release:
+	LIVOSPHERE_RELEASE_RUN_DIR="$${LIVOSPHERE_RELEASE_RUN_DIR:-}" \
+	LIVOSPHERE_RELEASE_READINESS_INDEX="$${LIVOSPHERE_RELEASE_READINESS_INDEX:-}" \
+	./android/scripts/promote-release.sh
 
 benchmark-sp06:
 	$(GRADLE) :quality:macrobenchmark:verifySp06Setup
@@ -63,3 +86,6 @@ evidence-validator-check:
 	./android/scripts/test-validate-epic-3-evidence.sh
 	./android/scripts/test-validate-sp02-evidence.sh
 	./android/scripts/test-run-wff-sp02-preflight.sh
+
+release-pipeline-test:
+	./android/scripts/test-release-pipeline.sh
