@@ -94,7 +94,7 @@
     <string name="settings_wallpaper_title">Обои</string>
     <string name="settings_wallpaper_summary">Движение и реакции живых обоев</string>
     <string name="settings_hub_motion_title">Движение хаба</string>
-    <string name="settings_hub_motion_summary">Появление и смена preview в приложении</string>
+    <string name="settings_hub_motion_summary">Появление и смена изображений в приложении</string>
     <string name="settings_motion_normal">Обычное</string>
     <string name="settings_motion_reduced">Уменьшенное</string>
     <string name="settings_motion_off">Выключено</string>
@@ -114,5 +114,5 @@
     <string name="settings_help_body">Просмотр не применяет оформление. Для обоев откройте системную примерку Android и подтвердите выбор; проверенный или неизвестный результат показан в «Устройствах». Циферблат не устанавливается из хаба: когда он доступен на совместимых часах, выберите его вручную в системном выборе часов и настройте уменьшенное движение отдельно на часах. В приложении нет магазина или каталога. После обновления или удаления приложения снова проверьте «Устройства».</string>
     <string name="settings_about_title">О приложении</string>
     <string name="settings_about_summary">Версия и сведения о приложении</string>
-    <string name="settings_about_body">Livosphere %1$s. «Контур» и значок хаба созданы для этого проекта; их происхождение и контрольные суммы зафиксированы в локальной документации набора. Это не лицензия на повторное использование: перед публикацией или переносом материалов проверьте права и provenance в документации проекта.</string>
+    <string name="settings_about_body">Livosphere %1$s. Графика набора «Контур» и значок приложения созданы для Livosphere, без заимствованных персонажей и эмблем. Установка приложения не предоставляет отдельную лицензию на распространение исходной графики. Настройки хранятся на устройстве; для работы не нужны аккаунт, подключение к сети или уведомления.</string>
 </resources>
