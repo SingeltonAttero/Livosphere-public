@@ -108,4 +108,28 @@ class HubSettingsRepositoryTest {
             } catch (_: androidx.datastore.core.CorruptionException) { }
         }
     }
+    @Test fun hubMotionAndVersionDismissalPersistWithoutClaimingPlatformTruth() = runBlocking {
+        val file = directory.root.resolve("runtime-settings.json")
+        var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        fun store() = DataStoreFactory.create(
+            serializer = HubSettingsSerializer, scope = scope, produceFile = { file })
+        try {
+            var dataStore = store()
+            var repository = DataStoreHubRuntimeSettings(dataStore)
+            assertEquals(HubMotionMode.NORMAL, requireNotNull(repository.settings.first()).hubMotionMode)
+            repository.setHubMotionMode(HubMotionMode.REDUCED)
+            repository.dismissReleaseNote("0.1.0")
+            assertTrue((DataStoreHubSettingsRepository(dataStore).claimInvitation(now) as Outcome.Success).value is InvitationClaim.Granted)
+            val afterClaim = requireNotNull(repository.settings.first())
+            assertEquals(HubMotionMode.REDUCED, afterClaim.hubMotionMode)
+            assertEquals("0.1.0", afterClaim.dismissedReleaseVersion)
+            scope.coroutineContext[Job]!!.cancelAndJoin()
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            dataStore = store()
+            repository = DataStoreHubRuntimeSettings(dataStore)
+            val restored = requireNotNull(repository.settings.first())
+            assertEquals(HubMotionMode.REDUCED, restored.hubMotionMode)
+            assertEquals("0.1.0", restored.dismissedReleaseVersion)
+        } finally { scope.coroutineContext[Job]!!.cancelAndJoin() }
+    }
 }

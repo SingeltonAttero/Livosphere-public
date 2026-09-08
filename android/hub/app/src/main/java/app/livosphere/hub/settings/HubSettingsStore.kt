@@ -31,6 +31,8 @@ data class StoredHubSettings(
     val lastInvitedAtEpochMillis: Long?,
     val invitationCount: Int,
     val repeatUsed: Boolean,
+    val hubMotionMode: HubMotionMode = HubMotionMode.NORMAL,
+    val dismissedReleaseVersion: String? = null,
 ) {
     fun toHistory() = InvitationHistory(lastInvitedAtEpochMillis?.let(Instant::ofEpochMilli), invitationCount, repeatUsed)
 
@@ -40,6 +42,15 @@ data class StoredHubSettings(
         )
     }
 }
+
+/** Hub-only visual preference; it never changes the wallpaper service or a watch face. */
+@Serializable
+enum class HubMotionMode { NORMAL, REDUCED }
+
+data class HubRuntimeSettings(
+    val hubMotionMode: HubMotionMode,
+    val dismissedReleaseVersion: String?,
+)
 
 object HubSettingsSerializer : Serializer<StoredHubSettings> {
     override val defaultValue = StoredHubSettings.from(InvitationHistory())
@@ -82,7 +93,14 @@ class DataStoreHubSettingsRepository @Inject constructor(
             val history = stored.toHistory()
             if (InvitationPolicy.eligible(history, now)) {
                 granted = true
-                StoredHubSettings.from(InvitationPolicy.claimed(history, now))
+                // Invitation bookkeeping shares this file with runtime-only settings.
+                // Updating the former must never reset the latter.
+                val claimed = InvitationPolicy.claimed(history, now)
+                stored.copy(
+                    lastInvitedAtEpochMillis = claimed.lastInvitedAt?.toEpochMilli(),
+                    invitationCount = claimed.invitationCount,
+                    repeatUsed = claimed.repeatUsed,
+                )
             } else stored
         }
         Outcome.Success(if (granted) InvitationClaim.Granted(updated.toHistory()) else InvitationClaim.Suppressed)
@@ -90,6 +108,26 @@ class DataStoreHubSettingsRepository @Inject constructor(
         throw error
     } catch (error: Exception) {
         Outcome.Failure(error.asFailure(writing = true))
+    }
+}
+
+/** Typed app-owned settings kept separately from facts reported by Android. */
+class DataStoreHubRuntimeSettings @Inject constructor(
+    private val store: DataStore<StoredHubSettings>,
+) {
+    val settings: Flow<HubRuntimeSettings?> = store.data
+        .map<StoredHubSettings, HubRuntimeSettings?> { HubRuntimeSettings(it.hubMotionMode, it.dismissedReleaseVersion) }
+        .catch { error ->
+            if (error is CancellationException) throw error
+            if (error is Exception) emit(null) else throw error
+        }
+
+    suspend fun setHubMotionMode(mode: HubMotionMode) {
+        store.updateData { it.copy(hubMotionMode = mode) }
+    }
+
+    suspend fun dismissReleaseNote(versionName: String) {
+        store.updateData { it.copy(dismissedReleaseVersion = versionName) }
     }
 }
 

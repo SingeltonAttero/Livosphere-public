@@ -4,7 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.livosphere.hub.onboarding.ApplicationKnowledgeProvider
 import app.livosphere.hub.onboarding.HubSettingsRepository
+import app.livosphere.hub.settings.DataStoreHubRuntimeSettings
+import app.livosphere.hub.settings.HubMotionMode
 import app.livosphere.hub.wallpaper.*
+import app.livosphere.wallpapers.contour.WallpaperMotionMode
 import app.livosphere.wallpapers.contour.WallpaperSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -28,27 +31,47 @@ class HubViewModel private constructor(
     private val clock: Clock,
     private val wallpaperGateway: PhoneWallpaperGateway?,
     private val wallpaperSettingsRepository: WallpaperSettingsRepository?,
+    private val runtimeSettingsRepository: DataStoreHubRuntimeSettings? = null,
     private val beforeAcknowledgement: (suspend (WallpaperLaunchRequest) -> Unit)? = null,
 ) : ViewModel() {
     @Inject constructor(repository: HubSettingsRepository, wallpaperGateway: PhoneWallpaperGateway, clock: Clock,
-        wallpaperSettingsRepository: WallpaperSettingsRepository) :
-        this(repository, null, clock, wallpaperGateway, wallpaperSettingsRepository)
+        wallpaperSettingsRepository: WallpaperSettingsRepository, runtimeSettingsRepository: DataStoreHubRuntimeSettings) :
+        this(repository, null, clock, wallpaperGateway, wallpaperSettingsRepository, runtimeSettingsRepository)
 
     /** Explicit onboarding test seam; production derives knowledge from the single phone gateway. */
     internal constructor(repository: HubSettingsRepository, knowledgeProvider: ApplicationKnowledgeProvider, clock: Clock) :
-        this(repository, knowledgeProvider, clock, null, null)
+        this(repository, knowledgeProvider, clock, null, null, null)
+
+    /** Runtime-settings seam for reducer tests; production still uses the injected constructor. */
+    internal constructor(
+        repository: HubSettingsRepository,
+        knowledgeProvider: ApplicationKnowledgeProvider,
+        clock: Clock,
+        runtimeSettingsRepository: DataStoreHubRuntimeSettings,
+    ) : this(repository, knowledgeProvider, clock, null, null, runtimeSettingsRepository)
 
     /** Production wallpaper gateway seam without the shared settings control, used by UI tests. */
     internal constructor(repository: HubSettingsRepository, wallpaperGateway: PhoneWallpaperGateway, clock: Clock) :
-        this(repository, null, clock, wallpaperGateway, null)
+        this(repository, null, clock, wallpaperGateway, null, null)
+
+    /** Shared wallpaper settings seam: runtime preferences intentionally remain unavailable in this path. */
+    internal constructor(
+        repository: HubSettingsRepository,
+        wallpaperGateway: PhoneWallpaperGateway,
+        clock: Clock,
+        wallpaperSettingsRepository: WallpaperSettingsRepository,
+    ) : this(repository, null, clock, wallpaperGateway, wallpaperSettingsRepository, null)
 
     /** Delays only the UI acknowledgement in lifecycle tests; the real actor still consumes the request. */
     internal constructor(repository: HubSettingsRepository, wallpaperGateway: PhoneWallpaperGateway, clock: Clock,
         beforeAcknowledgement: suspend (WallpaperLaunchRequest) -> Unit) :
-        this(repository, null, clock, wallpaperGateway, null, beforeAcknowledgement)
+        this(repository, null, clock, wallpaperGateway, null, null, beforeAcknowledgement)
 
     private val mutableState = MutableStateFlow(HubState())
     private val mutableTouchReactions = MutableStateFlow<Boolean?>(null)
+    private val mutableWallpaperMotion = MutableStateFlow<WallpaperMotionMode?>(null)
+    private val mutableHubMotion = MutableStateFlow<HubMotionMode?>(null)
+    private val mutableDismissedReleaseVersion = MutableStateFlow<String?>(null)
     private val commandChannel = Channel<HubCommand.ShowSection>(capacity = Channel.CONFLATED)
     private data class ActionEnvelope(val action: HubAction, val consumed: CompletableDeferred<Boolean>? = null)
     private val actions = Channel<ActionEnvelope>(capacity = Channel.UNLIMITED)
@@ -59,6 +82,9 @@ class HubViewModel private constructor(
     val state: StateFlow<HubState> = mutableState.asStateFlow()
     val commands = commandChannel.receiveAsFlow()
     val touchReactions = mutableTouchReactions.asStateFlow()
+    val wallpaperMotion = mutableWallpaperMotion.asStateFlow()
+    val hubMotion = mutableHubMotion.asStateFlow()
+    val dismissedReleaseVersion = mutableDismissedReleaseVersion.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -103,6 +129,15 @@ class HubViewModel private constructor(
                 if (!touchSettingsWriteUnavailable) mutableTouchReactions.value = value
             }
         } }
+        wallpaperSettingsRepository?.let { settings -> viewModelScope.launch {
+            settings.motionMode.collect { value -> mutableWallpaperMotion.value = value }
+        } }
+        runtimeSettingsRepository?.let { settings -> viewModelScope.launch {
+            settings.settings.collect { value ->
+                mutableHubMotion.value = value?.hubMotionMode
+                mutableDismissedReleaseVersion.value = value?.dismissedReleaseVersion
+            }
+        } }
         if (knowledgeProvider != null) viewModelScope.launch {
             knowledgeProvider.knowledge.collect { onAction(HubAction.KnowledgeChanged(it)) }
         }
@@ -125,6 +160,32 @@ class HubViewModel private constructor(
                 touchSettingsWriteUnavailable = true
                 mutableTouchReactions.value = null
             }
+        }
+    }
+
+    fun setWallpaperMotionMode(mode: WallpaperMotionMode) {
+        val settings = wallpaperSettingsRepository ?: return
+        viewModelScope.launch {
+            try { settings.setMotionMode(mode) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { mutableWallpaperMotion.value = null }
+        }
+    }
+
+    fun setHubMotionMode(mode: HubMotionMode) {
+        val settings = runtimeSettingsRepository ?: return
+        viewModelScope.launch {
+            try { settings.setHubMotionMode(mode) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { mutableHubMotion.value = null }
+        }
+    }
+
+    fun dismissReleaseNote(versionName: String) {
+        val settings = runtimeSettingsRepository ?: return
+        viewModelScope.launch {
+            try { settings.dismissReleaseNote(versionName) }
+            catch (cancelled: CancellationException) { throw cancelled }
         }
     }
 

@@ -11,6 +11,7 @@ import app.livosphere.hub.onboarding.SettingsFailure
 import app.livosphere.hub.wallpaper.PhoneWallpaperGateway
 import app.livosphere.hub.wallpaper.PhoneWallpaperSnapshot
 import app.livosphere.wallpapers.contour.WallpaperSettingsRepository
+import app.livosphere.wallpapers.contour.WallpaperMotionMode
 import java.time.Clock
 import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,10 +65,29 @@ class WallpaperSettingsRepositoryTest {
             }
             viewModel.setTouchReactionsEnabled(false)
             assertFalse(withTimeout(5_000) { serviceRepository.touchReactionsEnabled.filter { it == false }.first()!! })
-            assertEquals(false, viewModel.touchReactions.value)
+            assertEquals(false, withTimeout(5_000) { viewModel.touchReactions.filter { it == false }.first() })
         } finally {
             store.clear()
             hubRepository.setTouchReactionsEnabled(original)
+        }
+    }
+
+    @Test fun motionModesPersistIndependentlyFromExistingTouchPreference() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val writer = WallpaperSettingsRepository(context)
+        val observer = WallpaperSettingsRepository(context)
+        val originalTouch = requireNotNull(writer.touchReactionsEnabled.first())
+        val originalMode = requireNotNull(writer.motionMode.first())
+        try {
+            writer.setTouchReactionsEnabled(false)
+            WallpaperMotionMode.entries.forEach { mode ->
+                writer.setMotionMode(mode)
+                assertEquals(mode, withTimeout(5_000) { observer.motionMode.filter { it == mode }.first() })
+                assertFalse(requireNotNull(observer.touchReactionsEnabled.first()))
+            }
+        } finally {
+            writer.setTouchReactionsEnabled(originalTouch)
+            writer.setMotionMode(originalMode)
         }
     }
 

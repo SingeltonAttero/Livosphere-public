@@ -1,7 +1,11 @@
 package app.livosphere.hub
 
 import androidx.lifecycle.ViewModelStore
+import androidx.datastore.core.DataStore
 import app.livosphere.hub.onboarding.*
+import app.livosphere.hub.settings.DataStoreHubRuntimeSettings
+import app.livosphere.hub.settings.HubMotionMode
+import app.livosphere.hub.settings.StoredHubSettings
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -163,5 +167,27 @@ class HubViewModelTest {
         vm.onAction(HubAction.DismissOnboarding)
         runCurrent()
         assertFalse(vm.state.value.onboardingVisible)
+    }
+
+    @Test fun runtimeSettingsReachTheProductionViewModelBridgeAndPersistActions() = runTest(dispatcher) {
+        val stored = MutableStateFlow(StoredHubSettings(null, 0, false))
+        val dataStore = object : DataStore<StoredHubSettings> {
+            override val data: Flow<StoredHubSettings> = stored
+            override suspend fun updateData(transform: suspend (StoredHubSettings) -> StoredHubSettings): StoredHubSettings =
+                transform(stored.value).also { stored.value = it }
+        }
+        val vm = HubViewModel(
+            repository,
+            knowledge,
+            Clock.fixed(now, ZoneOffset.UTC),
+            DataStoreHubRuntimeSettings(dataStore),
+        ).also { store.put("runtime", it) }
+        runCurrent()
+        assertEquals(HubMotionMode.NORMAL, vm.hubMotion.value)
+        vm.setHubMotionMode(HubMotionMode.REDUCED)
+        vm.dismissReleaseNote("0.1.0")
+        runCurrent()
+        assertEquals(HubMotionMode.REDUCED, vm.hubMotion.value)
+        assertEquals("0.1.0", vm.dismissedReleaseVersion.value)
     }
 }

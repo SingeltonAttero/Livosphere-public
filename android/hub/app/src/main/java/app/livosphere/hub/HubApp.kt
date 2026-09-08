@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -67,6 +70,16 @@ fun HubApp(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val touchReactions by viewModel.touchReactions.collectAsStateWithLifecycle()
+    val wallpaperMotion by viewModel.wallpaperMotion.collectAsStateWithLifecycle()
+    val hubMotion by viewModel.hubMotion.collectAsStateWithLifecycle()
+    val dismissedReleaseVersion by viewModel.dismissedReleaseVersion.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    // This is a platform fact, deliberately read from the installed package rather than persisted.
+    val installedVersionName = remember(context) {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
+            .getOrNull()
+    }
+    val displayedVersionName = installedVersionName ?: stringResource(R.string.settings_version_unavailable)
     val backStack = rememberNavBackStack(ThemeKey)
     val navigator = remember(backStack) { HubNavigator(backStack) }
     val restoredSection = backStack.lastOrNull().toSection()
@@ -78,7 +91,6 @@ fun HubApp(
         onPauseOrDispose { viewModel.onAction(HubAction.ForegroundStopped) }
     }
 
-    val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val systemResult = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         // RESULT_OK and cancellation carry no application truth.
@@ -134,6 +146,10 @@ fun HubApp(
                     backStack = backStack,
                     modifier = Modifier.weight(1f).clipToBounds(),
                     onBack = onExit,
+                    // Screen navigation is deliberately immediate. The only hub motion is
+                    // preview motion, which receives the persisted and system-safe setting.
+                    transitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
+                    popTransitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
                     entryProvider = entryProvider {
                         entry<ThemeKey> {
                             ThemeScreen(
@@ -149,6 +165,9 @@ fun HubApp(
                                 onTry = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn)) },
                                 onPhoneRefresh = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.Refresh)) },
                                 onPhoneHelp = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.ToggleHelp)) },
+                                // A pending or failed preference read is static until a
+                                // confirmed NORMAL value is available.
+                                hubMotionReduced = hubMotion != app.livosphere.hub.settings.HubMotionMode.NORMAL,
                             )
                         }
                         entry<DevicesKey> {
@@ -162,6 +181,14 @@ fun HubApp(
                             SettingsScreen(
                                 touchReactionsEnabled = touchReactions,
                                 onTouchReactionsChanged = viewModel::setTouchReactionsEnabled,
+                                wallpaperMotionMode = wallpaperMotion,
+                                onWallpaperMotionChanged = viewModel::setWallpaperMotionMode,
+                                hubMotionMode = hubMotion,
+                                onHubMotionChanged = viewModel::setHubMotionMode,
+                                releaseNoteVisible = hubMotion != null && installedVersionName != null &&
+                                    dismissedReleaseVersion != installedVersionName,
+                                installedVersionName = displayedVersionName,
+                                onReleaseNoteDismissed = { installedVersionName?.let(viewModel::dismissReleaseNote) },
                             )
                         }
                     },

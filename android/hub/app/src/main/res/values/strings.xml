@@ -91,4 +91,27 @@
     <string name="hub_touch_reactions_unavailable">Настройка реакций сейчас недоступна. Обои продолжают работать в безопасном базовом режиме.</string>
     <string name="hub_touch_reactions_on">Включено</string>
     <string name="hub_touch_reactions_off">Выключено</string>
+    <string name="settings_wallpaper_title">Обои</string>
+    <string name="settings_wallpaper_summary">Движение и реакции живых обоев</string>
+    <string name="settings_hub_motion_title">Движение хаба</string>
+    <string name="settings_hub_motion_summary">Появление и смена preview в приложении</string>
+    <string name="settings_motion_normal">Обычное</string>
+    <string name="settings_motion_reduced">Уменьшенное</string>
+    <string name="settings_motion_off">Выключено</string>
+    <string name="settings_selected">Выбрано</string>
+    <string name="settings_not_selected">Не выбрано</string>
+    <string name="settings_wallpaper_motion_unavailable">Настройка движения обоев сейчас недоступна. Обои продолжают работать в безопасном базовом режиме.</string>
+    <string name="settings_hub_motion_unavailable">Настройка движения в приложении сейчас недоступна. Экран остаётся статичным.</string>
+    <string name="settings_version_unavailable">версия не определена</string>
+    <string name="settings_whats_new_title">Что нового</string>
+    <string name="settings_whats_new_summary">Короткая заметка об установленной версии</string>
+    <string name="settings_whats_new_body">Версия %1$s: доступны отдельные настройки движения, локальная справка и повторная проверка фактов телефона.</string>
+    <string name="settings_whats_new_dismiss">Понятно</string>
+    <string name="settings_whats_new_dismissed">Заметка этой версии уже закрыта.</string>
+    <string name="settings_help_title">Помощь</string>
+    <string name="settings_help_summary">Применение и ограничения без подключения к сети</string>
+    <string name="settings_help_body">Просмотр не применяет оформление. Для обоев откройте системную примерку и подтвердите выбор. Циферблат устанавливается отдельно: его доступность и применение показаны в «Устройствах». После обновления проверьте состояние там же; удаление приложения может изменить доступность его обоев.</string>
+    <string name="settings_about_title">О приложении</string>
+    <string name="settings_about_summary">Версия и сведения о приложении</string>
+    <string name="settings_about_body">Livosphere %1$s. Оформление набора и значок хаба — оригинальные материалы Livosphere. Приложение не передаёт данные и не использует аккаунт, сеть или уведомления.</string>
 </resources>

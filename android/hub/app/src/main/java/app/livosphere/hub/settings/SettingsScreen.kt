@@ -1,80 +1,166 @@
 package app.livosphere.hub.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.livosphere.R
 import app.livosphere.hub.HubSectionScreen
+import app.livosphere.wallpapers.contour.WallpaperMotionMode
 
-/** A control is rendered only after the shared DataStore has supplied an actual setting value. */
+/** One scrollable page: preferences are app-owned and never represent platform facts. */
 @Composable
 internal fun SettingsScreen(
     touchReactionsEnabled: Boolean?,
     onTouchReactionsChanged: (Boolean) -> Unit,
+    wallpaperMotionMode: WallpaperMotionMode? = WallpaperMotionMode.NORMAL,
+    onWallpaperMotionChanged: (WallpaperMotionMode) -> Unit = {},
+    hubMotionMode: HubMotionMode? = null,
+    onHubMotionChanged: (HubMotionMode) -> Unit = {},
+    releaseNoteVisible: Boolean = false,
+    installedVersionName: String = "0.1.0",
+    onReleaseNoteDismissed: () -> Unit = {},
+) = HubSectionScreen(
+    title = R.string.hub_section_settings,
+    description = R.string.hub_settings_description,
+    testTag = "hub-screen-settings",
 ) {
-    HubSectionScreen(
-        title = R.string.hub_section_settings,
-        description = R.string.hub_settings_description,
-        testTag = "hub-screen-settings",
+    ExpandableSetting("settings-wallpaper", R.string.settings_wallpaper_title, R.string.settings_wallpaper_summary) {
+        if (wallpaperMotionMode == null) UnavailableSettingsNotice(R.string.settings_wallpaper_motion_unavailable)
+        else MotionChoice("wallpaper-motion", wallpaperMotionMode, WallpaperMotionMode.entries.toList(), { stringResource(it.labelResource) }, onWallpaperMotionChanged)
+        if (touchReactionsEnabled == null) UnavailableSettingsNotice(R.string.hub_touch_reactions_unavailable)
+        else {
+            TouchReactionSwitch(touchReactionsEnabled, onTouchReactionsChanged)
+        }
+    }
+    ExpandableSetting("settings-hub-motion", R.string.settings_hub_motion_title, R.string.settings_hub_motion_summary) {
+        if (hubMotionMode == null) UnavailableSettingsNotice(R.string.settings_hub_motion_unavailable)
+        else MotionChoice("hub-motion", hubMotionMode, HubMotionMode.entries.toList(), { stringResource(it.labelResource) }, onHubMotionChanged)
+    }
+    ExpandableSetting("settings-whats-new", R.string.settings_whats_new_title, R.string.settings_whats_new_summary) {
+        if (releaseNoteVisible) {
+            Text(stringResource(R.string.settings_whats_new_body, installedVersionName), style = MaterialTheme.typography.bodyMedium)
+            TextButton(onClick = onReleaseNoteDismissed, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.settings_whats_new_dismiss))
+            }
+        } else Text(stringResource(R.string.settings_whats_new_dismissed), style = MaterialTheme.typography.bodyMedium)
+    }
+    ExpandableSetting("settings-help", R.string.settings_help_title, R.string.settings_help_summary) {
+        Text(stringResource(R.string.settings_help_body), style = MaterialTheme.typography.bodyMedium)
+    }
+    ExpandableSetting("settings-about", R.string.settings_about_title, R.string.settings_about_summary) {
+        Text(stringResource(R.string.settings_about_body, installedVersionName), style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun TouchReactionSwitch(enabled: Boolean, onChanged: (Boolean) -> Unit) {
+    val title = stringResource(R.string.hub_touch_reactions_title)
+    val state = stringResource(if (enabled) R.string.hub_touch_reactions_on else R.string.hub_touch_reactions_off)
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).semantics { testTag = "touch-reactions-control" }.padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (touchReactionsEnabled == null) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.hub_touch_reactions_description), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        }
+        Switch(checked = enabled, onCheckedChange = onChanged, modifier = Modifier.semantics {
+            testTag = "touch-reactions-switch"; contentDescription = title; stateDescription = state
+        })
+    }
+}
+
+@Composable
+private fun UnavailableSettingsNotice(messageResource: Int) = Text(
+    stringResource(messageResource), color = MaterialTheme.colorScheme.onSurfaceVariant,
+    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.semantics { testTag = "touch-reactions-notice" },
+)
+
+@Composable
+private fun ExpandableSetting(tag: String, titleResource: Int, summaryResource: Int, content: @Composable () -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val title = stringResource(titleResource)
+    val expandedState = stringResource(if (expanded) R.string.phone_expanded else R.string.phone_collapsed)
+    Column(Modifier.fillMaxWidth().semantics { testTag = tag }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.Button) { expanded = !expanded }
+                .semantics {
+                    stateDescription = expandedState
+                    testTag = "$tag-toggle"
+                }.padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(summaryResource), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            }
             Text(
-                text = stringResource(R.string.hub_touch_reactions_unavailable),
+                if (expanded) "−" else "+",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.semantics { testTag = "touch-reactions-notice" },
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.clearAndSetSemantics { },
             )
-        } else {
-            val touchTitle = stringResource(R.string.hub_touch_reactions_title)
-            val touchState = stringResource(if (touchReactionsEnabled) R.string.hub_touch_reactions_on else R.string.hub_touch_reactions_off)
+        }
+        if (expanded) content()
+    }
+}
+
+@Composable
+private fun <T> MotionChoice(tag: String, selected: T, choices: List<T>, label: @Composable (T) -> String, onSelected: (T) -> Unit) {
+    Column(Modifier.selectableGroup().semantics { testTag = "$tag-choice" }) {
+        choices.forEach { choice ->
+            val choiceLabel = label(choice)
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp)
-                    .semantics { testTag = "touch-reactions-control" }
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(
+                    selected = choice == selected,
+                    role = Role.RadioButton,
+                    onClick = { onSelected(choice) },
+                )
+                .semantics {
+                    testTag = "$tag-${choice.toString().lowercase()}"
+                },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = touchTitle,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = stringResource(R.string.hub_touch_reactions_description),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-                Switch(
-                    checked = touchReactionsEnabled,
-                    onCheckedChange = onTouchReactionsChanged,
-                    // Native Switch preserves the minimum 48dp target; name and state make this
-                    // independent control understandable outside the surrounding visual row.
-                    modifier = Modifier.semantics {
-                        testTag = "touch-reactions-switch"
-                        contentDescription = touchTitle
-                        stateDescription = touchState
-                    },
-                )
+                RadioButton(selected = choice == selected, onClick = null)
+                Text(choiceLabel, modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodyLarge)
             }
         }
     }
+}
+
+private val WallpaperMotionMode.labelResource: Int get() = when (this) {
+    WallpaperMotionMode.NORMAL -> R.string.settings_motion_normal
+    WallpaperMotionMode.REDUCED -> R.string.settings_motion_reduced
+    WallpaperMotionMode.OFF -> R.string.settings_motion_off
+}
+
+private val HubMotionMode.labelResource: Int get() = when (this) {
+    HubMotionMode.NORMAL -> R.string.settings_motion_normal
+    HubMotionMode.REDUCED -> R.string.settings_motion_reduced
 }

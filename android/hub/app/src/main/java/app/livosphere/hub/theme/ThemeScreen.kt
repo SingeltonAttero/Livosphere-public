@@ -114,7 +114,10 @@ internal fun ThemeScreen(
     onTry: () -> Unit = {},
     onPhoneRefresh: () -> Unit = {},
     onPhoneHelp: () -> Unit = {},
+    hubMotionReduced: Boolean = false,
 ) {
+    val systemMotionReduced = rememberCoroutineScope().coroutineContext[MotionDurationScale]?.scaleFactor == 0f
+    val reduced = systemMotionReduced || hubMotionReduced
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -130,12 +133,14 @@ internal fun ThemeScreen(
             SurfaceSelector(
                 selectedSurface = selectedSurface,
                 onSurfaceSelected = onSurfaceSelected,
+                reduced = reduced,
             )
             ArtworkStage(
                 selectedSurface = selectedSurface,
                 playStartup = !hasSeenThemePreview,
                 onThemePreviewSeen = onThemePreviewSeen,
                 previewPainter = previewPainter,
+                reduced = reduced,
             )
             TryOnAction(selectedSurface, phoneState, onTry)
             if (selectedSurface == HubSurface.WALLPAPER && phoneState != null &&
@@ -170,8 +175,8 @@ private fun ProductHeader() {
 private fun SurfaceSelector(
     selectedSurface: HubSurface,
     onSurfaceSelected: (HubSurface) -> Unit,
+    reduced: Boolean,
 ) {
-    val reduced = rememberCoroutineScope().coroutineContext[MotionDurationScale]?.scaleFactor == 0f
     val highlight by animateFloatAsState(
         targetValue = selectedSurface.ordinal.toFloat(),
         animationSpec = tween(if (reduced) 0 else SWITCH_DURATION_MILLIS),
@@ -263,6 +268,7 @@ private fun ArtworkStage(
     playStartup: Boolean,
     onThemePreviewSeen: () -> Unit,
     previewPainter: (@Composable (HubSurface) -> Painter)?,
+    reduced: Boolean,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -277,8 +283,6 @@ private fun ArtworkStage(
     var startupRunning by remember { mutableStateOf(startupRequested) }
     var firstSeenSent by remember { mutableStateOf(false) }
     var startupAttempted by remember { mutableStateOf(false) }
-    val reduced = rememberCoroutineScope().coroutineContext[MotionDurationScale]?.scaleFactor == 0f
-
     LaunchedEffect(selectedSurface, reduced) {
         if (!firstSeenSent) {
             firstSeenSent = true
