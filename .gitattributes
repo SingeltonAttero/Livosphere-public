@@ -1,0 +1,2 @@
+# Evidence digests bind exact bytes, including XML/raw-tool line endings.
+_bmad-output/implementation-artifacts/evidence/** -text
