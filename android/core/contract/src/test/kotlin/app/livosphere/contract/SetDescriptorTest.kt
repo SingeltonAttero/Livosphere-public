@@ -6,6 +6,14 @@ import org.junit.Test
 
 class SetDescriptorTest {
     @Test
+    fun `content status exposes both declared manifest states`() {
+        assertEquals(
+            setOf(ContentStatus.APPROVED_FOR_START, ContentStatus.RELEASE_READY),
+            ContentStatus.entries.toSet(),
+        )
+    }
+
+    @Test
     fun `identifiers reject values outside lower kebab`() {
         assertThrows(IllegalArgumentException::class.java) { SetId("Contour_Draft") }
         assertThrows(IllegalArgumentException::class.java) { ComponentId("preview main") }

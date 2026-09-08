@@ -171,6 +171,7 @@ private fun validateContribution(
 
 enum class ContentStatus {
     APPROVED_FOR_START,
+    RELEASE_READY,
 }
 
 data class SetDescriptor(

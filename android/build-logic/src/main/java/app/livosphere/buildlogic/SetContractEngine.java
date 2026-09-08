@@ -81,13 +81,14 @@ final class SetContractEngine {
                     setId = SetId(%s),
                     setRevision = Revision(%d),
                     sourceAssetsRevision = Revision(%d),
-                    contentStatus = ContentStatus.APPROVED_FOR_START,
+                    contentStatus = ContentStatus.%s,
                     preview = %s,
                     wallpaper = %s,
                     watchFace = %s,
                 )
                 """.formatted(
                 manifest.schemaVersion(), quote(manifest.setId()), manifest.setRevision(), manifest.sourceAssetsRevision(),
+                SetManifestReader.kotlinContentStatus(manifest.contentStatus()),
                 contributionKotlin("PreviewContribution", manifest.contributionFor("preview")),
                 contributionKotlin("WallpaperContribution", manifest.contributionFor("wallpaper")),
                 contributionKotlin("WatchFaceContribution", manifest.contributionFor("watchface"))).stripTrailing();

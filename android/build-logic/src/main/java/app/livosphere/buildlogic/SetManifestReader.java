@@ -30,6 +30,9 @@ final class SetManifestReader {
             "embedded-preview", "system-wallpaper-preview", "separate-watchface-package");
     private static final Set<String> SETTINGS = Set.of(
             "none", "time-of-day", "battery-level", "charging", "tap", "swipe", "reduced-motion");
+    private static final Map<String, String> CONTENT_STATUS_ENUMS = Map.of(
+            "approved-for-start", "APPROVED_FOR_START",
+            "release-ready", "RELEASE_READY");
     private static final Pattern RESOURCE_DIRECTORY = Pattern.compile(
             "^(?:drawable|mipmap|raw|values|xml|font|color)(?:-[a-z0-9]+)*$");
     private static final Pattern RESOURCE_FILE = Pattern.compile("^[a-z][a-z0-9_]*\\.[a-z0-9]+$");
@@ -52,8 +55,8 @@ final class SetManifestReader {
         int sourceAssetsRevision = positiveInt(
                 required(values, consumed, normalizedManifest, "sourceAssetsRevision"), normalizedManifest, "sourceAssetsRevision");
         String contentStatus = required(values, consumed, normalizedManifest, "contentStatus");
-        require(contentStatus.equals("approved-for-start"), normalizedManifest, "contentStatus",
-                "technical art должен иметь status approved-for-start");
+        require(CONTENT_STATUS_ENUMS.containsKey(contentStatus), normalizedManifest, "contentStatus",
+                "поддерживаются только approved-for-start и release-ready");
         String provenanceFile = safePath(required(values, consumed, normalizedManifest, "provenanceFile"), normalizedManifest, "provenanceFile");
         String checksumsFile = safePath(required(values, consumed, normalizedManifest, "checksumsFile"), normalizedManifest, "checksumsFile");
 
@@ -185,6 +188,14 @@ final class SetManifestReader {
                         .map(SetManifest.Asset::id).toList(),
                 "resource ID");
         return manifests;
+    }
+
+    static String kotlinContentStatus(String contentStatus) {
+        String enumName = CONTENT_STATUS_ENUMS.get(contentStatus);
+        if (enumName == null) {
+            throw new IllegalArgumentException("Unvalidated contentStatus: " + contentStatus);
+        }
+        return enumName;
     }
 
     private static void verifySourceAssets(
