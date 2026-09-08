@@ -190,4 +190,35 @@ class HubViewModelTest {
         assertEquals(HubMotionMode.REDUCED, vm.hubMotion.value)
         assertEquals("0.1.0", vm.dismissedReleaseVersion.value)
     }
+
+    @Test fun runtimeSettingsRecoverOnForegroundAndFailedDismissalStaysUndismissed() = runTest(dispatcher) {
+        var failingRead = true
+        var failingWrite = true
+        val stored = MutableStateFlow(StoredHubSettings(null, 0, false))
+        val dataStore = object : DataStore<StoredHubSettings> {
+            override val data: Flow<StoredHubSettings> = flow {
+                if (failingRead) throw java.io.IOException("read")
+                emitAll(stored)
+            }
+            override suspend fun updateData(transform: suspend (StoredHubSettings) -> StoredHubSettings): StoredHubSettings {
+                if (failingWrite) throw java.io.IOException("write")
+                return transform(stored.value).also { stored.value = it }
+            }
+        }
+        val vm = HubViewModel(repository, knowledge, Clock.fixed(now, ZoneOffset.UTC), DataStoreHubRuntimeSettings(dataStore))
+            .also { store.put("runtime-recovery", it) }
+        runCurrent()
+        assertNull(vm.hubMotion.value)
+        failingRead = false
+        vm.onAction(HubAction.ForegroundStarted(HubSection.SETTINGS))
+        runCurrent()
+        assertEquals(HubMotionMode.NORMAL, vm.hubMotion.value)
+        vm.dismissReleaseNote("0.1.0")
+        runCurrent()
+        assertNull(vm.dismissedReleaseVersion.value)
+        failingWrite = false
+        vm.dismissReleaseNote("0.1.0")
+        runCurrent()
+        assertEquals("0.1.0", vm.dismissedReleaseVersion.value)
+    }
 }

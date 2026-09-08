@@ -115,12 +115,23 @@ class DataStoreHubSettingsRepository @Inject constructor(
 class DataStoreHubRuntimeSettings @Inject constructor(
     private val store: DataStore<StoredHubSettings>,
 ) {
-    val settings: Flow<HubRuntimeSettings?> = store.data
+    private val readGeneration = MutableStateFlow(0L)
+
+    /**
+     * Reopens the finite read flow after a transient DataStore failure. This is deliberately
+     * caller-driven (on foreground), rather than a hidden polling loop.
+     */
+    fun retrySettings() { readGeneration.update { it + 1 } }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val settings: Flow<HubRuntimeSettings?> = readGeneration.flatMapLatest { store.data
         .map<StoredHubSettings, HubRuntimeSettings?> { HubRuntimeSettings(it.hubMotionMode, it.dismissedReleaseVersion) }
         .catch { error ->
             if (error is CancellationException) throw error
             if (error is Exception) emit(null) else throw error
+            // The outer flow remains alive: foreground explicitly retries after an unavailable read.
         }
+    }
 
     suspend fun setHubMotionMode(mode: HubMotionMode) {
         store.updateData { it.copy(hubMotionMode = mode) }

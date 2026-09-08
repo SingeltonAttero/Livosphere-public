@@ -78,6 +78,7 @@ class HubViewModel private constructor(
     private var observationJob: Job? = null
     private var observationDeadline: Job? = null
     private var touchSettingsWriteUnavailable = false
+    private var hubMotionWriteUnavailable = false
 
     val state: StateFlow<HubState> = mutableState.asStateFlow()
     val commands = commandChannel.receiveAsFlow()
@@ -113,6 +114,12 @@ class HubViewModel private constructor(
                         }
                     }
                 }
+                if (action is HubAction.ForegroundStarted) {
+                    // A read error emits the honest unavailable model, then closes its inner
+                    // DataStore flow. Foreground is the user-visible retry boundary.
+                    hubMotionWriteUnavailable = false
+                    runtimeSettingsRepository?.retrySettings()
+                }
                 if (action is HubAction.HistoryChanged || action is HubAction.KnowledgeChanged ||
                     action is HubAction.ForegroundStarted || action is HubAction.NavigationRestored ||
                     action is HubAction.SectionSelected || action is HubAction.Phone
@@ -134,7 +141,7 @@ class HubViewModel private constructor(
         } }
         runtimeSettingsRepository?.let { settings -> viewModelScope.launch {
             settings.settings.collect { value ->
-                mutableHubMotion.value = value?.hubMotionMode
+                if (!hubMotionWriteUnavailable) mutableHubMotion.value = value?.hubMotionMode
                 mutableDismissedReleaseVersion.value = value?.dismissedReleaseVersion
             }
         } }
@@ -175,9 +182,15 @@ class HubViewModel private constructor(
     fun setHubMotionMode(mode: HubMotionMode) {
         val settings = runtimeSettingsRepository ?: return
         viewModelScope.launch {
-            try { settings.setHubMotionMode(mode) }
+            try {
+                settings.setHubMotionMode(mode)
+                hubMotionWriteUnavailable = false
+            }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { mutableHubMotion.value = null }
+            catch (_: Exception) {
+                hubMotionWriteUnavailable = true
+                mutableHubMotion.value = null
+            }
         }
     }
 
@@ -186,6 +199,10 @@ class HubViewModel private constructor(
         viewModelScope.launch {
             try { settings.dismissReleaseNote(versionName) }
             catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                // Keep the current release note eligible. A failed write must not be rendered as
+                // an acknowledgement, and must not escape this UI event coroutine as a crash.
+            }
         }
     }
 

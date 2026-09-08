@@ -132,4 +132,34 @@ class HubSettingsRepositoryTest {
             assertEquals("0.1.0", restored.dismissedReleaseVersion)
         } finally { scope.coroutineContext[Job]!!.cancelAndJoin() }
     }
+
+    @Test fun runtimeSettingsRecoverOnExplicitRetryAndPropagateCancellation() = runTest {
+        var failingRead = true
+        var cancellation = false
+        var reads = 0
+        val runtime = DataStoreHubRuntimeSettings(object : DataStore<StoredHubSettings> {
+            override val data = flow {
+                reads++
+                if (failingRead) throw IOException("read")
+                emit(HubSettingsSerializer.defaultValue)
+            }
+            override suspend fun updateData(transform: suspend (StoredHubSettings) -> StoredHubSettings): StoredHubSettings {
+                if (cancellation) throw CancellationException("cancel")
+                throw IOException("write")
+            }
+        })
+        val values = mutableListOf<HubRuntimeSettings?>()
+        val collector = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { runtime.settings.collect { values += it } }
+        testScheduler.runCurrent()
+        assertEquals(listOf(null), values)
+        failingRead = false
+        runtime.retrySettings()
+        testScheduler.runCurrent()
+        assertEquals(HubMotionMode.NORMAL, requireNotNull(values.last()).hubMotionMode)
+        assertEquals(2, reads)
+        try { runtime.dismissReleaseNote("0.1.0"); fail("Write failure must propagate to the UI boundary") } catch (_: IOException) { }
+        cancellation = true
+        try { runtime.dismissReleaseNote("0.1.0"); fail("Cancellation must propagate") } catch (_: CancellationException) { }
+        collector.cancel()
+    }
 }
