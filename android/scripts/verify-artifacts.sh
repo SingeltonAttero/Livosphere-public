@@ -90,7 +90,20 @@ watch_contribution=$(manifest_value contributions | tr ',' '\n' | while IFS= rea
     if test "$(manifest_value "contribution.$key.surface")" = watchface; then printf '%s\n' "$key"; fi
 done)
 watch_refs=$(manifest_value "contribution.$watch_contribution.assetRefs")
-unzip -p "$watch_aab" base/resources.pb > "$tmp_dir/watch-resources.pb"
+# AAB stores a protobuf resource table. `strings` can join a printable length
+# byte to a name (e.g. a 34-byte name gets a leading quote), so parse via AAPT2.
+python3 - "$watch_aab" "$tmp_dir/watch-proto.apk" <<'PY_AAB'
+import sys
+import zipfile
+with zipfile.ZipFile(sys.argv[1]) as source, zipfile.ZipFile(sys.argv[2], "w") as target:
+    for name in source.namelist():
+        if name == "base/manifest/AndroidManifest.xml":
+            target.writestr("AndroidManifest.xml", source.read(name))
+        elif name == "base/resources.pb" or name.startswith("base/res/"):
+            target.writestr(name[len("base/"):], source.read(name))
+PY_AAB
+"$aapt2_bin" convert --output-format binary -o "$tmp_dir/watch-binary.apk" "$tmp_dir/watch-proto.apk"
+"$aapt2_bin" dump resources "$tmp_dir/watch-binary.apk" > "$tmp_dir/watch-resources.txt"
 old_ifs=$IFS
 IFS=,
 for asset in $watch_refs; do
@@ -101,16 +114,20 @@ for asset in $watch_refs; do
     resource_name=${resource_file%.*}
     if test "$resource_type" = values; then
         source_path=$(manifest_value "asset.$asset.path")
-        sed -n 's/.*<\([a-z][a-z0-9-]*\)[^>]* name="\([^"]*\)".*/\2/p' \
+        sed -n 's/.*<\([a-z][a-z0-9-]*\)[^>]* name="\([^"]*\)".*/\1 \2/p' \
             "$repo_root/android/sets/contour/source-assets/$source_path" |
-            while IFS= read -r value_name; do
-                strings "$tmp_dir/watch-resources.pb" | grep -Fq "$value_name" || {
+            while IFS=' ' read -r value_type value_name; do
+                awk -v expected="$value_type/$value_name" \
+                    '$1 == "resource" && $3 == expected { found = 1 } END { exit !found }' \
+                    "$tmp_dir/watch-resources.txt" || {
                     echo "WFF AAB не содержит value из manifest-selected $resource_path: $value_name" >&2
                     exit 1
                 }
             done
     else
-        strings "$tmp_dir/watch-resources.pb" | grep -Fxq "$resource_name" || {
+        awk -v expected="$resource_type/$resource_name" \
+            '$1 == "resource" && $3 == expected { found = 1 } END { exit !found }' \
+            "$tmp_dir/watch-resources.txt" || {
             echo "WFF AAB не содержит manifest-selected watchface resource: $resource_path" >&2
             exit 1
         }
