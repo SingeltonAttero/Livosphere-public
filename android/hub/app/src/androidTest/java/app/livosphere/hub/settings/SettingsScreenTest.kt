@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -94,5 +95,20 @@ class SettingsScreenTest {
         composeRule.onNodeWithTag("settings-help-toggle").performClick()
         composeRule.onNodeWithTag("settings-help").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-about-toggle").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun unavailableReleaseNoteIsNotPresentedAsDismissed() {
+        composeRule.setContent {
+            LivosphereTheme {
+                SettingsScreen(
+                    touchReactionsEnabled = true,
+                    onTouchReactionsChanged = {},
+                    releaseNoteVisible = null,
+                )
+            }
+        }
+        composeRule.onNodeWithTag("settings-whats-new-toggle").performClick()
+        composeRule.onNodeWithTag("settings-whats-new-unavailable").assertIsDisplayed()
+        composeRule.onNodeWithText("Заметка этой версии уже закрыта.").assertDoesNotExist()
     }
 }

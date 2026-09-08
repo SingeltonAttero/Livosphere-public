@@ -185,8 +185,8 @@ fun HubApp(
                                 onWallpaperMotionChanged = viewModel::setWallpaperMotionMode,
                                 hubMotionMode = hubMotion,
                                 onHubMotionChanged = viewModel::setHubMotionMode,
-                                releaseNoteVisible = hubMotion != null && installedVersionName != null &&
-                                    dismissedReleaseVersion != installedVersionName,
+                                releaseNoteVisible = if (hubMotion == null || installedVersionName == null) null
+                                else dismissedReleaseVersion != installedVersionName,
                                 installedVersionName = displayedVersionName,
                                 onReleaseNoteDismissed = { installedVersionName?.let(viewModel::dismissReleaseNote) },
                             )

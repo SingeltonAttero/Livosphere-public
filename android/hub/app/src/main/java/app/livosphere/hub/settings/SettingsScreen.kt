@@ -42,7 +42,8 @@ internal fun SettingsScreen(
     onWallpaperMotionChanged: (WallpaperMotionMode) -> Unit = {},
     hubMotionMode: HubMotionMode? = null,
     onHubMotionChanged: (HubMotionMode) -> Unit = {},
-    releaseNoteVisible: Boolean = false,
+    /** null means the persisted acknowledgement is unavailable, not that it was dismissed. */
+    releaseNoteVisible: Boolean? = null,
     installedVersionName: String = "0.1.0",
     onReleaseNoteDismissed: () -> Unit = {},
 ) = HubSectionScreen(
@@ -63,12 +64,20 @@ internal fun SettingsScreen(
         else MotionChoice("hub-motion", hubMotionMode, HubMotionMode.entries.toList(), { stringResource(it.labelResource) }, onHubMotionChanged)
     }
     ExpandableSetting("settings-whats-new", R.string.settings_whats_new_title, R.string.settings_whats_new_summary) {
-        if (releaseNoteVisible) {
-            Text(stringResource(R.string.settings_whats_new_body, installedVersionName), style = MaterialTheme.typography.bodyMedium)
-            TextButton(onClick = onReleaseNoteDismissed, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(stringResource(R.string.settings_whats_new_dismiss))
+        when (releaseNoteVisible) {
+            true -> {
+                Text(stringResource(R.string.settings_whats_new_body, installedVersionName), style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = onReleaseNoteDismissed, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(stringResource(R.string.settings_whats_new_dismiss))
+                }
             }
-        } else Text(stringResource(R.string.settings_whats_new_dismissed), style = MaterialTheme.typography.bodyMedium)
+            false -> Text(stringResource(R.string.settings_whats_new_dismissed), style = MaterialTheme.typography.bodyMedium)
+            null -> Text(
+                stringResource(R.string.settings_whats_new_unavailable),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.semantics { testTag = "settings-whats-new-unavailable" },
+            )
+        }
     }
     ExpandableSetting("settings-help", R.string.settings_help_title, R.string.settings_help_summary) {
         Text(stringResource(R.string.settings_help_body), style = MaterialTheme.typography.bodyMedium)
