@@ -3,14 +3,17 @@ package app.livosphere.hub
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -43,6 +46,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import app.livosphere.hub.wallpaper.*
@@ -214,57 +218,71 @@ fun HubApp(
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun HubBottomNavigation(
     selectedSection: HubSection,
     onSectionSelected: (HubSection) -> Unit,
 ) {
+    val largeText = LocalDensity.current.fontScale >= 1.3f
     Surface(color = MaterialTheme.colorScheme.surface) {
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            Row(
-                modifier = Modifier
-                    .widthIn(max = 720.dp)
-                    .fillMaxWidth()
-                    .selectableGroup()
+            if (largeText) {
+                FlowRow(
+                    modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth().selectableGroup()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                ) {
+                    HubSection.entries.forEach { section ->
+                        HubBottomNavigationItem(section, section == selectedSection, onSectionSelected,
+                            Modifier.width(IntrinsicSize.Min))
+                    }
+                }
+            } else Row(
+                modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth().selectableGroup()
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 HubSection.entries.forEach { section ->
-                    val selected = section == selectedSection
-                    val shape = RoundedCornerShape(16.dp)
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 4.dp)
-                            .heightIn(min = 56.dp)
-                            .clip(shape)
-                            .background(
-                                if (selected) HubSelected else MaterialTheme.colorScheme.surface,
-                            )
-                            .selectable(
-                                selected = selected,
-                                role = Role.Tab,
-                                onClick = { onSectionSelected(section) },
-                            )
-                            .semantics {
-                                testTag = "hub-nav-${section.testName}"
-                            }
-                            .padding(horizontal = 8.dp, vertical = 12.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = stringResource(section.labelResource),
-                            color = if (selected) HubPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
+                    HubBottomNavigationItem(section, section == selectedSection, onSectionSelected,
+                        Modifier.weight(1f).padding(horizontal = 4.dp))
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun HubBottomNavigationItem(
+    section: HubSection,
+    selected: Boolean,
+    onSectionSelected: (HubSection) -> Unit,
+    modifier: Modifier,
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Box(
+        modifier = modifier
+            .heightIn(min = 56.dp)
+            .clip(shape)
+            .background(if (selected) HubSelected else MaterialTheme.colorScheme.surface)
+            .selectable(selected = selected, role = Role.Tab, onClick = { onSectionSelected(section) })
+            .semantics { testTag = "hub-nav-${section.testName}" }
+            .padding(horizontal = 8.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(section.labelResource),
+            color = if (selected) HubPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = false,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.semantics { testTag = "hub-nav-label-${section.testName}" },
+        )
     }
 }
 
