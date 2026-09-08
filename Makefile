@@ -87,5 +87,6 @@ evidence-validator-check:
 	./android/scripts/test-validate-sp02-evidence.sh
 	./android/scripts/test-run-wff-sp02-preflight.sh
 
-release-pipeline-test:
+release-pipeline-test: doctor
+	$(GRADLE) :hub:app:assembleDebug :hub:app:bundleDebug :watchfaces:contour-wff:assembleDebug :watchfaces:contour-wff:bundleDebug
 	./android/scripts/test-release-pipeline.sh
