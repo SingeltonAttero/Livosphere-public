@@ -2,6 +2,7 @@ package app.livosphere.hub
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
@@ -29,6 +29,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +41,7 @@ import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -224,31 +227,78 @@ private fun HubBottomNavigation(
     selectedSection: HubSection,
     onSectionSelected: (HubSection) -> Unit,
 ) {
-    val largeText = LocalDensity.current.fontScale >= 1.3f
     Surface(color = MaterialTheme.colorScheme.surface) {
-        Box(
+        BoxWithConstraints(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
         ) {
-            if (largeText) {
+            // Keep the approved equal-width row only while all real localized labels fit into
+            // its text slots. Dynamic font scale is not a reliable proxy for that condition.
+            val labelStyle = MaterialTheme.typography.labelLarge.copy(
+                fontWeight = FontWeight.SemiBold,
+            )
+            val textMeasurer = rememberTextMeasurer()
+            val navigationWidth = minOf(maxWidth, 720.dp)
+            val equalRowTextWidth = ((navigationWidth - 24.dp) / 3 - 24.dp).coerceAtLeast(0.dp)
+            val labelLayouts = HubSection.entries.associateWith { section ->
+                textMeasurer.measure(
+                    text = AnnotatedString(stringResource(section.labelResource)),
+                    style = labelStyle,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
+            val equalRowFits = with(LocalDensity.current) {
+                val available = equalRowTextWidth.roundToPx()
+                HubSection.entries.all { section ->
+                    labelLayouts.getValue(section).size.width + 1 <= available
+                }
+            }
+            val flowLabelSizes = with(LocalDensity.current) {
+                HubSection.entries.associateWith { section ->
+                    labelLayouts.getValue(section).size.let { size ->
+                        size.width.toDp() to size.height.toDp()
+                    }
+                }
+            }
+            if (!equalRowFits) {
                 FlowRow(
-                    modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth().selectableGroup()
+                    modifier = Modifier
+                        .widthIn(max = 720.dp)
+                        .fillMaxWidth()
+                        .selectableGroup()
                         .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
+                        8.dp,
+                        Alignment.CenterHorizontally,
+                    ),
                     verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
                 ) {
                     HubSection.entries.forEach { section ->
-                        HubBottomNavigationItem(section, section == selectedSection, onSectionSelected,
-                            Modifier.width(IntrinsicSize.Min))
+                        HubBottomNavigationItem(
+                            section = section,
+                            selected = section == selectedSection,
+                            onSectionSelected = onSectionSelected,
+                            modifier = Modifier.width(flowLabelSizes.getValue(section).first + 24.dp),
+                            minHeight = flowLabelSizes.getValue(section).second + 26.dp,
+                        )
                     }
                 }
             } else Row(
-                modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth().selectableGroup()
+                modifier = Modifier
+                    .widthIn(max = 720.dp)
+                    .fillMaxWidth()
+                    .selectableGroup()
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 HubSection.entries.forEach { section ->
-                    HubBottomNavigationItem(section, section == selectedSection, onSectionSelected,
-                        Modifier.weight(1f).padding(horizontal = 4.dp))
+                    HubBottomNavigationItem(
+                        section = section,
+                        selected = section == selectedSection,
+                        onSectionSelected = onSectionSelected,
+                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+                        minHeight = flowLabelSizes.getValue(section).second + 26.dp,
+                    )
                 }
             }
         }
@@ -261,11 +311,12 @@ private fun HubBottomNavigationItem(
     selected: Boolean,
     onSectionSelected: (HubSection) -> Unit,
     modifier: Modifier,
+    minHeight: Dp,
 ) {
     val shape = RoundedCornerShape(16.dp)
     Box(
         modifier = modifier
-            .heightIn(min = 56.dp)
+            .heightIn(min = maxOf(56.dp, minHeight))
             .clip(shape)
             .background(if (selected) HubSelected else MaterialTheme.colorScheme.surface)
             .selectable(selected = selected, role = Role.Tab, onClick = { onSectionSelected(section) })
@@ -279,9 +330,10 @@ private fun HubBottomNavigationItem(
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             textAlign = TextAlign.Center,
             maxLines = 1,
-            softWrap = false,
+            softWrap = true,
             style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.semantics { testTag = "hub-nav-label-${section.testName}" },
+            modifier = Modifier.fillMaxWidth()
+                .semantics { testTag = "hub-nav-label-${section.testName}" },
         )
     }
 }

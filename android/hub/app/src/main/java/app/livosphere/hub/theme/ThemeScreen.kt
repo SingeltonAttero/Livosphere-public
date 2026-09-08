@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -72,6 +74,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.livosphere.R
@@ -171,6 +174,7 @@ private fun ProductHeader() {
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun SurfaceSelector(
     selectedSurface: HubSurface,
@@ -184,81 +188,146 @@ private fun SurfaceSelector(
     )
     val surfaceColor = MaterialTheme.colorScheme.surface
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .selectableGroup()
-            .drawBehind {
-                val gap = 8.dp.toPx()
-                val itemWidth = (size.width - gap) / 2f
-                val radius = CornerRadius(12.dp.toPx())
-                repeat(2) { index ->
-                    drawRoundRect(
-                        surfaceColor,
-                        Offset(index * (itemWidth + gap), 0f),
-                        Size(itemWidth, size.height),
-                        radius,
-                    )
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val labelStyle = MaterialTheme.typography.bodyLarge.copy(
+            fontWeight = FontWeight.SemiBold,
+        )
+        val textMeasurer = rememberTextMeasurer()
+        val equalRowTextWidth = ((maxWidth - 8.dp) / 2 - 24.dp).coerceAtLeast(0.dp)
+        val labelLayouts = HubSurface.entries.associateWith { surface ->
+            textMeasurer.measure(
+                text = AnnotatedString(stringResource(surface.labelResource)),
+                style = labelStyle,
+                maxLines = 1,
+                softWrap = false,
+            )
+        }
+        val equalRowFits = with(LocalDensity.current) {
+            val available = equalRowTextWidth.roundToPx()
+            HubSurface.entries.all { surface ->
+                labelLayouts.getValue(surface).size.width + 1 <= available
+            }
+        }
+        val flowLabelSizes = with(LocalDensity.current) {
+            HubSurface.entries.associateWith { surface ->
+                labelLayouts.getValue(surface).size.let { size ->
+                    size.width.toDp() to size.height.toDp()
                 }
-                val position = if (reduced) selectedSurface.ordinal.toFloat() else highlight
-                drawRoundRect(
-                    HubSelected,
-                    Offset((if (rtl) 1f - position else position) * (itemWidth + gap), 0f),
-                    Size(itemWidth, size.height),
-                    radius,
+            }
+        }
+        if (equalRowFits) Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableGroup()
+                .drawBehind {
+                    val gap = 8.dp.toPx()
+                    val itemWidth = (size.width - gap) / 2f
+                    val radius = CornerRadius(12.dp.toPx())
+                    repeat(2) { index ->
+                        drawRoundRect(surfaceColor, Offset(index * (itemWidth + gap), 0f),
+                            Size(itemWidth, size.height), radius)
+                    }
+                    val position = if (reduced) selectedSurface.ordinal.toFloat() else highlight
+                    drawRoundRect(HubSelected,
+                        Offset((if (rtl) 1f - position else position) * (itemWidth + gap), 0f),
+                        Size(itemWidth, size.height), radius)
+                }
+                .semantics { testTag = "theme-surface-selector" },
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            HubSurface.entries.forEach { surface ->
+                SurfaceSelectorItem(
+                    surface = surface,
+                    selected = surface == selectedSurface,
+                    onSurfaceSelected = onSurfaceSelected,
+                    modifier = Modifier.weight(1f),
+                    ownContainer = false,
+                    minHeight = flowLabelSizes.getValue(surface).second + 30.dp,
                 )
             }
-            .semantics { testTag = "theme-surface-selector" },
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        HubSurface.entries.forEach { surface ->
-            val selected = surface == selectedSurface
-            var focused by remember { mutableStateOf(false) }
-            var focusAfterSelection by remember { mutableStateOf(false) }
-            val focusRequester = remember(surface) { FocusRequester() }
-            val shape = RoundedCornerShape(12.dp)
-            LaunchedEffect(selected, focusAfterSelection) {
-                if (selected && focusAfterSelection) {
-                    focusRequester.requestFocus()
-                    focusAfterSelection = false
-                }
-            }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 52.dp)
-                    .clip(shape)
-                    .border(
-                        width = if (focused) 2.dp else 1.dp,
-                        color = if (focused) HubPrimary else HubControlBorder,
-                        shape = shape,
-                    )
-                    .focusRequester(focusRequester)
-                    .onFocusChanged { focused = it.isFocused }
-                    .selectable(
-                        selected = selected,
-                        role = Role.RadioButton,
-                        onClick = {
-                            focusAfterSelection = true
-                            onSurfaceSelected(surface)
-                        },
-                    )
-                    .semantics {
-                        this.selected = selected
-                        testTag = "theme-surface-${surface.testName}"
-                    }
-                    .padding(horizontal = 12.dp, vertical = 14.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = stringResource(surface.labelResource),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyLarge,
+        } else FlowRow(
+            modifier = Modifier.fillMaxWidth().selectableGroup()
+                .semantics { testTag = "theme-surface-selector" },
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            HubSurface.entries.forEach { surface ->
+                SurfaceSelectorItem(
+                    surface = surface,
+                    selected = surface == selectedSurface,
+                    onSurfaceSelected = onSurfaceSelected,
+                    modifier = Modifier.width(flowLabelSizes.getValue(surface).first + 32.dp),
+                    ownContainer = true,
+                    minHeight = flowLabelSizes.getValue(surface).second + 30.dp,
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SurfaceSelectorItem(
+    surface: HubSurface,
+    selected: Boolean,
+    onSurfaceSelected: (HubSurface) -> Unit,
+    modifier: Modifier,
+    ownContainer: Boolean,
+    minHeight: Dp,
+) {
+    var focused by remember { mutableStateOf(false) }
+    var focusAfterSelection by remember { mutableStateOf(false) }
+    val focusRequester = remember(surface) { FocusRequester() }
+    val shape = RoundedCornerShape(12.dp)
+    LaunchedEffect(selected, focusAfterSelection) {
+        if (selected && focusAfterSelection) {
+            focusRequester.requestFocus()
+            focusAfterSelection = false
+        }
+    }
+    Box(
+        modifier = modifier
+            .heightIn(min = maxOf(52.dp, minHeight))
+            .clip(shape)
+            .then(
+                if (ownContainer) {
+                    Modifier.background(if (selected) HubSelected else MaterialTheme.colorScheme.surface)
+                } else {
+                    Modifier
+                },
+            )
+            .border(
+                width = if (focused) 2.dp else 1.dp,
+                color = if (focused) HubPrimary else HubControlBorder,
+                shape = shape,
+            )
+            .focusRequester(focusRequester)
+            .onFocusChanged { focused = it.isFocused }
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = {
+                    focusAfterSelection = true
+                    onSurfaceSelected(surface)
+                },
+            )
+            .semantics {
+                this.selected = selected
+                testTag = "theme-surface-${surface.testName}"
+            }
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(surface.labelResource),
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = true,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.fillMaxWidth()
+                .semantics { testTag = "theme-surface-label-${surface.testName}" },
+        )
     }
 }
 

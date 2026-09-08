@@ -25,14 +25,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 
 @RunWith(Parameterized::class)
-class HubLargeTextNavigationTest(private val width: Int) {
+class HubLargeTextNavigationTest(private val width: Int, private val fontScale: Float) {
     @get:Rule val composeRule = createComposeRule()
 
-    @Test fun largeTextKeepsEveryNavigationLabelWhole() {
+    @Test fun adaptiveTextKeepsEveryNavigationLabelWhole() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         composeRule.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(width.dp, 812.dp))) {
-                DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(2f)) {
+                DeviceConfigurationOverride(DeviceConfigurationOverride.FontScale(fontScale)) {
                     HubApp(rememberTestHubViewModel(), onExit = {})
                 }
             }
@@ -51,14 +51,35 @@ class HubLargeTextNavigationTest(private val width: Int) {
             composeRule.onNodeWithTag("hub-nav-label-$section", useUnmergedTree = true)
                 .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
             val layout = layouts.single()
-            assertEquals("$section at ${width}dp", 1, layout.lineCount)
-            assertFalse("$section at ${width}dp overflows", layout.hasVisualOverflow)
+            assertEquals("$section at ${width}dp/font$fontScale", 1, layout.lineCount)
+            assertFalse("$section at ${width}dp/font$fontScale overflows: size=${layout.size}, " +
+                "width=${layout.didOverflowWidth}, height=${layout.didOverflowHeight}", layout.hasVisualOverflow)
+        }
+        listOf(
+            "wallpaper" to R.string.hub_surface_wallpaper,
+            "watchface" to R.string.hub_surface_watchface,
+        ).forEach { (surface, label) ->
+            composeRule.onNodeWithTag("theme-surface-$surface")
+                .assertIsDisplayed()
+                .assertTextEquals(context.getString(label))
+                .assertWidthIsAtLeast(48.dp)
+                .assertHeightIsAtLeast(48.dp)
+            val layouts = mutableListOf<TextLayoutResult>()
+            composeRule.onNodeWithTag("theme-surface-label-$surface", useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            val layout = layouts.single()
+            assertEquals("$surface at ${width}dp/font$fontScale", 1, layout.lineCount)
+            assertFalse("$surface at ${width}dp/font$fontScale overflows: size=${layout.size}, " +
+                "width=${layout.didOverflowWidth}, height=${layout.didOverflowHeight}", layout.hasVisualOverflow)
         }
         composeRule.onNodeWithTag("theme-primary-action").performScrollTo().assertIsDisplayed()
     }
 
     companion object {
-        @JvmStatic @Parameterized.Parameters(name = "{0}dp-font2")
-        fun widths(): List<Array<Any>> = listOf(arrayOf(320), arrayOf(480))
+        @JvmStatic @Parameterized.Parameters(name = "{0}dp-font{1}")
+        fun viewports(): List<Array<Any>> = listOf(
+            arrayOf(320, 1f), arrayOf(320, 1.2f), arrayOf(320, 2f),
+            arrayOf(480, 1f), arrayOf(480, 1.2f), arrayOf(480, 2f),
+        )
     }
 }
