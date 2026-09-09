@@ -6,6 +6,7 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.provider.ListProperty;
+import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Internal;
@@ -13,6 +14,15 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 
 public abstract class AbstractSetTask extends DefaultTask {
+    public AbstractSetTask() { getBuildType().convention("debug"); }
+
+    @Input
+    public abstract Property<String> getBuildType();
+
+    protected final VariantContentSelection selection() {
+        return SetContractEngine.select(resolvedManifestPaths(), getBuildType().get());
+    }
+
     @Input
     public abstract ListProperty<String> getManifestPaths();
 

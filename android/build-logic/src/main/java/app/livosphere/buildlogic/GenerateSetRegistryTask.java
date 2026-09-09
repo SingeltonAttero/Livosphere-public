@@ -10,6 +10,6 @@ public abstract class GenerateSetRegistryTask extends AbstractSetTask {
 
     @TaskAction
     public final void generate() {
-        SetContractEngine.generateRegistry(resolvedManifestPaths(), getOutputDirectory().get().getAsFile().toPath());
+        SetContractEngine.generateRegistry(selection(), getOutputDirectory().get().getAsFile().toPath());
     }
 }

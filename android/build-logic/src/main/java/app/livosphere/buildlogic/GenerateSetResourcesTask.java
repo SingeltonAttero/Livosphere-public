@@ -18,7 +18,7 @@ public abstract class GenerateSetResourcesTask extends AbstractSetTask {
 
     @TaskAction
     public final void generate() {
-        SetContractEngine.generateResources(resolvedManifestPaths(), getSetId().get(), getSurface().get(),
+        SetContractEngine.generateResources(selection(), getSetId().get(), getSurface().get(),
                 getOutputDirectory().get().getAsFile().toPath());
     }
 }

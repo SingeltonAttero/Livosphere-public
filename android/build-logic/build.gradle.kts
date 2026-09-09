@@ -52,4 +52,7 @@ tasks.test {
         systemProperty("livosphere.testKitPluginClasspath", testKitPlugins.asPath)
     }
     systemProperty("livosphere.contractSource", contractSource.absolutePath)
+    val packagingEvidence = layout.buildDirectory.dir("reports/variant-packaging")
+    outputs.dir(packagingEvidence)
+    systemProperty("livosphere.packagingEvidence", packagingEvidence.get().asFile.absolutePath)
 }

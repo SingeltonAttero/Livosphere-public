@@ -19,13 +19,22 @@ final class SetContractEngine {
         return SetManifestReader.readAll(manifestPaths);
     }
 
+    static VariantContentSelection select(List<Path> manifestPaths, String buildType) {
+        return VariantContentSelection.select(validate(manifestPaths), buildType);
+    }
+
     static void generateResources(List<Path> manifestPaths, String setId, String surface, Path outputDirectory) {
-        List<SetManifest> manifests = validate(manifestPaths);
+        generateResources(select(manifestPaths, "debug"), setId, surface, outputDirectory);
+    }
+
+    static void generateResources(VariantContentSelection selection, String setId, String surface, Path outputDirectory) {
+        selection.requireNonEmpty();
+        List<SetManifest> manifests = selection.selected();
         SetManifest manifest = manifests.stream()
                 .filter(candidate -> candidate.setId().equals(setId))
                 .findFirst()
                 .orElseThrow(() -> new GradleException(
-                        "Set '" + setId + "' не найден среди явно подключённых manifests: " + manifestPaths));
+                        "Set '" + setId + "' не найден среди явно подключённых manifests: " + manifests));
         SetManifest.Contribution contribution = manifest.contributionFor(surface);
         recreate(outputDirectory);
         contribution.assets().stream()
@@ -56,7 +65,12 @@ final class SetContractEngine {
     }
 
     static void generateRegistry(List<Path> manifestPaths, Path outputDirectory) {
-        List<SetManifest> selected = validate(manifestPaths);
+        generateRegistry(select(manifestPaths, "debug"), outputDirectory);
+    }
+
+    static void generateRegistry(VariantContentSelection selection, Path outputDirectory) {
+        selection.requireNonEmpty();
+        List<SetManifest> selected = selection.selected();
         recreate(outputDirectory);
         Path output = outputDirectory.resolve("app/livosphere/generated/GeneratedSetRegistry.kt");
         String entries = selected.stream().sorted(Comparator.comparing(SetManifest::setId))

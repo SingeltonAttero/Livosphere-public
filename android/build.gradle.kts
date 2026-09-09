@@ -133,12 +133,13 @@ tasks.register("verifyModuleGraph") {
         val expected = mapOf(
             ":hub:app" to setOf(
                 "implementation" to ":hub:domain",
-                "implementation" to ":wallpapers:contour",
-                "implementation" to ":wallpapers:fixture",
+                "debugImplementation" to ":wallpapers:contour",
+                "debugImplementation" to ":wallpapers:fixture",
                 "implementation" to ":core:settings",
-                "implementation" to ":sets:fixture:preview",
-                "implementation" to ":sets:fixture:clock-widget",
-                "implementation" to ":sets:contour:preview",
+                "implementation" to ":wallpapers:engine",
+                "debugImplementation" to ":sets:fixture:preview",
+                "debugImplementation" to ":sets:fixture:clock-widget",
+                "debugImplementation" to ":sets:contour:preview",
                 "testImplementation" to ":core:testing",
                 "androidTestImplementation" to ":wallpapers:engine",
             ),
@@ -222,16 +223,16 @@ tasks.register("verifyModuleGraph") {
         }
 
         val realPackagePredecessors = mapOf(
-            ":hub:app:assembleDebug" to listOf(":hub:app:validateSetRegistry", ":hub:app:generateSetRegistry"),
+            ":hub:app:assembleDebug" to listOf(":hub:app:validateDebugSetRegistry", ":hub:app:generateDebugSetRegistry"),
             ":sets:contour:preview:assembleDebug" to listOf(
-                ":sets:contour:preview:validateSetContract", ":sets:contour:preview:generateSetResources"),
+                ":sets:contour:preview:validateDebugSetContract", ":sets:contour:preview:generateDebugSetResources"),
             ":wallpapers:contour:assembleDebug" to listOf(
-                ":wallpapers:contour:validateSetContract", ":wallpapers:contour:generateSetResources"),
+                ":wallpapers:contour:validateDebugSetContract", ":wallpapers:contour:generateDebugSetResources"),
             ":watchfaces:contour-wff:bundleDebug" to listOf(
-                ":watchfaces:contour-wff:validateSetContract", ":watchfaces:contour-wff:generateSetResources"),
+                ":watchfaces:contour-wff:validateDebugSetContract", ":watchfaces:contour-wff:generateDebugSetResources"),
         )
         val fixturePackagePredecessors = listOf(":wallpapers:fixture", ":sets:fixture:preview", ":sets:fixture:clock-widget")
-            .associate { "$it:assembleDebug" to listOf("$it:validateSetContract", "$it:generateSetResources") }
+            .associate { "$it:assembleDebug" to listOf("$it:validateDebugSetContract", "$it:generateDebugSetResources") }
         (realPackagePredecessors + fixturePackagePredecessors).forEach { (packageTaskPath, requiredTasks) ->
             requiredTasks.forEach { required ->
                 check(required in packageDependencySnapshot.getValue(packageTaskPath)) {

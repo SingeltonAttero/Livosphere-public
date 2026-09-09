@@ -1,0 +1,255 @@
+package app.livosphere.buildlogic;
+
+import static org.junit.Assert.*;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+import org.gradle.api.GradleException;
+import org.gradle.testkit.runner.BuildResult;
+import org.gradle.testkit.runner.GradleRunner;
+import org.gradle.testkit.runner.TaskOutcome;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+
+/** All public sentinels live only in JUnit's temporary test.livosphere.packaging application. */
+public class VariantContentPackagingTest {
+    @Rule public TemporaryFolder temporary = new TemporaryFolder();
+
+    @Test public void releaseSelectionUsesOnePolicyAndEmptyGuardIsDeferred() throws Exception {
+        Path root = temporary.newFolder().toPath();
+        Path draft = PhoneSetFixture.create(root, "draft-set");
+        Path approvedDebug = PhoneSetFixture.create(root, "approved-debug");
+        replace(approvedDebug, "contentStatus=draft", "contentStatus=html-approved");
+        PhoneSetFixture.approval(approvedDebug, "image"); PhoneSetFixture.approval(approvedDebug, "html");
+        Path publicSet = compilablePublic(root, "public-sentinel");
+        var all = List.of(draft, approvedDebug, publicSet);
+        assertEquals(3, SetContractEngine.select(all, "debug").selected().size());
+        assertEquals(List.of("public-sentinel"), SetContractEngine.select(all, "release").selected().stream().map(SetManifest::setId).toList());
+        assertEquals(List.of("public-sentinel"), SetContractEngine.select(all, "benchmark").selected().stream().map(SetManifest::setId).toList());
+        var empty = SetContractEngine.select(List.of(draft, approvedDebug), "release");
+        assertTrue(empty.selected().isEmpty());
+        try { empty.requireNonEmpty(); fail(); } catch (GradleException e) { assertTrue(e.getMessage().contains("empty public content closure")); }
+    }
+
+    @Test public void debugReleaseDebugPackagesOnlyItsClosureAndDetectsConcreteSentinelLeaks() throws Exception {
+        Path root = packagingProject();
+        BuildResult debug = run(root, ":app:assembleDebug").build();
+        assertEquals(TaskOutcome.SUCCESS, debug.task(":app:auditDebugSetApk").getOutcome());
+        String debugInventory = report(root, "debug", "inventory.txt");
+        assertTrue(debugInventory.contains("selected=[debug-sentinel, public-sentinel]"));
+        Path debugRegistry = root.resolve("app/build/generated/kotlin/generateDebugSetRegistry/app/livosphere/generated/GeneratedSetRegistry.kt");
+        String before = Files.readString(debugRegistry);
+        assertTrue(before.contains("SetId(\"debug-sentinel\")"));
+        BuildResult release = run(root, ":app:bundleRelease").build();
+        assertEquals(TaskOutcome.SUCCESS, release.task(":app:auditReleaseSetApk").getOutcome());
+        Path candidate = root.resolve("app/build/outputs/apk/release/app-release-unsigned.apk");
+        String candidateHash = PhoneSetFixture.hash(candidate);
+        Path generatedMetadata = root.resolve("app/build/generated/kotlin/generateReleaseSetRegistry/app/livosphere/generated/GeneratedSetRegistry.kt");
+        String metadataHash = PhoneSetFixture.hash(generatedMetadata);
+        Path externalAttestation = write(root.resolve("external-attestations/" + candidateHash + ".properties"),
+                "artifactSha256=" + candidateHash + "\nnative=UNKNOWN\nquality=UNKNOWN\n");
+        Files.writeString(externalAttestation, "artifactSha256=" + candidateHash
+                + "\nnative=SYNTHETIC-TEST-RECORD\nquality=SYNTHETIC-TEST-RECORD\n");
+        BuildResult attestationChanged = run(root, ":app:assembleRelease").build();
+        assertEquals(TaskOutcome.UP_TO_DATE, attestationChanged.task(":app:generateReleaseSetRegistry").getOutcome());
+        assertEquals(candidateHash, PhoneSetFixture.hash(candidate));
+        assertEquals(metadataHash, PhoneSetFixture.hash(generatedMetadata));
+        try (java.util.zip.ZipFile packaged = new java.util.zip.ZipFile(candidate.toFile())) {
+            assertTrue(packaged.stream().noneMatch(e -> e.getName().contains("attestation") || e.getName().contains("approvals")));
+        }
+        String releaseResources = report(root, "release", "app-release-unsigned.apk-resources.txt");
+        assertTrue(releaseResources.contains("layout/ls_public_sentinel_clock_widget_s"));
+        assertFalse(releaseResources.contains("ls_debug_sentinel"));
+        String releaseDex = report(root, "release", "app-release-unsigned.apk-dex-types.txt");
+        assertTrue(releaseDex.contains("test.public_sentinel.WallpaperService"));
+        assertFalse(releaseDex.contains("test.debug_sentinel"));
+        assertFalse(releaseDex.contains("test.hidden.Payload"));
+        Path evidence = Path.of(System.getProperty("livosphere.packagingEvidence"));
+        Files.createDirectories(evidence);
+        Files.deleteIfExists(evidence.resolve("sentinel-rejections.txt"));
+        Files.writeString(evidence.resolve("external-attestation.txt"), "PASS external native/quality record changed; APK and generated registry unchanged\n"
+                + "applicationId=test.livosphere.packaging\nartifactSha256=" + candidateHash + "\nmetadataSha256=" + metadataHash + "\nSynthetic test records do not provide native or quality acceptance.\n");
+        for (String name : List.of("inventory.txt", "app-release-unsigned.apk-audit.txt", "app-release-unsigned.apk-manifest.txt",
+                "app-release-unsigned.apk-resources.txt", "app-release-unsigned.apk-dex-types.txt", "app-release-unsigned.apk-registry-strings.txt")) {
+            Files.copy(root.resolve("app/build/reports/set-content/release/" + name), evidence.resolve(name), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        Files.writeString(evidence.resolve("README.txt"), "Temporary TestKit applicationId=test.livosphere.packaging only.\nSynthetic public/html approvals do not approve production art. No sentinel APK is exported.\n");
+        // Migration metadata may retain a logical ID; it must not count as a GeneratedSetRegistry entry.
+        assertTrue(releaseDex.contains("test.shell.LegacyMigration"));
+        BuildResult again = run(root, ":app:assembleDebug").build();
+        assertEquals(TaskOutcome.UP_TO_DATE, again.task(":app:generateDebugSetRegistry").getOutcome());
+        assertEquals(before, Files.readString(debugRegistry));
+        assertFalse(Files.readString(root.resolve("app/build/generated/kotlin/generateReleaseSetRegistry/app/livosphere/generated/GeneratedSetRegistry.kt")).contains("SetId(\"debug-sentinel\")"));
+
+        // Each mutation changes the actual release artifact; no generator-string-only test can pass these.
+        Path releaseSource = root.resolve("app/src/release");
+        Path values = write(releaseSource.resolve("res/values/leak.xml"), "<resources><string name=\"ls_debug_sentinel_wallpaper_private_title\">LEAK</string></resources>");
+        assertAuditFailure(root, "Excluded resource in APK: string/ls_debug_sentinel_wallpaper_private_title"); Files.delete(values);
+        Path layout = write(releaseSource.resolve("res/layout/ls_debug_sentinel_clock_widget_hidden.xml"), "<FrameLayout xmlns:android=\"http://schemas.android.com/apk/res/android\" android:layout_width=\"match_parent\" android:layout_height=\"match_parent\"/>");
+        assertAuditFailure(root, "Excluded resource in APK: layout/ls_debug_sentinel_clock_widget_hidden"); Files.delete(layout);
+        Path preview = releaseSource.resolve("res/drawable-nodpi/ls_debug_sentinel_preview_wallpaper.png");
+        Files.createDirectories(preview.getParent()); Files.copy(root.resolve("sets/debug-sentinel/source-assets/preview/drawable-nodpi/ls_debug_sentinel_preview_wallpaper.png"), preview);
+        assertAuditFailure(root, "Excluded resource in APK: drawable/ls_debug_sentinel_preview_wallpaper"); Files.delete(preview);
+        Path provider = write(releaseSource.resolve("AndroidManifest.xml"), "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"><application><provider android:name=\"test.debug_sentinel.HiddenProvider\" android:authorities=\"test.sentinel.leak\" android:exported=\"false\"/></application></manifest>");
+        assertAuditFailure(root, "Excluded manifest component in APK: test.debug_sentinel.HiddenProvider"); Files.delete(provider);
+        Path payload = write(releaseSource.resolve("java/test/hidden/Payload.java"), "package test.hidden; public class Payload { public static String data() { return \"LEAK\"; } }");
+        assertAuditFailure(root, "Excluded DEX class in APK: test.hidden.Payload"); Files.delete(payload);
+        Path transit = write(releaseSource.resolve("res/values/transitive.xml"), "<resources><string name=\"hidden_transitive_title\">LEAK</string></resources>");
+        assertAuditFailure(root, "Excluded resource in APK: string/hidden_transitive_title"); Files.delete(transit);
+        Path assets = write(releaseSource.resolve("assets/private-payload.txt"), "LEAK");
+        assertAuditFailure(root, "Excluded asset in APK: assets/private-payload.txt"); Files.delete(assets);
+
+        Path appBuild = root.resolve("app/build.gradle");
+        String normalBuild = Files.readString(appBuild);
+        Files.writeString(appBuild, normalBuild + """
+                tasks.matching { it.name == 'generateReleaseSetRegistry' }.configureEach {
+                    outputs.upToDateWhen { false }
+                    doLast {
+                        def registry = outputDirectory.file('app/livosphere/generated/GeneratedSetRegistry.kt').get().asFile
+                        registry.text = registry.text.replace('SetId("public-sentinel")', 'SetId("debug-sentinel")')
+                    }
+                }
+                """);
+        assertAuditFailure(root, "Selected entry missing from registry DEX: public-sentinel");
+        Files.writeString(appBuild, normalBuild);
+
+        // Public -> bridge -> excluded contribution fails the real resolved runtime graph before packaging.
+        Files.writeString(root.resolve("bridge/build.gradle"), "\ndependencies { api project(':sets:debug-sentinel:preview') }\n", java.nio.file.StandardOpenOption.APPEND);
+        Files.writeString(root.resolve("sets/public-sentinel/wallpaper/build.gradle"), "\ndependencies { implementation project(':bridge') }\n", java.nio.file.StandardOpenOption.APPEND);
+        BuildResult transitive = run(root, ":app:validateReleaseSetRegistry").buildAndFail();
+        assertTrue(transitive.getOutput(), transitive.getOutput().contains("Excluded contribution in transitive release runtime graph"));
+        assertEquals(TaskOutcome.FAILED, transitive.task(":app:validateReleaseSetRegistry").getOutcome());
+        assertNull(transitive.task(":app:packageRelease"));
+        // A private transitive module cannot be laundered as shared simply by adding a public edge.
+        replace(root.resolve("bridge/build.gradle"), "api project(':sets:debug-sentinel:preview')", "api project(':debug-payload')");
+        BuildResult privateLeak = run(root, ":app:assembleRelease").buildAndFail();
+        assertTrue(privateLeak.getOutput(), privateLeak.getOutput().contains("Excluded contribution in transitive release runtime graph: [:debug-payload]"));
+        assertNull(privateLeak.task(":app:packageRelease"));
+        Files.writeString(evidence.resolve("transitive-rejections.txt"), transitive.getOutput() + "\n" + privateLeak.getOutput());
+    }
+
+    @Test public void realAppWithOnlyDebugContentRejectsReleaseWithoutBlockingDebugConfiguration() throws Exception {
+        Path root = packagingProject();
+        Files.writeString(root.resolve("gradle.properties"), "livosphere.setManifests=sets/debug-sentinel/manifest/set.properties\norg.gradle.jvmargs=-Xmx1g\n");
+        // Unlisted contribution projects intentionally do not apply consumer conventions in this fixture.
+        for (String surface : List.of("preview", "wallpaper", "clock-widget")) {
+            Path build = root.resolve("sets/public-sentinel/" + surface + "/build.gradle");
+            Files.writeString(build, "plugins { id 'com.android.library' }; android { namespace 'test.unselected." + surface.replace('-', '_') + "'; compileSdk 37; defaultConfig { minSdk 29 } }\n");
+        }
+        assertEquals(TaskOutcome.SUCCESS, run(root, ":app:assembleDebug").build().task(":app:auditDebugSetApk").getOutcome());
+        BuildResult failed = run(root, ":app:assembleRelease").buildAndFail();
+        assertTrue(failed.getOutput(), failed.getOutput().contains("empty public content closure"));
+        assertNull(failed.task(":app:packageRelease"));
+        assertFalse(Files.exists(root.resolve("app/build/outputs/apk/release/app-release-unsigned.apk")));
+    }
+
+    @Test public void xmlInventoryRejectsExternalEntitiesAndUnknownReference() throws Exception {
+        Path root = temporary.newFolder().toPath();
+        Path xml = write(root.resolve("unsafe.xml"), "<!DOCTYPE resources [<!ENTITY external SYSTEM 'file:///unread-secret'>]><resources><string name=\"leak\">&external;</string></resources>");
+        try { new SetContentInventory().resource(xml, "values/unsafe.xml"); fail(); }
+        catch (GradleException e) { assertTrue(e.getMessage().contains("Unsafe or invalid resource XML")); }
+        Path layout = write(root.resolve("safe.xml"), "<FrameLayout xmlns:android=\"http://schemas.android.com/apk/res/android\" android:background=\"@drawable/excluded\" android:id=\"@+id/local\"/>");
+        SetContentInventory inventory = new SetContentInventory(); inventory.resource(layout, "layout/safe.xml");
+        assertTrue(inventory.references.contains("drawable/excluded")); assertTrue(inventory.resources.contains("id/local"));
+        SetManifest legacy = SetContractEngine.validate(List.of(Path.of(System.getProperty("livosphere.contourManifest")))).get(0);
+        SetContentInventory excluded = new SetContentInventory();
+        legacy.contributions().forEach(c -> excluded.contribution(legacy, c));
+        assertTrue(excluded.resources.contains("raw/watchface"));
+        assertTrue(excluded.resources.contains("xml/watch_face_info"));
+    }
+
+    private Path packagingProject() throws Exception {
+        Path root = temporary.newFolder().toPath();
+        compilablePublic(root, "public-sentinel"); PhoneSetFixture.create(root, "debug-sentinel");
+        List<String> modules = new ArrayList<>(List.of(":app", ":debug-payload", ":bridge"));
+        for (String id : List.of("public-sentinel", "debug-sentinel")) for (String surface : List.of("preview", "wallpaper", "clock-widget")) {
+            String modulePath = ":sets:" + id + ":" + surface; modules.add(modulePath);
+            Path module = root.resolve(modulePath.substring(1).replace(':', '/'));
+            write(module.resolve("build.gradle"), "plugins { id 'com.android.library'; id 'livosphere.set-consumer' }\n"
+                    + "android { namespace 'test." + id.replace('-', '_') + "." + surface.replace('-', '_') + "'; compileSdk 37; defaultConfig { minSdk 29 } }\n"
+                    + "setContract { setId.set('" + id + "'); surface.set('" + surface + "') }\n");
+            String manifest = "<manifest/>";
+            if (surface.equals("wallpaper")) {
+                String namespace = "test." + id.replace('-', '_');
+                manifest = "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"><application><service android:name=\"" + namespace + ".WallpaperService\" android:exported=\"true\" android:permission=\"android.permission.BIND_WALLPAPER\"/>"
+                        + (id.startsWith("debug") ? "<provider android:name=\"test.debug_sentinel.HiddenProvider\" android:authorities=\"test.sentinel.private\" android:exported=\"false\"/>" : "") + "</application></manifest>";
+                write(module.resolve("src/main/java/" + namespace.replace('.', '/') + "/WallpaperService.java"), "package " + namespace + "; public class WallpaperService extends android.service.wallpaper.WallpaperService { @Override public Engine onCreateEngine() { return new Engine(); } }");
+                if (id.startsWith("debug")) {
+                    Files.writeString(module.resolve("build.gradle"), "dependencies { implementation project(':debug-payload') }\n", java.nio.file.StandardOpenOption.APPEND);
+                    write(module.resolve("src/main/res/values/private.xml"), "<resources><string name=\"ls_debug_sentinel_wallpaper_private_title\">PRIVATE</string></resources>");
+                    write(module.resolve("src/main/res/layout/ls_debug_sentinel_clock_widget_hidden.xml"), "<FrameLayout xmlns:android=\"http://schemas.android.com/apk/res/android\" android:layout_width=\"match_parent\" android:layout_height=\"match_parent\"/>");
+                }
+            }
+            write(module.resolve("src/main/AndroidManifest.xml"), manifest);
+        }
+        for (String module : List.of("debug-payload", "bridge")) {
+            write(root.resolve(module + "/build.gradle"), "plugins { id 'com.android.library' }; android { namespace 'test." + module.replace('-', '_') + "'; compileSdk 37; defaultConfig { minSdk 29 } }\n");
+            write(root.resolve(module + "/src/main/AndroidManifest.xml"), "<manifest/>");
+        }
+        write(root.resolve("debug-payload/src/main/java/test/hidden/Payload.java"), "package test.hidden; public class Payload {} ");
+        write(root.resolve("debug-payload/src/main/res/values/hidden.xml"), "<resources><string name=\"hidden_transitive_title\">PRIVATE</string></resources>");
+        write(root.resolve("debug-payload/src/main/assets/private-payload.txt"), "PRIVATE");
+        write(root.resolve("settings.gradle"), "pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }\n"
+                + "dependencyResolutionManagement { repositories { google(); mavenCentral() } }\nrootProject.name='temporary-packaging-sentinel'\n"
+                + "include " + modules.stream().map(m -> "'" + m + "'").collect(java.util.stream.Collectors.joining(", ")) + "\n");
+        write(root.resolve("gradle.properties"), "livosphere.setManifests=sets/public-sentinel/manifest/set.properties,sets/debug-sentinel/manifest/set.properties\norg.gradle.jvmargs=-Xmx1g\n");
+        write(root.resolve("build.gradle"), "");
+        write(root.resolve("local.properties"), "sdk.dir=" + System.getenv("ANDROID_SDK_ROOT") + "\n");
+        write(root.resolve("app/build.gradle"), "plugins { id 'com.android.application'; id 'livosphere.set-registry' }\n"
+                + "android { namespace 'test.livosphere.packaging'; compileSdk 37; defaultConfig { applicationId 'test.livosphere.packaging'; minSdk 29; targetSdk 36; versionCode 1; versionName 'test-only' } }\n");
+        write(root.resolve("app/src/main/AndroidManifest.xml"), "<manifest><application/></manifest>");
+        write(root.resolve("app/src/main/java/test/shell/LegacyMigration.java"), "package test.shell; public class LegacyMigration { public static String id() { return \"debug-sentinel\"; } }");
+        Path contract = root.resolve("app/src/main/kotlin/app/livosphere/contract/SetDescriptor.kt"); Files.createDirectories(contract.getParent());
+        Files.copy(Path.of(System.getProperty("livosphere.contractSource")), contract);
+        return root;
+    }
+
+    private static Path compilablePublic(Path root, String id) throws Exception {
+        Path manifest = PhoneSetFixture.create(root, id);
+        Map<String, String> values = new LinkedHashMap<>();
+        for (String line : Files.readAllLines(manifest)) { int equals = line.indexOf('='); if (equals > 0) values.put(line.substring(0, equals), line.substring(equals + 1)); }
+        values.put("distribution", "public"); values.put("contentStatus", "html-approved"); values.put("contribution.clock-main.layoutStatus", "native");
+        Path source = manifest.getParent().getParent().resolve("source-assets");
+        List<String> checksums = new ArrayList<>();
+        for (String key : new ArrayList<>(values.keySet())) if (key.startsWith("asset.") && key.endsWith(".path")) {
+            String prefix = key.substring(0, key.length() - 4); String relative = values.get(key);
+            if (relative.startsWith("clock-widget/raw/")) {
+                Files.delete(source.resolve(relative)); relative = relative.replace("clock-widget/raw/", "clock-widget/layout/");
+                values.put(key, relative); values.put(prefix + "resourcePath", values.get(prefix + "resourcePath").replace("raw/", "layout/"));
+                write(source.resolve(relative), "<TextClock xmlns:android=\"http://schemas.android.com/apk/res/android\" android:layout_width=\"match_parent\" android:layout_height=\"match_parent\" android:format24Hour=\"HH:mm\"/>");
+            }
+            if (relative.startsWith("wallpaper/xml/")) write(source.resolve(relative), "<wallpaper xmlns:android=\"http://schemas.android.com/apk/res/android\"/>");
+            String hash = PhoneSetFixture.hash(source.resolve(relative)); values.put(prefix + "sha256", hash); checksums.add(hash + "  " + relative);
+        }
+        Files.write(source.resolve("checksums.sha256"), checksums);
+        Files.write(manifest, values.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).toList());
+        PhoneSetFixture.approval(manifest, "image"); PhoneSetFixture.approval(manifest, "html");
+        return manifest;
+    }
+
+    private static void assertAuditFailure(Path root, String expected) throws Exception {
+        BuildResult result = run(root, ":app:assembleRelease").buildAndFail();
+        assertEquals(result.getOutput(), TaskOutcome.FAILED, result.task(":app:auditReleaseSetApk").getOutcome());
+        assertTrue(result.getOutput(), result.getOutput().contains(expected));
+        assertFalse(Files.exists(root.resolve("app/build/reports/set-content/release/app-release-unsigned.apk-audit.txt")));
+        Path evidence = Path.of(System.getProperty("livosphere.packagingEvidence"));
+        Files.writeString(evidence.resolve("sentinel-rejections.txt"), expected + "\n", java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+    }
+    private static String report(Path root, String variant, String file) throws Exception { return Files.readString(root.resolve("app/build/reports/set-content/" + variant + "/" + file)); }
+    private static Path write(Path file, String content) throws Exception { Files.createDirectories(file.getParent()); Files.writeString(file, content); return file; }
+    private static void replace(Path file, String from, String to) throws Exception { Files.writeString(file, Files.readString(file).replace(from, to)); }
+    private static GradleRunner run(Path root, String task) {
+        GradleRunner runner = GradleRunner.create().withProjectDir(root.toFile()).withPluginClasspath().withTestKitDir(Path.of(System.getProperty("livosphere.testKitHome")).toFile());
+        List<File> classpath = new ArrayList<>(runner.getPluginClasspath());
+        Arrays.stream(System.getProperty("livosphere.testKitPluginClasspath").split(Pattern.quote(File.pathSeparator))).map(File::new).forEach(classpath::add);
+        return runner.withPluginClasspath(classpath).withArguments("--offline", "--console=plain", "--max-workers=2", task);
+    }
+}

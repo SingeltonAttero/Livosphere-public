@@ -38,6 +38,15 @@ final class SetPluginSupport {
         return paths.stream().map(value -> normalizeManifestPath(root, value)).toList();
     }
 
+    static String taskSuffix(String name) {
+        return Character.toUpperCase(name.charAt(0)) + name.substring(1);
+    }
+
+    static void configureVariantInputs(Project project, AbstractSetTask task, List<String> manifests, String buildType) {
+        configureInputs(project, task, manifests);
+        task.getBuildType().set(buildType);
+    }
+
     static void configureInputs(Project project, AbstractSetTask task, List<String> manifestPaths) {
         task.getAndroidRoot().set(project.getRootProject().getLayout().getProjectDirectory());
         task.getManifestPaths().set(manifestPaths);

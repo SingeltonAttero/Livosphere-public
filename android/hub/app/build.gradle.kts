@@ -62,9 +62,9 @@ android {
 
 dependencies {
     implementation(project(":hub:domain"))
-    implementation(project(":wallpapers:contour"))
     implementation(project(":core:settings"))
-    implementation(project(":wallpapers:fixture"))
+    // Shared engine is shell-owned runtime; art contributions remain variant-owned.
+    implementation(project(":wallpapers:engine"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)
