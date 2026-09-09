@@ -25,7 +25,7 @@ class FixtureEngineCallbacksTest {
         val b = fixture.repository(FixtureWallpaperService.WALLPAPER_ID)
         val motionRead = CountDownLatch(1); val touchRead = CountDownLatch(1)
         val frames = AtomicInteger(); val released = AtomicInteger()
-        val settings = object : WallpaperSettingsRepository(fixture.store, b.wallpaperId) {
+        val settings = object : WallpaperSettingsRepository(fixture.settings, b.wallpaperId) {
             override val motionMode = super.motionMode.onEach {
                 if (it == WallpaperMotionMode.REDUCED) motionRead.countDown()
             }

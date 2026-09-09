@@ -7,6 +7,9 @@ import app.livosphere.hub.onboarding.HubSettingsRepository
 import app.livosphere.hub.settings.DataStoreHubRuntimeSettings
 import app.livosphere.hub.settings.HubMotionMode
 import app.livosphere.hub.wallpaper.*
+import app.livosphere.contract.SettingsOutcome
+import app.livosphere.contract.SurfaceSettingsFailure
+import app.livosphere.settings.SurfaceSettingsException
 import app.livosphere.settings.WallpaperMotionMode
 import app.livosphere.settings.WallpaperSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,12 +21,21 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.delay
+
+data class WallpaperSettingsUiState(
+    val touchReactions: Boolean? = null,
+    val motion: WallpaperMotionMode? = null,
+    val failure: SurfaceSettingsFailure? = null,
+)
 
 @HiltViewModel
 class HubViewModel private constructor(
@@ -69,8 +81,7 @@ class HubViewModel private constructor(
         this(repository, null, clock, wallpaperGateway, null, null, beforeAcknowledgement)
 
     private val mutableState = MutableStateFlow(HubState(phone = PhoneWallpaperState(target = wallpaperGateway?.initialBrowsingTarget)))
-    private val mutableTouchReactions = MutableStateFlow<Boolean?>(null)
-    private val mutableWallpaperMotion = MutableStateFlow<WallpaperMotionMode?>(null)
+    private val mutableWallpaperSettings = MutableStateFlow(WallpaperSettingsUiState())
     private val mutableHubMotion = MutableStateFlow<HubMotionMode?>(null)
     private val mutableDismissedReleaseVersion = MutableStateFlow<String?>(null)
     private val commandChannel = Channel<HubCommand.ShowSection>(capacity = Channel.CONFLATED)
@@ -81,14 +92,18 @@ class HubViewModel private constructor(
     private var observationDeadline: Job? = null
     private var touchWriteGeneration = 0L
     private var motionWriteGeneration = 0L
-    private var motionSettingsWriteUnavailable = false
-    private var touchSettingsWriteUnavailable = false
+    private var motionWriteFailure: SurfaceSettingsFailure? = null
+    private var touchWriteFailure: SurfaceSettingsFailure? = null
+    private var settingsReadFailure: SurfaceSettingsFailure? = null
     private var hubMotionWriteUnavailable = false
 
     val state: StateFlow<HubState> = mutableState.asStateFlow()
     val commands = commandChannel.receiveAsFlow()
-    val touchReactions = mutableTouchReactions.asStateFlow()
-    val wallpaperMotion = mutableWallpaperMotion.asStateFlow()
+    val wallpaperSettingsUi = mutableWallpaperSettings.asStateFlow()
+    // Compatibility projections share the already collected UI model, never open additional DataStore readers.
+    val touchReactions = wallpaperSettingsUi.map { it.touchReactions }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val wallpaperSettingsFailure = wallpaperSettingsUi.map { it.failure }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val wallpaperMotion = wallpaperSettingsUi.map { it.motion }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val hubMotion = mutableHubMotion.asStateFlow()
     val dismissedReleaseVersion = mutableDismissedReleaseVersion.asStateFlow()
 
@@ -98,13 +113,16 @@ class HubViewModel private constructor(
                 val before = mutableState.value
                 val transition = HubReducer.reduce(mutableState.value, action)
                 mutableState.value = transition.state
-                if (before.phone.target != transition.state.phone.target || action is HubAction.ForegroundStarted) {
+                val enteredSettings = transition.state.selectedSection == HubSection.SETTINGS && (
+                    action is HubAction.SectionSelected ||
+                        (action is HubAction.NavigationRestored && before.selectedSection != HubSection.SETTINGS))
+                if (before.phone.target != transition.state.phone.target || action is HubAction.ForegroundStarted || enteredSettings) {
                     touchWriteGeneration++
                     motionWriteGeneration++
-                    touchSettingsWriteUnavailable = false
-                    motionSettingsWriteUnavailable = false
-                    mutableTouchReactions.value = null
-                    mutableWallpaperMotion.value = null
+                    touchWriteFailure = null
+                    motionWriteFailure = null
+                    settingsReadFailure = null
+                    mutableWallpaperSettings.value = WallpaperSettingsUiState()
                     settingsObservation.value = transition.state.phone.target?.wallpaperId to (settingsObservation.value.second + 1)
                 }
                 if (before.phone.generation != transition.state.phone.generation) {
@@ -128,9 +146,9 @@ class HubViewModel private constructor(
                         }
                     }
                 }
-                if (action is HubAction.ForegroundStarted) {
+                if (action is HubAction.ForegroundStarted || enteredSettings) {
                     // A read error emits the honest unavailable model, then closes its inner
-                    // DataStore flow. Foreground is the user-visible retry boundary.
+                    // DataStore flow. Foreground and entering Settings are explicit retry boundaries.
                     hubMotionWriteUnavailable = false
                     runtimeSettingsRepository?.retrySettings()
                     knowledgeProvider?.let { onAction(HubAction.KnowledgeChanged(it.knowledge.value)) }
@@ -147,17 +165,27 @@ class HubViewModel private constructor(
         wallpaperSettingsRepository?.let { repository -> viewModelScope.launch {
             settingsObservation.collectLatest { observation ->
                 val wallpaperId = observation.first
-                mutableTouchReactions.value = null
-                mutableWallpaperMotion.value = null
-                if (wallpaperId != null) kotlinx.coroutines.coroutineScope {
+                mutableWallpaperSettings.value = WallpaperSettingsUiState()
+                if (wallpaperId != null) {
                     val settings = repository.forWallpaper(wallpaperId)
-                    launch { settings.touchReactionsEnabled.collect { value ->
-                        if (!touchSettingsWriteUnavailable && settingsObservation.value == observation) mutableTouchReactions.value = value
-                    } }
-                    launch { settings.motionMode.collect { value ->
-                        if (!motionSettingsWriteUnavailable && settingsObservation.value == observation)
-                            mutableWallpaperMotion.value = value
-                    } }
+                    settings.settings.collect { result ->
+                        if (settingsObservation.value == observation) {
+                            when (result) {
+                                is SettingsOutcome.Success -> {
+                                    settingsReadFailure = null
+                                    mutableWallpaperSettings.value = WallpaperSettingsUiState(
+                                        touchReactions = result.value.interactionsEnabled.takeIf { touchWriteFailure == null },
+                                        motion = result.value.motionMode.takeIf { motionWriteFailure == null },
+                                        failure = touchWriteFailure ?: motionWriteFailure,
+                                    )
+                                }
+                                is SettingsOutcome.Failure -> {
+                                    settingsReadFailure = result.reason
+                                    mutableWallpaperSettings.value = WallpaperSettingsUiState(failure = touchWriteFailure ?: motionWriteFailure ?: result.reason)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         } }
@@ -184,16 +212,19 @@ class HubViewModel private constructor(
             try {
                 settings.setTouchReactionsEnabled(enabled)
                 if (state.value.phone.target?.wallpaperId == owner && touchWriteGeneration == writeGeneration) {
-                    touchSettingsWriteUnavailable = false
-                    mutableTouchReactions.value = enabled
+                    touchWriteFailure = null
+                    mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(touchReactions = enabled,
+                        failure = motionWriteFailure ?: settingsReadFailure)
+                    retryReadAfterSuccessfulRecovery(owner)
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 // Do not leave an optimistic enabled/disabled switch after a failed DataStore edit.
                 if (state.value.phone.target?.wallpaperId == owner && touchWriteGeneration == writeGeneration) {
-                    touchSettingsWriteUnavailable = true
-                    mutableTouchReactions.value = null
+                    touchWriteFailure = (error as? SurfaceSettingsException)?.reason ?: SurfaceSettingsFailure.Write
+                    mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(touchReactions = null,
+                        failure = touchWriteFailure ?: motionWriteFailure ?: settingsReadFailure)
                 }
             }
         }
@@ -207,17 +238,27 @@ class HubViewModel private constructor(
             try {
                 settings.setMotionMode(mode)
                 if (state.value.phone.target?.wallpaperId == owner && motionWriteGeneration == writeGeneration) {
-                    motionSettingsWriteUnavailable = false
-                    mutableWallpaperMotion.value = mode
+                    motionWriteFailure = null
+                    mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(motion = mode,
+                        failure = touchWriteFailure ?: settingsReadFailure)
+                    retryReadAfterSuccessfulRecovery(owner)
                 }
             }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) {
+            catch (error: Exception) {
                 if (state.value.phone.target?.wallpaperId == owner && motionWriteGeneration == writeGeneration) {
-                    motionSettingsWriteUnavailable = true
-                    mutableWallpaperMotion.value = null
+                    motionWriteFailure = (error as? SurfaceSettingsException)?.reason ?: SurfaceSettingsFailure.Write
+                    mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(motion = null,
+                        failure = touchWriteFailure ?: motionWriteFailure ?: settingsReadFailure)
                 }
             }
+        }
+    }
+
+    private fun retryReadAfterSuccessfulRecovery(owner: String) {
+        if (settingsReadFailure != null) {
+            settingsReadFailure = null
+            settingsObservation.value = owner to (settingsObservation.value.second + 1)
         }
     }
 

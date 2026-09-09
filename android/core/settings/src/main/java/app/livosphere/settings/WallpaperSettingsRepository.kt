@@ -1,71 +1,34 @@
 package app.livosphere.settings
 
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.preferencesDataStore
-import androidx.datastore.preferences.core.stringPreferencesKey
+import app.livosphere.contract.SettingsOutcome
+import app.livosphere.contract.WallpaperPreferences
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
-import java.io.IOException
+import kotlinx.coroutines.flow.map
 
-/** A user-owned preference. It is intentionally independent from touch reactions and Hub motion. */
-enum class WallpaperMotionMode { NORMAL, REDUCED, OFF }
+/** Compatibility projection for existing Engine and Hub consumers, backed only by typed destination. */
+typealias WallpaperMotionMode = app.livosphere.contract.WallpaperMotionMode
 
-private const val WALLPAPER_SETTINGS_FILE = "contour-wallpaper-settings"
-private val Context.contourWallpaperSettings by preferencesDataStore(name = WALLPAPER_SETTINGS_FILE)
-const val LEGACY_CONTOUR_WALLPAPER_ID = "contour-wallpaper"
-private fun keyName(wallpaperId: String, legacy: String) =
-    if (wallpaperId == LEGACY_CONTOUR_WALLPAPER_ID) legacy else "wallpaper.$wallpaperId.$legacy"
-internal val motionModeKey = stringPreferencesKey("wallpaper_motion_mode")
-
-/**
- * Shared, application-context DataStore. A successfully read missing key is the product default
- * (`true`); an I/O failure is deliberately `null`, so both Hub and service fail closed instead of
- * claiming a setting that was never read.
- */
-open class WallpaperSettingsRepository constructor(
-    private val store: DataStore<Preferences>,
+open class WallpaperSettingsRepository(
+    private val repository: SurfaceSettingsRepository,
     val wallpaperId: String,
+    private val available: (String) -> Boolean = { true },
 ) {
     init { require(Regex("[a-z0-9]+(?:-[a-z0-9]+)*").matches(wallpaperId)) }
-    constructor(context: Context, wallpaperId: String) : this(context.applicationContext.contourWallpaperSettings, wallpaperId)
+    constructor(context: Context, wallpaperId: String) : this(ApplicationSurfaceSettings.get(context), wallpaperId)
+    private val port = repository.wallpapers(available)
 
-    private val touchReactionsKey = booleanPreferencesKey(keyName(wallpaperId, "touch_reactions_enabled"))
-    private val motionModeKey = stringPreferencesKey(keyName(wallpaperId, "wallpaper_motion_mode"))
-
-    /** Same application store and serialized writer; changing owner never reads or writes another owner's keys. */
     open fun forWallpaper(wallpaperId: String): WallpaperSettingsRepository =
-        if (this.wallpaperId == wallpaperId) this else WallpaperSettingsRepository(store, wallpaperId)
+        if (this.wallpaperId == wallpaperId) this else WallpaperSettingsRepository(repository, wallpaperId, available)
 
-    open val touchReactionsEnabled: Flow<Boolean?> = store.data
-        .map { preferences: Preferences -> (preferences[touchReactionsKey] ?: true) as Boolean? }
+    open val settings: Flow<SettingsOutcome<WallpaperPreferences>> = port.observe(wallpaperId)
+    open val touchReactionsEnabled: Flow<Boolean?> = settings.map { (it as? SettingsOutcome.Success)?.value?.interactionsEnabled }
         .distinctUntilChanged()
-        .catch { error ->
-            if (error is IOException) emit(null) else throw error
-        }
-
-    /** Missing after a successful read is the product default; unreadable or invalid values fail closed. */
-    open val motionMode: Flow<WallpaperMotionMode?> = store.data
-        .map { preferences ->
-            preferences[motionModeKey]
-                ?.let { stored -> WallpaperMotionMode.entries.firstOrNull { it.name == stored } }
-                ?: if (motionModeKey !in preferences) WallpaperMotionMode.NORMAL else null
-        }
+    open val motionMode: Flow<WallpaperMotionMode?> = settings.map { (it as? SettingsOutcome.Success)?.value?.motionMode }
         .distinctUntilChanged()
-        .catch { error ->
-            if (error is IOException) emit(null) else throw error
-        }
 
-    open suspend fun setTouchReactionsEnabled(enabled: Boolean) {
-        store.edit { preferences -> preferences[touchReactionsKey] = enabled }
-    }
-
-    open suspend fun setMotionMode(mode: WallpaperMotionMode) {
-        store.edit { preferences -> preferences[motionModeKey] = mode.name }
-    }
+    open suspend fun setTouchReactionsEnabled(enabled: Boolean) { port.setInteractions(wallpaperId, enabled).orThrow() }
+    open suspend fun setMotionMode(mode: WallpaperMotionMode) { port.setMotion(wallpaperId, mode).orThrow() }
 }
+private fun SettingsOutcome<*>.orThrow() { if (this is SettingsOutcome.Failure) throw SurfaceSettingsException(reason) }

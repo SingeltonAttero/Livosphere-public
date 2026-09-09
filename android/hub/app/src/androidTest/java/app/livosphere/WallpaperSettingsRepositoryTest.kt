@@ -12,6 +12,10 @@ import app.livosphere.hub.onboarding.SettingsFailure
 import app.livosphere.hub.wallpaper.PhoneWallpaperGateway
 import app.livosphere.hub.wallpaper.PhoneWallpaperSnapshot
 import app.livosphere.settings.WallpaperSettingsRepository
+import app.livosphere.contract.SettingsOutcome
+import app.livosphere.contract.WallpaperPreferences
+import app.livosphere.contract.SurfaceSettingsFailure
+import app.livosphere.settings.SurfaceSettingsException
 import app.livosphere.settings.WallpaperMotionMode
 import java.time.Clock
 import java.time.Instant
@@ -34,10 +38,16 @@ import java.io.IOException
 
 /** The two repositories deliberately have no HubViewModel or Activity dependency. */
 class WallpaperSettingsRepositoryTest {
+    private lateinit var fixture: OwnedSettingsFixture
+    @org.junit.Before fun createStore() { fixture = OwnedSettingsFixture() }
+    @org.junit.After fun closeStore() = runBlocking { fixture.close() }
+
     @Test fun sharedApplicationDatastoreIsVisibleToAnIndependentServiceRepository() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val hubRepository = WallpaperSettingsRepository(context, "contour-wallpaper")
-        val serviceRepository = WallpaperSettingsRepository(context, "contour-wallpaper")
+        org.junit.Assert.assertSame(app.livosphere.settings.ApplicationSurfaceSettings.get(context),
+            app.livosphere.settings.ApplicationSurfaceSettings.get(context.applicationContext))
+        val hubRepository = WallpaperSettingsRepository(fixture.settings, "contour-wallpaper")
+        val serviceRepository = WallpaperSettingsRepository(fixture.settings, "contour-wallpaper")
         val original = requireNotNull(hubRepository.touchReactionsEnabled.first())
         try {
             hubRepository.setTouchReactionsEnabled(false)
@@ -51,8 +61,8 @@ class WallpaperSettingsRepositoryTest {
 
     @Test fun productionViewModelSwitchWriteIsObservedByIndependentServiceRepository() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val hubRepository = WallpaperSettingsRepository(context, "contour-wallpaper")
-        val serviceRepository = WallpaperSettingsRepository(context, "contour-wallpaper")
+        val hubRepository = WallpaperSettingsRepository(fixture.settings, "contour-wallpaper")
+        val serviceRepository = WallpaperSettingsRepository(fixture.settings, "contour-wallpaper")
         val original = requireNotNull(hubRepository.touchReactionsEnabled.first())
         val store = ViewModelStore()
         val history = object : HubSettingsRepository {
@@ -80,8 +90,8 @@ class WallpaperSettingsRepositoryTest {
 
     @Test fun motionModesPersistIndependentlyFromExistingTouchPreference() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val writer = WallpaperSettingsRepository(context, "contour-wallpaper")
-        val observer = WallpaperSettingsRepository(context, "contour-wallpaper")
+        val writer = WallpaperSettingsRepository(fixture.settings, "contour-wallpaper")
+        val observer = WallpaperSettingsRepository(fixture.settings, "contour-wallpaper")
         val originalTouch = requireNotNull(writer.touchReactionsEnabled.first())
         val originalMode = requireNotNull(writer.motionMode.first())
         try {
@@ -99,11 +109,11 @@ class WallpaperSettingsRepositoryTest {
 
     @Test fun failedProductionSwitchWriteReturnsUiStateToUnavailable() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val unavailable = object : WallpaperSettingsRepository(context, "contour-wallpaper") {
-            override val touchReactionsEnabled = MutableStateFlow<Boolean?>(true)
+        val unavailable = object : WallpaperSettingsRepository(fixture.settings, "contour-wallpaper") {
+            override val settings = MutableStateFlow<SettingsOutcome<WallpaperPreferences>>(SettingsOutcome.Success(WallpaperPreferences()))
             override suspend fun setTouchReactionsEnabled(enabled: Boolean) {
                 // Simulate a stale replay after the failed edit; it must not restore a fake switch.
-                touchReactionsEnabled.value = true
+                settings.value = SettingsOutcome.Success(WallpaperPreferences())
                 throw IOException("simulated edit failure")
             }
         }
@@ -134,15 +144,15 @@ class WallpaperSettingsRepositoryTest {
         val aEntered = CompletableDeferred<Unit>()
         val finishA = CompletableDeferred<Unit>()
         val bFailed = CompletableDeferred<Unit>()
-        val bSettings = object : WallpaperSettingsRepository(context, bTarget.wallpaperId) {
-            override val touchReactionsEnabled = MutableStateFlow<Boolean?>(true)
+        val bSettings = object : WallpaperSettingsRepository(fixture.settings, bTarget.wallpaperId) {
+            override val settings = MutableStateFlow<SettingsOutcome<WallpaperPreferences>>(SettingsOutcome.Success(WallpaperPreferences()))
             override suspend fun setTouchReactionsEnabled(enabled: Boolean) {
                 bFailed.complete(Unit)
-                throw IOException("controlled B write failure")
+                throw SurfaceSettingsException(SurfaceSettingsFailure.Write)
             }
         }
-        val settings = object : WallpaperSettingsRepository(context, aTarget.wallpaperId) {
-            override val touchReactionsEnabled = MutableStateFlow<Boolean?>(true)
+        val settings = object : WallpaperSettingsRepository(fixture.settings, aTarget.wallpaperId) {
+            override val settings = MutableStateFlow<SettingsOutcome<WallpaperPreferences>>(SettingsOutcome.Success(WallpaperPreferences()))
             override suspend fun setTouchReactionsEnabled(enabled: Boolean) {
                 aEntered.complete(Unit)
                 finishA.await()
@@ -174,7 +184,7 @@ class WallpaperSettingsRepositoryTest {
             assertNull(vm.touchReactions.value)
             finishA.complete(Unit)
             instrumentation.waitForIdleSync()
-            bSettings.touchReactionsEnabled.value = false // Delayed old DataStore replay must still fail closed.
+            bSettings.settings.value = SettingsOutcome.Success(WallpaperPreferences(interactionsEnabled = false)) // Delayed old DataStore replay must still fail closed.
             instrumentation.waitForIdleSync()
             assertNull(vm.touchReactions.value)
         } finally {
@@ -191,15 +201,15 @@ class WallpaperSettingsRepositoryTest {
         val entered = CompletableDeferred<Unit>()
         val finishOld = CompletableDeferred<Unit>()
         var writes = 0
-        val settings = object : WallpaperSettingsRepository(context, a.wallpaperId) {
-            override val motionMode = MutableStateFlow<WallpaperMotionMode?>(WallpaperMotionMode.NORMAL)
+        val settings = object : WallpaperSettingsRepository(fixture.settings, a.wallpaperId) {
+            override val settings = MutableStateFlow<SettingsOutcome<WallpaperPreferences>>(SettingsOutcome.Success(WallpaperPreferences()))
             override suspend fun setMotionMode(mode: WallpaperMotionMode) {
                 if (++writes == 1) {
                     entered.complete(Unit)
                     finishOld.await()
-                    throw IOException("previous selection failed")
+                    throw SurfaceSettingsException(SurfaceSettingsFailure.CorruptFile)
                 }
-                motionMode.value = mode
+                settings.value = SettingsOutcome.Success(WallpaperPreferences(motionMode = mode))
             }
         }
         val history = object : HubSettingsRepository {
@@ -226,6 +236,7 @@ class WallpaperSettingsRepositoryTest {
             finishOld.complete(Unit)
             instrumentation.waitForIdleSync()
             assertEquals(WallpaperMotionMode.REDUCED, vm.wallpaperMotion.value)
+            assertNull(vm.wallpaperSettingsUi.value.failure)
         } finally {
             finishOld.complete(Unit)
             instrumentation.runOnMainSync { store.clear() }

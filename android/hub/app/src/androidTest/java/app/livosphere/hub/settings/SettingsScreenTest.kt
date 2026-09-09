@@ -97,6 +97,20 @@ class SettingsScreenTest {
         composeRule.onNodeWithTag("settings-about-toggle").performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun missingSavedReferenceExplainsUnavailableWithoutInventingAnotherSelection() {
+        composeRule.setContent {
+            LivosphereTheme {
+                SettingsScreen(touchReactionsEnabled = null, onTouchReactionsChanged = {}, wallpaperMotionMode = null,
+                    wallpaperSettingsFailure = app.livosphere.contract.SurfaceSettingsFailure.NeedsConfiguration(
+                        app.livosphere.contract.SettingsOwner.Wallpaper("removed-wallpaper"), "removed-wallpaper"))
+            }
+        }
+        composeRule.onNodeWithTag("settings-wallpaper-toggle").performClick()
+        composeRule.onNodeWithText("Оформление недоступно — выберите другое. Сохранённый выбор не заменён.").assertIsDisplayed()
+        composeRule.onNodeWithTag("touch-reactions-control").assertDoesNotExist()
+        composeRule.onNodeWithTag("wallpaper-motion-normal").assertDoesNotExist()
+    }
+
     @Test fun unavailableReleaseNoteIsNotPresentedAsDismissed() {
         composeRule.setContent {
             LivosphereTheme {

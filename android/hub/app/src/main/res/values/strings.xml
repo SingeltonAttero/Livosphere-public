@@ -119,4 +119,8 @@
     <string name="theme_set_name_unavailable">Набор</string>
     <string name="preview_wallpaper_named">Предпросмотр обоев набора «%1$s»</string>
     <string name="preview_watchface_named">Предпросмотр циферблата набора «%1$s»</string>
+    <string name="settings_surface_missing">Оформление недоступно — выберите другое. Сохранённый выбор не заменён.</string>
+    <string name="settings_surface_corrupt">Настройки оформления повреждены. Данные сохранены; автоматический сброс не выполнен.</string>
+    <string name="settings_surface_version">Версия сохранённых настроек не поддерживается. Обновите приложение; данные сохранены.</string>
+    <string name="settings_surface_io">Не удалось прочитать или сохранить настройки. Откройте экран повторно, чтобы попробовать ещё раз.</string>
 </resources>

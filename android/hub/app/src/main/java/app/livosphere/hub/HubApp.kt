@@ -76,8 +76,7 @@ fun HubApp(
     wallpaperLauncher: WallpaperLauncher? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val touchReactions by viewModel.touchReactions.collectAsStateWithLifecycle()
-    val wallpaperMotion by viewModel.wallpaperMotion.collectAsStateWithLifecycle()
+    val wallpaperSettings by viewModel.wallpaperSettingsUi.collectAsStateWithLifecycle()
     val hubMotion by viewModel.hubMotion.collectAsStateWithLifecycle()
     val dismissedReleaseVersion by viewModel.dismissedReleaseVersion.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -189,9 +188,10 @@ fun HubApp(
                         }
                         entry<SettingsKey> {
                             SettingsScreen(
-                                touchReactionsEnabled = touchReactions,
+                                touchReactionsEnabled = wallpaperSettings.touchReactions,
                                 onTouchReactionsChanged = viewModel::setTouchReactionsEnabled,
-                                wallpaperMotionMode = wallpaperMotion,
+                                wallpaperMotionMode = wallpaperSettings.motion,
+                                wallpaperSettingsFailure = wallpaperSettings.failure,
                                 onWallpaperMotionChanged = viewModel::setWallpaperMotionMode,
                                 hubMotionMode = hubMotion,
                                 onHubMotionChanged = viewModel::setHubMotionMode,

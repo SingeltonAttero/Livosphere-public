@@ -1,8 +1,7 @@
 package app.livosphere
 
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.core.DataStoreFactory
 import androidx.lifecycle.ViewModelStore
 import androidx.test.platform.app.InstrumentationRegistry
 import app.livosphere.hub.*
@@ -20,13 +19,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 /** Real serialized DataStore, isolated from the installed user's settings. */
-internal class OwnedSettingsFixture {
+internal class OwnedSettingsFixture(initialFileText: String? = null) {
     private val directory = File(InstrumentationRegistry.getInstrumentation().targetContext.cacheDir,
         "owned-settings-${java.util.UUID.randomUUID()}").apply { mkdirs() }
     private val job = SupervisorJob()
     private val scope = CoroutineScope(job + Dispatchers.IO)
-    val store = PreferenceDataStoreFactory.create(scope = scope) { File(directory, "settings.preferences_pb") }
-    fun repository(id: String) = WallpaperSettingsRepository(store, id)
+    val file = File(directory, "settings.json").also { if (initialFileText != null) it.writeText(initialFileText) }
+    val store = DataStoreFactory.create(serializer = SurfaceSettingsSerializer, scope = scope,
+        migrations = listOf(LegacyWallpaperMigration { null })) { file }
+    val settings = SurfaceSettingsRepository(store)
+    fun repository(id: String) = WallpaperSettingsRepository(settings, id)
     suspend fun close() { job.cancelAndJoin(); directory.deleteRecursively() }
 }
 
@@ -75,14 +77,14 @@ class OwnedSettingsIntegrationTest {
         val fixture = OwnedSettingsFixture(); val models = ViewModelStore()
         var readsFail = false; var writesFail = false
         val readFailureSeen = CompletableDeferred<Unit>()
-        val unreliable = object : DataStore<Preferences> {
+        val unreliable = object : DataStore<StoredSurfaceSettings> {
             override val data = flow { if (readsFail) { readFailureSeen.complete(Unit); throw IOException("controlled read") }; emitAll(fixture.store.data) }
-            override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
+            override suspend fun updateData(transform: suspend (StoredSurfaceSettings) -> StoredSurfaceSettings): StoredSurfaceSettings {
                 if (writesFail) throw IOException("controlled write")
                 return fixture.store.updateData(transform)
             }
         }
-        val settings = WallpaperSettingsRepository(unreliable, "contour-wallpaper")
+        val settings = WallpaperSettingsRepository(SurfaceSettingsRepository(unreliable), "contour-wallpaper")
         try {
             settings.setTouchReactionsEnabled(false); settings.setMotionMode(WallpaperMotionMode.REDUCED)
             lateinit var vm: HubViewModel

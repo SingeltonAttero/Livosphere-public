@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import app.livosphere.R
 import app.livosphere.hub.HubSectionScreen
 import app.livosphere.settings.WallpaperMotionMode
+import app.livosphere.contract.SurfaceSettingsFailure
 
 /** One scrollable page: preferences are app-owned and never represent platform facts. */
 @Composable
@@ -39,6 +40,7 @@ internal fun SettingsScreen(
     touchReactionsEnabled: Boolean?,
     onTouchReactionsChanged: (Boolean) -> Unit,
     wallpaperMotionMode: WallpaperMotionMode? = WallpaperMotionMode.NORMAL,
+    wallpaperSettingsFailure: SurfaceSettingsFailure? = null,
     onWallpaperMotionChanged: (WallpaperMotionMode) -> Unit = {},
     hubMotionMode: HubMotionMode? = null,
     onHubMotionChanged: (HubMotionMode) -> Unit = {},
@@ -52,10 +54,16 @@ internal fun SettingsScreen(
     testTag = "hub-screen-settings",
 ) {
     ExpandableSetting("settings-wallpaper", R.string.settings_wallpaper_title, R.string.settings_wallpaper_summary) {
-        if (wallpaperMotionMode == null) UnavailableSettingsNotice(R.string.settings_wallpaper_motion_unavailable)
-        else MotionChoice("wallpaper-motion", wallpaperMotionMode, WallpaperMotionMode.entries.toList(), { stringResource(it.labelResource) }, onWallpaperMotionChanged)
-        if (touchReactionsEnabled == null) UnavailableSettingsNotice(R.string.hub_touch_reactions_unavailable)
-        else {
+        if (wallpaperSettingsFailure != null) UnavailableSettingsNotice(when (wallpaperSettingsFailure) {
+            is SurfaceSettingsFailure.NeedsConfiguration -> R.string.settings_surface_missing
+            is SurfaceSettingsFailure.CorruptRecord, SurfaceSettingsFailure.CorruptFile -> R.string.settings_surface_corrupt
+            is SurfaceSettingsFailure.UnsupportedVersion -> R.string.settings_surface_version
+            SurfaceSettingsFailure.Read, SurfaceSettingsFailure.Write -> R.string.settings_surface_io
+        })
+        if (wallpaperMotionMode == null && wallpaperSettingsFailure == null) UnavailableSettingsNotice(R.string.settings_wallpaper_motion_unavailable)
+        else if (wallpaperMotionMode != null && wallpaperSettingsFailure == null) MotionChoice("wallpaper-motion", wallpaperMotionMode, WallpaperMotionMode.entries.toList(), { stringResource(it.labelResource) }, onWallpaperMotionChanged)
+        if (touchReactionsEnabled == null && wallpaperSettingsFailure == null) UnavailableSettingsNotice(R.string.hub_touch_reactions_unavailable)
+        else if (touchReactionsEnabled != null && wallpaperSettingsFailure == null) {
             TouchReactionSwitch(touchReactionsEnabled, onTouchReactionsChanged)
         }
     }

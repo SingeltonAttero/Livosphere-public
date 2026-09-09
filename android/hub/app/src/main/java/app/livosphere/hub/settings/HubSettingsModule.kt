@@ -6,6 +6,9 @@ import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.dataStoreFile
 import app.livosphere.hub.onboarding.HubSettingsRepository
 import app.livosphere.settings.WallpaperSettingsRepository
+import app.livosphere.settings.ApplicationSurfaceSettings
+import app.livosphere.settings.SurfaceSettingsRepository
+import app.livosphere.generated.GeneratedSetRegistry
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -47,6 +50,11 @@ object HubSettingsModule {
         }
 
     @Provides @Singleton
-    fun wallpaperSettings(@ApplicationContext context: Context): WallpaperSettingsRepository =
-        WallpaperSettingsRepository(context, "contour-wallpaper")
+    fun surfaceSettings(@ApplicationContext context: Context): SurfaceSettingsRepository = ApplicationSurfaceSettings.get(context)
+
+    @Provides @Singleton
+    fun wallpaperSettings(repository: SurfaceSettingsRepository): WallpaperSettingsRepository =
+        WallpaperSettingsRepository(repository, "contour-wallpaper") { id ->
+            GeneratedSetRegistry.sets.any { it.wallpaper.componentId.value == id }
+        }
 }

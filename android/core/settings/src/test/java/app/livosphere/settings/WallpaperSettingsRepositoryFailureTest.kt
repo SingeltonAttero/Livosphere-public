@@ -1,40 +1,36 @@
 package app.livosphere.settings
 
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.mutablePreferencesOf
-import kotlinx.coroutines.flow.Flow
+import app.livosphere.contract.SettingsOutcome
+import app.livosphere.contract.SurfaceSettingsFailure
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertNull
+import org.junit.Assert.*
 import org.junit.Test
 import java.io.IOException
 
 class WallpaperSettingsRepositoryFailureTest {
-    private class UnavailableStore : DataStore<Preferences> {
-        override val data: Flow<Preferences> = flow { throw IOException("storage unavailable") }
-        override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences =
-            throw IOException("storage unavailable")
-    }
+    private fun repository(error: Exception) = SurfaceSettingsRepository(object : DataStore<StoredSurfaceSettings> {
+        override val data = flow<StoredSurfaceSettings> { throw error }
+        override suspend fun updateData(transform: suspend (StoredSurfaceSettings) -> StoredSurfaceSettings): StoredSurfaceSettings = throw error
+    })
 
     @Test fun ioReadFailureIsUnavailableRatherThanTheEnabledDefault() = runBlocking {
-        assertNull(WallpaperSettingsRepository(UnavailableStore(), LEGACY_CONTOUR_WALLPAPER_ID).touchReactionsEnabled.first())
-        assertNull(WallpaperSettingsRepository(UnavailableStore(), LEGACY_CONTOUR_WALLPAPER_ID).motionMode.first())
+        val repository = repository(IOException("unavailable"))
+        assertEquals(SettingsOutcome.Failure(SurfaceSettingsFailure.Read), repository.wallpapers { true }.observe(LEGACY_CONTOUR_WALLPAPER_ID).first())
+        val facade = WallpaperSettingsRepository(repository, LEGACY_CONTOUR_WALLPAPER_ID)
+        assertNull(facade.touchReactionsEnabled.first()); assertNull(facade.motionMode.first())
     }
-
-    @Test fun invalidPersistedMotionModeIsUnavailableRatherThanNormal() = runBlocking {
-        val invalid = mutablePreferencesOf(motionModeKey to "TURBO")
-        val store = object : DataStore<Preferences> {
-            override val data: Flow<Preferences> = flowOf(invalid)
-            override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences = transform(invalid)
-        }
-        assertNull(WallpaperSettingsRepository(store, LEGACY_CONTOUR_WALLPAPER_ID).motionMode.first())
+    @Test(expected = IOException::class) fun writeFailureReachesExistingViewModel() = runBlocking {
+        WallpaperSettingsRepository(repository(IOException("unavailable")), LEGACY_CONTOUR_WALLPAPER_ID).setTouchReactionsEnabled(true)
     }
-
-    @Test(expected = IOException::class)
-    fun writeFailureIsExposedSoTheViewModelCanReturnTheUiToUnavailable() = runBlocking {
-        WallpaperSettingsRepository(UnavailableStore(), LEGACY_CONTOUR_WALLPAPER_ID).setTouchReactionsEnabled(true)
+    @Test fun cancellationRemainsCancellationOnBothBoundaries() = runBlocking {
+        val port = repository(CancellationException("cancelled")).wallpapers { true }
+        try { port.observe(LEGACY_CONTOUR_WALLPAPER_ID).first(); fail("read swallowed cancellation") }
+        catch (_: CancellationException) { }
+        try { port.setMotion(LEGACY_CONTOUR_WALLPAPER_ID, WallpaperMotionMode.OFF); fail("write swallowed cancellation") }
+        catch (_: CancellationException) { }
     }
 }

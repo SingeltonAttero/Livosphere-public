@@ -104,7 +104,7 @@ class WallpaperComponentIsolationTest {
         val b = WallpaperSettingsRepository(context, "isolation-fixture-wallpaper")
         val beforeA = a.touchReactionsEnabled.first() to a.motionMode.first()
         val beforeB = b.touchReactionsEnabled.first() to b.motionMode.first()
-        val file = File(context.filesDir, "datastore/contour-wallpaper-settings.preferences_pb")
+        val file = File(context.filesDir, "datastore/phone-surface-settings.json")
         val bytes = if (file.exists()) file.readBytes() else null
         val engines = mutableListOf<WallpaperService.Engine>()
         try {

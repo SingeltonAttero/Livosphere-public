@@ -1,4 +1,7 @@
-plugins { alias(libs.plugins.android.library) }
+plugins {
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.serialization)
+}
 android {
     namespace = "app.livosphere.settings"
     compileSdk = 37
@@ -9,6 +12,9 @@ android {
     }
 }
 dependencies {
+    api(project(":core:contract"))
+    implementation(libs.datastore)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.datastore.preferences)
     implementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.junit4)
