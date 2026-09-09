@@ -44,6 +44,8 @@ final class SetPluginSupport {
         for (String relative : manifestPaths) {
             File manifest = project.getRootProject().file(relative);
             task.getContractInputs().from(manifest);
+            task.getContractInputs().from(project.provider(() -> SetManifestReader.approvalInputFiles(manifest.toPath())
+                    .stream().map(Path::toFile).toList()));
             File setRoot = manifest.getParentFile() == null ? null : manifest.getParentFile().getParentFile();
             if (setRoot != null) task.getContractInputs().from(new File(setRoot, "source-assets"));
         }

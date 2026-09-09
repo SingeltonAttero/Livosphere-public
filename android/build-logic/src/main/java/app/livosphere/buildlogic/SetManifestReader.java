@@ -24,17 +24,21 @@ import org.gradle.api.GradleException;
 final class SetManifestReader {
     private static final Pattern LOWER_KEBAB = Pattern.compile("^[a-z0-9]+(?:-[a-z0-9]+)*$");
     private static final Pattern SHA_256 = Pattern.compile("^[0-9a-f]{64}$");
-    private static final List<String> SURFACES = List.of("preview", "wallpaper", "watchface");
+    private static final List<String> LEGACY_SURFACES = List.of("preview", "wallpaper", "watchface");
+    private static final List<String> PHONE_SURFACES = List.of("preview", "wallpaper", "clock-widget");
+    private static final List<String> PHASES = List.of("morning", "day", "evening", "night");
+    private static final List<String> SIZES = List.of("s", "m", "l");
+    private static final Pattern CLASS_NAME = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$");
     private static final Set<String> PLATFORMS = Set.of("android-phone", "wear-os");
     private static final Set<String> INSTALL_ROUTES = Set.of(
-            "embedded-preview", "system-wallpaper-preview", "separate-watchface-package");
+            "embedded-preview", "system-wallpaper-preview", "system-widget-pin", "separate-watchface-package");
     private static final Set<String> SETTINGS = Set.of(
             "none", "time-of-day", "battery-level", "charging", "tap", "swipe", "reduced-motion");
     private static final Map<String, String> CONTENT_STATUS_ENUMS = Map.of(
             "approved-for-start", "APPROVED_FOR_START",
-            "release-ready", "RELEASE_READY");
+            "release-ready", "RELEASE_READY", "draft", "DRAFT", "image-approved", "IMAGE_APPROVED", "html-approved", "HTML_APPROVED");
     private static final Pattern RESOURCE_DIRECTORY = Pattern.compile(
-            "^(?:drawable|mipmap|raw|values|xml|font|color)(?:-[a-z0-9]+)*$");
+            "^(?:drawable|mipmap|raw|values|xml|font|color|layout)(?:-[a-z0-9]+)*$");
     private static final Pattern RESOURCE_FILE = Pattern.compile("^[a-z][a-z0-9_]*\\.[a-z0-9]+$");
     private static final String PREVIEW_WALLPAPER_ROLE = "preview-wallpaper-";
     private static final String PREVIEW_WATCHFACE_ROLE = "preview-watchface-";
@@ -49,14 +53,34 @@ final class SetManifestReader {
         Set<String> consumed = new HashSet<>();
 
         int schemaVersion = positiveInt(required(values, consumed, normalizedManifest, "schemaVersion"), normalizedManifest, "schemaVersion");
-        require(schemaVersion == 1, normalizedManifest, "schemaVersion", "поддерживается только schemaVersion=1");
+        require(schemaVersion == 1 || schemaVersion == 2, normalizedManifest, "schemaVersion", "поддерживаются только schemaVersion=1,2");
+        List<String> surfaces = schemaVersion == 1 ? LEGACY_SURFACES : PHONE_SURFACES;
+        String distribution = values.containsKey("distribution") || schemaVersion == 2
+                ? required(values, consumed, normalizedManifest, "distribution") : "debug-only";
+        require(Set.of("debug-only", "public").contains(distribution), normalizedManifest, "distribution", "неизвестный distribution");
+        require(schemaVersion != 1 || distribution.equals("debug-only"), normalizedManifest, "distribution", "schema1 разрешена только как legacy debug-only");
         String setId = lowerKebab(required(values, consumed, normalizedManifest, "setId"), normalizedManifest, "setId");
         int setRevision = positiveInt(required(values, consumed, normalizedManifest, "setRevision"), normalizedManifest, "setRevision");
         int sourceAssetsRevision = positiveInt(
                 required(values, consumed, normalizedManifest, "sourceAssetsRevision"), normalizedManifest, "sourceAssetsRevision");
         String contentStatus = required(values, consumed, normalizedManifest, "contentStatus");
-        require(CONTENT_STATUS_ENUMS.containsKey(contentStatus), normalizedManifest, "contentStatus",
-                "поддерживаются только approved-for-start и release-ready");
+        require((schemaVersion == 1 ? Set.of("approved-for-start", "release-ready")
+                        : Set.of("draft", "image-approved", "html-approved")).contains(contentStatus), normalizedManifest, "contentStatus",
+                schemaVersion == 1 ? "поддерживаются только approved-for-start и release-ready" : "поддерживаются только draft, image-approved и html-approved");
+        Map<String, SetManifest.Approval> approvals = new LinkedHashMap<>();
+        List<String> approvalStages = contentStatus.equals("html-approved") ? List.of("image", "html")
+                : contentStatus.equals("image-approved") ? List.of("image") : List.of();
+        for (String stage : approvalStages) {
+            String prefix = "approval." + stage + ".";
+            String record = required(values, consumed, normalizedManifest, prefix + "record");
+            Path recordPath = approvalFile(normalizedManifest, record, prefix + "record");
+            int revision = positiveInt(required(values, consumed, normalizedManifest, prefix + "revision"), normalizedManifest, prefix + "revision");
+            int sourceRevision = positiveInt(required(values, consumed, normalizedManifest, prefix + "sourceAssetsRevision"), normalizedManifest, prefix + "sourceAssetsRevision");
+            require(sourceRevision <= sourceAssetsRevision, normalizedManifest, prefix + "sourceAssetsRevision", "approval не может ссылаться на future sourceAssetsRevision");
+            String hash = required(values, consumed, normalizedManifest, prefix + "sha256");
+            require(SHA_256.matcher(hash).matches() && sha256(recordPath).equals(hash), normalizedManifest, prefix + "sha256", "checksum mismatch для " + record);
+            approvals.put(stage, new SetManifest.Approval(record, revision, sourceRevision, hash));
+        }
         String provenanceFile = safePath(required(values, consumed, normalizedManifest, "provenanceFile"), normalizedManifest, "provenanceFile");
         String checksumsFile = safePath(required(values, consumed, normalizedManifest, "checksumsFile"), normalizedManifest, "checksumsFile");
 
@@ -89,7 +113,7 @@ final class SetManifestReader {
             int resourceRevision = positiveInt(required(values, consumed, normalizedManifest, prefix + "resourceRevision"),
                     normalizedManifest, prefix + "resourceRevision");
             String surface = required(values, consumed, normalizedManifest, prefix + "surface");
-            require(SURFACES.contains(surface), normalizedManifest, prefix + "surface", "неизвестная surface: " + surface);
+            require(surfaces.contains(surface), normalizedManifest, prefix + "surface", "неизвестная surface: " + surface);
             String platform = required(values, consumed, normalizedManifest, prefix + "platform");
             require(PLATFORMS.contains(platform), normalizedManifest, prefix + "platform", "неизвестная platform: " + platform);
             int minimumApi = positiveInt(required(values, consumed, normalizedManifest, prefix + "minimumApi"), normalizedManifest,
@@ -116,6 +140,40 @@ final class SetManifestReader {
             require(new HashSet<>(assetRefs).size() == assetRefs.size(), normalizedManifest, prefix + "assetRefs",
                     "список содержит duplicate resource ID");
 
+            String serviceClassName = null;
+            Map<String, String> phaseRefs = Map.of();
+            List<String> effectsRefs = List.of();
+            String wallpaperRef = null;
+            String sceneRef = null;
+            String previewRef = null;
+            Map<String, String> widgetRefs = Map.of();
+            String clockStyle = null;
+            Map<String, String> layouts = Map.of();
+            String layoutStatus = null;
+            if (surface.equals("wallpaper")) {
+                serviceClassName = required(values, consumed, normalizedManifest, prefix + "serviceClassName");
+                require(CLASS_NAME.matcher(serviceClassName).matches(), normalizedManifest, prefix + "serviceClassName", "ожидается fully qualified class name");
+                if (schemaVersion == 2) {
+                    phaseRefs = readRefs(values, consumed, normalizedManifest, prefix + "phaseRefs.", PHASES);
+                    effectsRefs = csv(required(values, consumed, normalizedManifest, prefix + "effectsRefs"), normalizedManifest, prefix + "effectsRefs");
+                    require(new HashSet<>(effectsRefs).size() == effectsRefs.size(), normalizedManifest, prefix + "effectsRefs", "duplicate effect ref");
+                    sceneRef = required(values, consumed, normalizedManifest, prefix + "sceneRef");
+                    previewRef = required(values, consumed, normalizedManifest, prefix + "previewRef");
+                }
+            } else if (schemaVersion == 2 && surface.equals("preview")) {
+                wallpaperRef = required(values, consumed, normalizedManifest, prefix + "wallpaperRef");
+                widgetRefs = readRefs(values, consumed, normalizedManifest, prefix + "widgetRefs.", SIZES);
+            } else if (surface.equals("clock-widget")) {
+                clockStyle = required(values, consumed, normalizedManifest, prefix + "style");
+                require(Set.of("analog", "digital").contains(clockStyle), normalizedManifest, prefix + "style", "ожидается analog/digital");
+                layoutStatus = required(values, consumed, normalizedManifest, prefix + "layoutStatus");
+                require(Set.of("test-declaration", "native").contains(layoutStatus), normalizedManifest, prefix + "layoutStatus", "ожидается test-declaration/native");
+                require(!layoutStatus.equals("test-declaration") || distribution.equals("debug-only"), normalizedManifest,
+                        prefix + "layoutStatus", "test-declaration допускается только в debug-only");
+                layouts = readRefs(values, consumed, normalizedManifest, prefix + "layouts.", SIZES);
+                require(new HashSet<>(layouts.values()).size() == 3, normalizedManifest, prefix + "layouts", "S/M/L требуют отдельные layouts");
+            }
+
             List<SetManifest.Asset> assets = new ArrayList<>();
             for (String assetId : assetRefs) {
                 lowerKebab(assetId, normalizedManifest, prefix + "assetRefs");
@@ -141,7 +199,7 @@ final class SetManifestReader {
                         "asset revision " + revision + " не совпадает с resourceRevision " + resourceRevision);
                 String provenance = required(values, consumed, normalizedManifest, assetPrefix + "provenance");
                 require(!provenance.isBlank(), normalizedManifest, assetPrefix + "provenance", "provenance пуст");
-                validateResourceName(normalizedManifest, setId, surface, resourcePath);
+                validateResourceName(normalizedManifest, setId, surface, resourcePath, assetPrefix + "resourcePath");
                 rejectGeneratedCollision(normalizedManifest, setId, surface, resourcePath);
 
                 Path assetFile = sourceFile(sourceAssetsRoot, relativePath, normalizedManifest, assetPrefix + "path");
@@ -154,22 +212,43 @@ final class SetManifestReader {
 
             contributions.add(new SetManifest.Contribution(key, componentId, componentRevision, resourceRevision,
                     surface, platform, minimumApi, installRoute, List.copyOf(supportedSettings), artifactId, artifactProject,
-                    List.copyOf(assets)));
+                    List.copyOf(assets), serviceClassName, phaseRefs, List.copyOf(effectsRefs), wallpaperRef, widgetRefs,
+                    clockStyle, layouts, layoutStatus, sceneRef, previewRef));
+            if (schemaVersion == 2) {
+                for (var ref : phaseRefs.entrySet()) requireRef(normalizedManifest, prefix + "phaseRefs." + ref.getKey(), ref.getValue(), assets);
+                for (String ref : effectsRefs) requireRef(normalizedManifest, prefix + "effectsRefs", ref, assets);
+                if (sceneRef != null) requireRef(normalizedManifest, prefix + "sceneRef", sceneRef, assets);
+                if (wallpaperRef != null) requirePreviewRef(normalizedManifest, prefix + "wallpaperRef", wallpaperRef, assets);
+                for (var ref : widgetRefs.entrySet()) requirePreviewRef(normalizedManifest, prefix + "widgetRefs." + ref.getKey(), ref.getValue(), assets);
+                for (var ref : layouts.entrySet()) {
+                    SetManifest.Asset asset = requireRef(normalizedManifest, prefix + "layouts." + ref.getKey(), ref.getValue(), assets);
+                    String directory = layoutStatus.equals("test-declaration") ? "raw/" : "layout/";
+                    require(asset.resourcePath().startsWith(directory) && asset.resourcePath().endsWith(".xml"), normalizedManifest,
+                            prefix + "layouts." + ref.getKey(), "layoutStatus требует " + directory + " XML: " + asset.resourcePath());
+                }
+            }
         }
 
-        for (String surface : SURFACES) {
+        for (String surface : surfaces) {
             long count = contributions.stream().filter(contribution -> contribution.surface().equals(surface)).count();
             require(count == 1, normalizedManifest, "contributions",
                     "ожидалась ровно одна contribution surface=" + surface + ", найдено " + count);
         }
-        requirePreviewRoles(normalizedManifest, contributions);
-        requireEntryPoints(normalizedManifest, setId, contributions);
+        if (schemaVersion == 1) requirePreviewRoles(normalizedManifest, contributions);
+        requireEntryPoints(normalizedManifest, setId, contributions, schemaVersion);
+        if (schemaVersion == 2) {
+            SetManifest.Contribution wallpaper = contributions.stream().filter(c -> c.surface().equals("wallpaper")).findFirst().orElseThrow();
+            SetManifest.Contribution preview = contributions.stream().filter(c -> c.surface().equals("preview")).findFirst().orElseThrow();
+            requirePreviewRef(normalizedManifest, "contribution." + wallpaper.key() + ".previewRef", wallpaper.previewRef(), preview.assets());
+            require(wallpaper.previewRef().equals(preview.wallpaperRef()), normalizedManifest,
+                    "contribution." + wallpaper.key() + ".previewRef", "должен совпадать с preview.wallpaperRef");
+        }
         require(consumed.equals(values.keySet()), normalizedManifest, "schema",
                 "неизвестные или необъявленные поля: " + difference(values.keySet(), consumed));
 
         verifySourceAssets(normalizedManifest, sourceAssetsRoot, provenanceFile, checksumsFile, contributions);
         return new SetManifest(normalizedManifest, sourceAssetsRoot, schemaVersion, setId, setRevision,
-                sourceAssetsRevision, contentStatus, List.copyOf(contributions));
+                sourceAssetsRevision, contentStatus, distribution, Map.copyOf(approvals), List.copyOf(contributions));
     }
 
     static List<SetManifest> readAll(List<Path> manifestPaths) {
@@ -187,6 +266,9 @@ final class SetManifestReader {
                         .flatMap(contribution -> contribution.assets().stream())
                         .map(SetManifest.Asset::id).toList(),
                 "resource ID");
+        assertUnique(manifests,
+                manifest -> manifest.contributions().stream().map(SetManifest.Contribution::serviceClassName)
+                        .filter(java.util.Objects::nonNull).toList(), "serviceClassName");
         return manifests;
     }
 
@@ -196,6 +278,42 @@ final class SetManifestReader {
             throw new IllegalArgumentException("Unvalidated contentStatus: " + contentStatus);
         }
         return enumName;
+    }
+
+    static List<Path> approvalInputFiles(Path manifest) {
+        Path normalized = manifest.toAbsolutePath().normalize();
+        Map<String, String> values = parseStrictProperties(normalized);
+        return values.entrySet().stream().filter(entry -> entry.getKey().matches("approval\\.(image|html)\\.record"))
+                .map(entry -> approvalFile(normalized, entry.getValue(), entry.getKey())).toList();
+    }
+
+    private static Path approvalFile(Path manifest, String record, String field) {
+        safePath(record, manifest, field);
+        require(record.matches("^[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*\\.md$"), manifest, field, "ожидается relative Markdown path");
+        Path root = realPath(manifest.getParent().getParent(), manifest, field);
+        Path file = sourceFile(root, record, manifest, field);
+        require(Files.isRegularFile(file), manifest, field, "approval record отсутствует: " + record);
+        require(!file.startsWith(realPath(root.resolve("source-assets"), manifest, field)), manifest, field,
+                "approval record должен быть вне packaged resources");
+        return file;
+    }
+
+    private static Map<String, String> readRefs(Map<String, String> values, Set<String> consumed, Path manifest,
+            String prefix, List<String> keys) {
+        Map<String, String> result = new LinkedHashMap<>();
+        for (String key : keys) result.put(key, lowerKebab(required(values, consumed, manifest, prefix + key), manifest, prefix + key));
+        return Map.copyOf(result);
+    }
+
+    private static SetManifest.Asset requireRef(Path manifest, String field, String ref, List<SetManifest.Asset> assets) {
+        return assets.stream().filter(asset -> asset.id().equals(ref)).findFirst()
+                .orElseThrow(() -> failure(manifest, field, "необъявленный resource ref: " + ref, null));
+    }
+
+    private static void requirePreviewRef(Path manifest, String field, String ref, List<SetManifest.Asset> assets) {
+        SetManifest.Asset asset = requireRef(manifest, field, ref, assets);
+        require(asset.resourcePath().startsWith("drawable-nodpi/") && asset.resourcePath().endsWith(".png"), manifest,
+                field, "preview требует drawable-nodpi PNG: " + asset.resourcePath());
     }
 
     private static void verifySourceAssets(
@@ -248,19 +366,20 @@ final class SetManifestReader {
         return result;
     }
 
-    private static void validateResourceName(Path manifest, String setId, String surface, String resourcePath) {
+    private static void validateResourceName(Path manifest, String setId, String surface, String resourcePath, String field) {
         String[] parts = resourcePath.split("/", -1);
-        require(parts.length == 2 && RESOURCE_DIRECTORY.matcher(parts[0]).matches(), manifest, "resourcePath",
+        require(parts.length == 2 && RESOURCE_DIRECTORY.matcher(parts[0]).matches()
+                        && (!parts[0].startsWith("layout") || surface.equals("clock-widget")), manifest, field,
                 "недопустимый Android resource directory: " + resourcePath);
-        require(RESOURCE_FILE.matcher(parts[1]).matches(), manifest, "resourcePath",
+        require(RESOURCE_FILE.matcher(parts[1]).matches(), manifest, field,
                 "resource filename и extension должны быть lowercase Android-compatible: " + resourcePath);
         if (surface.equals("watchface")
                 && (resourcePath.equals("raw/watchface.xml") || resourcePath.equals("xml/watch_face_info.xml"))) {
             return;
         }
         String fileName = parts[1];
-        String prefix = "ls_" + setId.replace('-', '_') + "_" + surface + "_";
-        require(fileName.startsWith(prefix), manifest, "resourcePath",
+        String prefix = "ls_" + setId.replace('-', '_') + "_" + surface.replace('-', '_') + "_";
+        require(fileName.startsWith(prefix), manifest, field,
                 "resource должен иметь prefix " + prefix + ": " + resourcePath);
     }
 
@@ -354,6 +473,10 @@ final class SetManifestReader {
                 expectedPlatform = "android-phone";
                 expectedRoute = "system-wallpaper-preview";
             }
+            case "clock-widget" -> {
+                expectedPlatform = "android-phone";
+                expectedRoute = "system-widget-pin";
+            }
             case "watchface" -> {
                 expectedPlatform = "wear-os";
                 expectedRoute = "separate-watchface-package";
@@ -366,7 +489,7 @@ final class SetManifestReader {
                 surface + " требует installRoute=" + expectedRoute);
     }
 
-    private static void requireEntryPoints(Path manifest, String setId, List<SetManifest.Contribution> contributions) {
+    private static void requireEntryPoints(Path manifest, String setId, List<SetManifest.Contribution> contributions, int schemaVersion) {
         String wallpaperSource = "wallpaper/xml/ls_" + setId.replace('-', '_') + "_wallpaper_entrypoint.xml";
         SetManifest.Contribution wallpaper = contributions.stream()
                 .filter(value -> value.surface().equals("wallpaper")).findFirst().orElseThrow();
@@ -374,6 +497,7 @@ final class SetManifestReader {
                         && asset.resourcePath().equals("xml/ls_" + setId.replace('-', '_') + "_wallpaper_entrypoint.xml")),
                 manifest, "contribution." + wallpaper.key() + ".assetRefs",
                 "обязателен entrypoint " + wallpaperSource);
+        if (schemaVersion == 2) return;
         SetManifest.Contribution watchface = contributions.stream()
                 .filter(value -> value.surface().equals("watchface")).findFirst().orElseThrow();
         require(watchface.assets().stream().anyMatch(asset -> asset.relativePath().equals(WFF_ENTRYPOINT)

@@ -2,6 +2,7 @@ package app.livosphere.buildlogic;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 record SetManifest(
         Path manifestPath,
@@ -11,7 +12,13 @@ record SetManifest(
         int setRevision,
         int sourceAssetsRevision,
         String contentStatus,
+        String distribution,
+        Map<String, Approval> approvals,
         List<Contribution> contributions) {
+
+    boolean releaseEligible() {
+        return schemaVersion == 2 && distribution.equals("public") && contentStatus.equals("html-approved");
+    }
 
     Contribution contributionFor(String surface) {
         return contributions.stream()
@@ -33,7 +40,19 @@ record SetManifest(
             List<String> supportedSettings,
             String artifactId,
             String artifactProject,
-            List<Asset> assets) {}
+            List<Asset> assets,
+            String serviceClassName,
+            Map<String, String> phaseRefs,
+            List<String> effectsRefs,
+            String wallpaperRef,
+            Map<String, String> widgetRefs,
+            String clockStyle,
+            Map<String, String> layouts,
+            String layoutStatus,
+            String sceneRef,
+            String previewRef) {}
+
+    record Approval(String record, int revision, int sourceAssetsRevision, String sha256) {}
 
     record Asset(
             String id,

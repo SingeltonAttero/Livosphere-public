@@ -8,6 +8,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.gradle.api.GradleException;
 
@@ -37,11 +38,12 @@ final class SetContractEngine {
         String xml = """
                 <?xml version="1.0" encoding="utf-8"?>
                 <resources>
+                    <integer name="%sschema_version">%d</integer>
                     <integer name="%sset_revision">%d</integer>
                     <integer name="%sresource_revision">%d</integer>
                     <string name="%scomponent_id" translatable="false">%s</string>
                 </resources>
-                """.formatted(prefix, manifest.setRevision(), prefix, contribution.resourceRevision(), prefix,
+                """.formatted(prefix, manifest.schemaVersion(), prefix, manifest.setRevision(), prefix, contribution.resourceRevision(), prefix,
                 contribution.componentId());
         write(values, xml);
 
@@ -75,6 +77,9 @@ final class SetContractEngine {
     }
 
     private static String descriptorKotlin(SetManifest manifest) {
+        String schemaSpecific = manifest.schemaVersion() == 1
+                ? "watchFace = " + contributionKotlin("WatchFaceContribution", manifest.contributionFor("watchface"))
+                : "clockWidget = " + contributionKotlin("ClockWidgetContribution", manifest.contributionFor("clock-widget"));
         return """
                 SetDescriptor(
                     schemaVersion = %d,
@@ -82,16 +87,32 @@ final class SetContractEngine {
                     setRevision = Revision(%d),
                     sourceAssetsRevision = Revision(%d),
                     contentStatus = ContentStatus.%s,
+                    distribution = Distribution.%s,
                     preview = %s,
                     wallpaper = %s,
-                    watchFace = %s,
+                    %s,
+                    approvals = %s,
                 )
                 """.formatted(
                 manifest.schemaVersion(), quote(manifest.setId()), manifest.setRevision(), manifest.sourceAssetsRevision(),
-                SetManifestReader.kotlinContentStatus(manifest.contentStatus()),
+                SetManifestReader.kotlinContentStatus(manifest.contentStatus()), enumName(manifest.distribution()),
                 contributionKotlin("PreviewContribution", manifest.contributionFor("preview")),
-                contributionKotlin("WallpaperContribution", manifest.contributionFor("wallpaper")),
-                contributionKotlin("WatchFaceContribution", manifest.contributionFor("watchface"))).stripTrailing();
+                contributionKotlin("WallpaperContribution", manifest.contributionFor("wallpaper")), schemaSpecific,
+                approvalKotlin(manifest.approvals())).stripTrailing();
+    }
+
+    private static String approvalKotlin(Map<String, SetManifest.Approval> approvals) {
+        return approvals.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(entry -> {
+            SetManifest.Approval ref = entry.getValue();
+            return "ApprovalStage." + enumName(entry.getKey()) + " to ApprovalReference(" + quote(ref.record())
+                    + ", Revision(" + ref.revision() + "), Revision(" + ref.sourceAssetsRevision() + "), " + quote(ref.sha256()) + ")";
+        }).collect(Collectors.joining(", ", "mapOf(", ")"));
+    }
+
+    private static String refMap(String enumType, Map<String, String> references) {
+        return references.entrySet().stream().sorted(Map.Entry.comparingByKey())
+                .map(entry -> enumType + "." + enumName(entry.getKey()) + " to " + quote(entry.getValue()))
+                .collect(Collectors.joining(", ", "mapOf(", ")"));
     }
 
     private static String contributionKotlin(String type, SetManifest.Contribution contribution) {
@@ -103,6 +124,19 @@ final class SetContractEngine {
                 .map(asset -> "ResourceReference(" + quote(asset.id()) + ", " + quote(asset.resourcePath()) + ", " + quote(asset.sha256())
                         + ", Revision(" + asset.revision() + "), " + quote(asset.provenance()) + ")")
                 .collect(Collectors.joining(", "));
+        String extra = "";
+        if (contribution.serviceClassName() != null) {
+            extra += ", serviceClassName = " + quote(contribution.serviceClassName())
+                    + ", phaseRefs = " + refMap("DayPhase", contribution.phaseRefs())
+                    + ", effectsRefs = " + contribution.effectsRefs().stream().map(SetContractEngine::quote)
+                            .collect(Collectors.joining(", ", "listOf(", ")"));
+            if (contribution.sceneRef() != null) extra += ", sceneRef = " + quote(contribution.sceneRef()) + ", previewRef = " + quote(contribution.previewRef());
+        }
+        if (contribution.wallpaperRef() != null) extra += ", wallpaperRef = " + quote(contribution.wallpaperRef())
+                + ", widgetRefs = " + refMap("WidgetSize", contribution.widgetRefs());
+        if (contribution.clockStyle() != null) extra += ", style = ClockStyle." + enumName(contribution.clockStyle())
+                + ", layouts = " + refMap("WidgetSize", contribution.layouts())
+                + ", layoutStatus = WidgetLayoutStatus." + enumName(contribution.layoutStatus());
         return type + "(componentId = ComponentId(" + quote(contribution.componentId()) + ")"
                 + ", componentRevision = Revision(" + contribution.componentRevision() + ")"
                 + ", resourceRevision = Revision(" + contribution.resourceRevision() + ")"
@@ -112,7 +146,7 @@ final class SetContractEngine {
                 + ", supportedSettings = setOf(" + settings + ")"
                 + ", artifact = ArtifactReference(ArtifactId(" + quote(contribution.artifactId()) + "), "
                 + quote(contribution.artifactProject()) + ")"
-                + ", resources = listOf(" + resources + "))";
+                + ", resources = listOf(" + resources + ")" + extra + ")";
     }
 
     private static String installRouteName(String value) {
@@ -120,6 +154,7 @@ final class SetContractEngine {
             case "embedded-preview" -> "EmbeddedPreview";
             case "system-wallpaper-preview" -> "SystemWallpaperPreview";
             case "separate-watchface-package" -> "SeparateWatchFacePackage";
+            case "system-widget-pin" -> "SystemWidgetPin";
             default -> throw new IllegalArgumentException(value);
         };
     }
