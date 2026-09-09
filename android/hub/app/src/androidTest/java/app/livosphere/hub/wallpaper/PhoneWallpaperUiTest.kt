@@ -27,22 +27,40 @@ import org.junit.Test
 internal fun phoneUiSnapshot() = PhoneWallpaperSnapshot(Instant.now(), WallpaperComponent("app.livosphere", "ContourService"), 29, 34,
     WallpaperFact.Known(true), WallpaperFact.Known(true), WallpaperFact.Known(true), WallpaperFact.Known(WallpaperPresence.AVAILABLE),
     WallpaperFact.Known(true), WallpaperFact.Known(true), WallpaperFact.Unknown(UnknownReason.NO_COMPONENT_INFO),
-    WallpaperFact.Unknown(UnknownReason.LEGACY_API))
+    WallpaperFact.Unknown(UnknownReason.LEGACY_API), "contour-wallpaper")
 
 class PhoneWallpaperUiTest {
     @get:Rule val composeRule = createComposeRule()
+
+
+    @Test fun missingSelectionFromAvailableAInvalidatesCtaAndNeverLaunchesOldTarget() {
+        lateinit var vm: HubViewModel
+        val launches = mutableListOf<WallpaperLaunchRequest>()
+        composeRule.setContent {
+            vm = rememberPhoneTestHubViewModel()
+            HubApp(vm, onExit = {}, wallpaperLauncher = WallpaperLauncher { launches += it; Outcome.Success(Unit) })
+        }
+        composeRule.onNodeWithTag("theme-primary-action").performScrollTo().assertIsEnabled()
+        composeRule.runOnIdle { vm.onAction(HubAction.Phone(PhoneWallpaperAction.TargetSelected(null))) }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("theme-primary-action").assertIsNotEnabled()
+        composeRule.runOnIdle { vm.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn)) }
+        composeRule.waitForIdle()
+        assertTrue(launches.isEmpty())
+        assertNull(vm.state.value.phone.readyRequest)
+    }
 
     @Test fun androidBoundaryUsesExactPackagedComponentAndIndependentChooser() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val intents = mutableListOf<Intent>()
         val launcher = AndroidWallpaperLauncher(context) { intents += it }
-        assertEquals(Outcome.Success(Unit), launcher.launch(WallpaperLaunchRequest(1, 1, WallpaperRoute.DIRECT)))
+        assertEquals(Outcome.Success(Unit), launcher.launch(WallpaperLaunchRequest(1, 1, WallpaperRoute.DIRECT, checkNotNull(AndroidWallpaperTarget.initialBrowsingTarget(context)))))
         assertEquals(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER, intents[0].action)
         @Suppress("DEPRECATION")
         val component = intents[0].getParcelableExtra<ComponentName>(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT)
-        assertEquals(AndroidWallpaperTarget.component(context), component)
+        assertEquals(AndroidWallpaperTarget.component(checkNotNull(AndroidWallpaperTarget.initialBrowsingTarget(context))), component)
         assertEquals("app.livosphere.wallpapers.contour.ContourWallpaperService", component?.className)
-        launcher.launch(WallpaperLaunchRequest(2, 1, WallpaperRoute.CHOOSER))
+        launcher.launch(WallpaperLaunchRequest(2, 1, WallpaperRoute.CHOOSER, checkNotNull(AndroidWallpaperTarget.initialBrowsingTarget(context))))
         assertEquals(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER, intents[1].action)
         assertFalse(intents[1].hasExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT))
     }
@@ -56,7 +74,7 @@ class PhoneWallpaperUiTest {
             IllegalStateException("private incident") to WallpaperLaunchFailure.PLATFORM_INCIDENT,
         ).forEach { (failure, expected) ->
             val launcher = AndroidWallpaperLauncher(context) { throw failure }
-            assertEquals(Outcome.Failure(expected), launcher.launch(WallpaperLaunchRequest(1, 1, WallpaperRoute.DIRECT)))
+            assertEquals(Outcome.Failure(expected), launcher.launch(WallpaperLaunchRequest(1, 1, WallpaperRoute.DIRECT, checkNotNull(AndroidWallpaperTarget.initialBrowsingTarget(context)))))
         }
     }
 
@@ -71,8 +89,9 @@ class PhoneWallpaperUiTest {
                     override fun retryHistory() = Unit
                     override suspend fun claimInvitation(now: Instant) = Outcome.Success(InvitationClaim.Suppressed)
                 }, object : PhoneWallpaperGateway {
+        override val initialBrowsingTarget = phoneUiSnapshot().target
                     override val snapshots = MutableStateFlow<PhoneWallpaperSnapshot?>(null)
-                    override suspend fun refresh() = phoneUiSnapshot().also { snapshots.value = it }
+                    override suspend fun refresh(target: WallpaperTarget) = phoneUiSnapshot().also { snapshots.value = it }
                 }, Clock.systemUTC()).also { store.put("hub", it) }
             }
             DisposableEffect(store) { onDispose { store.clear() } }

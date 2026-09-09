@@ -31,7 +31,7 @@ class PhoneFactsViewportTest(private val width: Int, private val height: Int, pr
                 }
             }
         }
-        composeRule.onNodeWithText("Главный экран (HOME): применены обои «Контур»").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Главный экран (HOME): применены выбранные обои").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Экран блокировки (LOCK): не удалось определить").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("phone-facts-toggle").performScrollTo().performClick()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Развёрнуто"))

@@ -11,7 +11,7 @@ class PhoneWallpaperFlowTest {
     private val unknown = WallpaperFact.Unknown(UnknownReason.NO_COMPONENT_INFO)
     private val snapshot = PhoneWallpaperSnapshot(now, WallpaperComponent("app.livosphere", "ContourService"), 29, 34,
         WallpaperFact.Known(true), WallpaperFact.Known(true), WallpaperFact.Known(true),
-        WallpaperFact.Known(WallpaperPresence.AVAILABLE), WallpaperFact.Known(true), WallpaperFact.Known(true), unknown, unknown)
+        WallpaperFact.Known(WallpaperPresence.AVAILABLE), WallpaperFact.Known(true), WallpaperFact.Known(true), unknown, unknown, "contour-wallpaper")
     private fun step(state: PhoneWallpaperState, action: PhoneWallpaperAction, foreground: Boolean = true, eligible: Boolean = true) =
         PhoneWallpaperReducer.reduce(state, action, foreground, eligible)
     private fun ready(): PhoneWallpaperState {
@@ -89,7 +89,8 @@ class PhoneWallpaperFlowTest {
         val abandoned = step(switched, PhoneWallpaperAction.Abandoned(request), eligible = false).state
         assertFalse(abandoned.busy)
         assertNull(abandoned.failure)
-        val retry = step(abandoned, PhoneWallpaperAction.TryOn).state
+        val fresh = step(abandoned, PhoneWallpaperAction.Observed(abandoned.generation, snapshot)).state
+        val retry = step(fresh, PhoneWallpaperAction.TryOn).state
         assertNotNull(retry.queryingRequestId)
         // An old cancelled consumer cannot clear a newer request.
         assertEquals(retry, step(retry, PhoneWallpaperAction.Abandoned(request)).state)
@@ -105,11 +106,12 @@ class PhoneWallpaperFlowTest {
         assertFalse(fresh.busy)
     }
 
-    @Test fun selectionChangedDuringProbeCancelsLaunchWithoutBlockingFreshFacts() {
+    @Test fun selectionChangedDuringProbeInvalidatesOldFactsAndAllowsFreshFacts() {
         val query = step(PhoneWallpaperState(snapshot), PhoneWallpaperAction.TryOn).state
         val switched = step(query, PhoneWallpaperAction.SelectionChanged, eligible = false).state
         val result = step(switched, PhoneWallpaperAction.Observed(query.generation, snapshot), eligible = false).state
-        assertEquals(snapshot, result.snapshot)
+        assertNull(result.snapshot)
+        assertEquals(snapshot, step(result, PhoneWallpaperAction.Observed(result.generation, snapshot)).state.snapshot)
         assertNull(result.readyRequest)
         assertNull(step(ready(), PhoneWallpaperAction.TryOn, eligible = false).state.queryingRequestId)
     }
@@ -174,7 +176,7 @@ class PhoneWallpaperFlowTest {
     @Test fun rejectedSessionRoutesDoNotProjectNotAppliedInvitationKnowledge() {
         val inactive = WallpaperFact.Known(WallpaperApplication.INACTIVE)
         val facts = snapshot.copy(home = inactive, lock = inactive)
-        val state = HubState(foreground = true, phone = PhoneWallpaperState(generation = 1, refreshing = true,
+        val state = HubState(foreground = true, phone = PhoneWallpaperState(target = snapshot.target, generation = 1, refreshing = true,
             skipDirect = true, skipChooser = true), settings = Outcome.Success(InvitationHistory()))
         val observed = HubReducer.reduce(state, HubAction.Phone(PhoneWallpaperAction.Observed(1, facts))).state
         assertEquals(ApplicationKnowledge.Unknown, observed.knowledge)
@@ -196,4 +198,36 @@ class PhoneWallpaperFlowTest {
         assertEquals(ApplicationKnowledge.Unknown, resumed.knowledge)
         assertTrue(HubReducer.reduce(resumed, HubAction.EvaluateInvitation(now)).commands.isEmpty())
     }
+    @Test fun switchingTargetsRejectsOldObservationAndCapturesBInLaunch() {
+        val a = step(PhoneWallpaperState(snapshot), PhoneWallpaperAction.TryOn).state
+        val bSnapshot = snapshot.copy(component = WallpaperComponent("app.livosphere", "FixtureService"),
+            wallpaperId = "isolation-fixture-wallpaper")
+        val switch = step(a, PhoneWallpaperAction.TargetSelected(bSnapshot.target))
+        assertNull(switch.state.snapshot)
+        assertNull(switch.state.queryingRequestId)
+        assertTrue(switch.state.generation > a.generation)
+        assertEquals(bSnapshot.target, (switch.effects.single() as PhoneWallpaperEffect.Observe).target)
+        assertEquals(switch.state, step(switch.state, PhoneWallpaperAction.Observed(a.generation, snapshot)).state)
+        assertEquals(switch.state, step(switch.state, PhoneWallpaperAction.Observed(switch.state.generation, snapshot)).state)
+        val b = step(switch.state, PhoneWallpaperAction.Observed(switch.state.generation, bSnapshot)).state
+        val query = step(b, PhoneWallpaperAction.TryOn).state
+        val readyB = step(query, PhoneWallpaperAction.Observed(query.generation, bSnapshot)).state
+        val requestB = requireNotNull(readyB.readyRequest)
+        assertEquals(bSnapshot.target, requestB.target)
+        val changed = step(readyB, PhoneWallpaperAction.TargetSelected(snapshot.target)).state
+        assertEquals(changed, step(changed, PhoneWallpaperAction.Consume(requestB)).state)
+        assertEquals(bSnapshot.target, requestB.target)
+    }
+
+    @Test fun missingSavedTargetNeverFallsBackAndClearsPreviousActiveKnowledge() {
+        val initial = PhoneWallpaperState(snapshot.copy(home = WallpaperFact.Known(WallpaperApplication.ACTIVE)))
+        val unavailable = step(initial, PhoneWallpaperAction.TargetSelected(null))
+        assertNull(unavailable.state.snapshot)
+        assertNull(unavailable.state.target)
+        assertEquals(WallpaperBlock.UNKNOWN_COMPONENT, unavailable.state.path.block)
+        assertTrue(unavailable.effects.isEmpty())
+        assertEquals(ApplicationKnowledge.Unknown, WallpaperRoutePolicy.knowledge(unavailable.state.snapshot))
+        assertNull(step(unavailable.state, PhoneWallpaperAction.TryOn).state.readyRequest)
+    }
+
 }

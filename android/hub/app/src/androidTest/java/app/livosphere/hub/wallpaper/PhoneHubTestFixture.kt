@@ -28,8 +28,9 @@ internal fun rememberPhoneTestHubViewModel(
             override suspend fun claimInvitation(now: Instant) = Outcome.Success(InvitationClaim.Suppressed)
         }
         val gateway = object : PhoneWallpaperGateway {
+        override val initialBrowsingTarget = phoneUiSnapshot().target
             override val snapshots = MutableStateFlow<PhoneWallpaperSnapshot?>(null)
-            override suspend fun refresh() = observe().also { snapshots.value = it }
+            override suspend fun refresh(target: WallpaperTarget) = observe().also { snapshots.value = it }
         }
         (if (beforeAcknowledgement == null) HubViewModel(repository, gateway, Clock.systemUTC())
         else HubViewModel(repository, gateway, Clock.systemUTC(), beforeAcknowledgement)).also { store.put("hub", it) }

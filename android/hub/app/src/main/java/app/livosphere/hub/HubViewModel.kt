@@ -7,8 +7,8 @@ import app.livosphere.hub.onboarding.HubSettingsRepository
 import app.livosphere.hub.settings.DataStoreHubRuntimeSettings
 import app.livosphere.hub.settings.HubMotionMode
 import app.livosphere.hub.wallpaper.*
-import app.livosphere.wallpapers.contour.WallpaperMotionMode
-import app.livosphere.wallpapers.contour.WallpaperSettingsRepository
+import app.livosphere.settings.WallpaperMotionMode
+import app.livosphere.settings.WallpaperSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import java.time.Clock
@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
@@ -67,7 +68,7 @@ class HubViewModel private constructor(
         beforeAcknowledgement: suspend (WallpaperLaunchRequest) -> Unit) :
         this(repository, null, clock, wallpaperGateway, null, null, beforeAcknowledgement)
 
-    private val mutableState = MutableStateFlow(HubState())
+    private val mutableState = MutableStateFlow(HubState(phone = PhoneWallpaperState(target = wallpaperGateway?.initialBrowsingTarget)))
     private val mutableTouchReactions = MutableStateFlow<Boolean?>(null)
     private val mutableWallpaperMotion = MutableStateFlow<WallpaperMotionMode?>(null)
     private val mutableHubMotion = MutableStateFlow<HubMotionMode?>(null)
@@ -75,8 +76,12 @@ class HubViewModel private constructor(
     private val commandChannel = Channel<HubCommand.ShowSection>(capacity = Channel.CONFLATED)
     private data class ActionEnvelope(val action: HubAction, val consumed: CompletableDeferred<Boolean>? = null)
     private val actions = Channel<ActionEnvelope>(capacity = Channel.UNLIMITED)
+    private val settingsObservation = MutableStateFlow(wallpaperGateway?.initialBrowsingTarget?.wallpaperId to 0L)
     private var observationJob: Job? = null
     private var observationDeadline: Job? = null
+    private var touchWriteGeneration = 0L
+    private var motionWriteGeneration = 0L
+    private var motionSettingsWriteUnavailable = false
     private var touchSettingsWriteUnavailable = false
     private var hubMotionWriteUnavailable = false
 
@@ -93,6 +98,15 @@ class HubViewModel private constructor(
                 val before = mutableState.value
                 val transition = HubReducer.reduce(mutableState.value, action)
                 mutableState.value = transition.state
+                if (before.phone.target != transition.state.phone.target || action is HubAction.ForegroundStarted) {
+                    touchWriteGeneration++
+                    motionWriteGeneration++
+                    touchSettingsWriteUnavailable = false
+                    motionSettingsWriteUnavailable = false
+                    mutableTouchReactions.value = null
+                    mutableWallpaperMotion.value = null
+                    settingsObservation.value = transition.state.phone.target?.wallpaperId to (settingsObservation.value.second + 1)
+                }
                 if (before.phone.generation != transition.state.phone.generation) {
                     observationJob?.cancel()
                     observationDeadline?.cancel()
@@ -103,7 +117,7 @@ class HubViewModel private constructor(
                 transition.commands.forEach { command ->
                     when (command) {
                         is HubCommand.Phone -> when (val effect = command.effect) {
-                            is PhoneWallpaperEffect.Observe -> observePhone(effect.generation)
+                            is PhoneWallpaperEffect.Observe -> observePhone(effect.generation, effect.target)
                         }
                         HubCommand.RetryHistory -> repository.retryHistory()
                         is HubCommand.ShowSection -> commandChannel.trySend(command)
@@ -119,6 +133,7 @@ class HubViewModel private constructor(
                     // DataStore flow. Foreground is the user-visible retry boundary.
                     hubMotionWriteUnavailable = false
                     runtimeSettingsRepository?.retrySettings()
+                    knowledgeProvider?.let { onAction(HubAction.KnowledgeChanged(it.knowledge.value)) }
                 }
                 if (action is HubAction.HistoryChanged || action is HubAction.KnowledgeChanged ||
                     action is HubAction.ForegroundStarted || action is HubAction.NavigationRestored ||
@@ -129,15 +144,22 @@ class HubViewModel private constructor(
             }
         }
         viewModelScope.launch { repository.history.collect { onAction(HubAction.HistoryChanged(it)) } }
-        wallpaperSettingsRepository?.let { settings -> viewModelScope.launch {
-            settings.touchReactionsEnabled.collect { value ->
-                // A failed edit must not be overwritten by a stale DataStore replay of the old
-                // value: that would put an enabled-looking switch back on screen without proof.
-                if (!touchSettingsWriteUnavailable) mutableTouchReactions.value = value
+        wallpaperSettingsRepository?.let { repository -> viewModelScope.launch {
+            settingsObservation.collectLatest { observation ->
+                val wallpaperId = observation.first
+                mutableTouchReactions.value = null
+                mutableWallpaperMotion.value = null
+                if (wallpaperId != null) kotlinx.coroutines.coroutineScope {
+                    val settings = repository.forWallpaper(wallpaperId)
+                    launch { settings.touchReactionsEnabled.collect { value ->
+                        if (!touchSettingsWriteUnavailable && settingsObservation.value == observation) mutableTouchReactions.value = value
+                    } }
+                    launch { settings.motionMode.collect { value ->
+                        if (!motionSettingsWriteUnavailable && settingsObservation.value == observation)
+                            mutableWallpaperMotion.value = value
+                    } }
+                }
             }
-        } }
-        wallpaperSettingsRepository?.let { settings -> viewModelScope.launch {
-            settings.motionMode.collect { value -> mutableWallpaperMotion.value = value }
         } }
         runtimeSettingsRepository?.let { settings -> viewModelScope.launch {
             settings.settings.collect { value ->
@@ -155,27 +177,47 @@ class HubViewModel private constructor(
     }
 
     fun setTouchReactionsEnabled(enabled: Boolean) {
-        val settings = wallpaperSettingsRepository ?: return
+        val writeGeneration = ++touchWriteGeneration
+        val owner = state.value.phone.target?.wallpaperId ?: return
+        val settings = wallpaperSettingsRepository?.forWallpaper(owner) ?: return
         viewModelScope.launch {
             try {
                 settings.setTouchReactionsEnabled(enabled)
-                touchSettingsWriteUnavailable = false
+                if (state.value.phone.target?.wallpaperId == owner && touchWriteGeneration == writeGeneration) {
+                    touchSettingsWriteUnavailable = false
+                    mutableTouchReactions.value = enabled
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
                 // Do not leave an optimistic enabled/disabled switch after a failed DataStore edit.
-                touchSettingsWriteUnavailable = true
-                mutableTouchReactions.value = null
+                if (state.value.phone.target?.wallpaperId == owner && touchWriteGeneration == writeGeneration) {
+                    touchSettingsWriteUnavailable = true
+                    mutableTouchReactions.value = null
+                }
             }
         }
     }
 
     fun setWallpaperMotionMode(mode: WallpaperMotionMode) {
-        val settings = wallpaperSettingsRepository ?: return
+        val writeGeneration = ++motionWriteGeneration
+        val owner = state.value.phone.target?.wallpaperId ?: return
+        val settings = wallpaperSettingsRepository?.forWallpaper(owner) ?: return
         viewModelScope.launch {
-            try { settings.setMotionMode(mode) }
+            try {
+                settings.setMotionMode(mode)
+                if (state.value.phone.target?.wallpaperId == owner && motionWriteGeneration == writeGeneration) {
+                    motionSettingsWriteUnavailable = false
+                    mutableWallpaperMotion.value = mode
+                }
+            }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { mutableWallpaperMotion.value = null }
+            catch (_: Exception) {
+                if (state.value.phone.target?.wallpaperId == owner && motionWriteGeneration == writeGeneration) {
+                    motionSettingsWriteUnavailable = true
+                    mutableWallpaperMotion.value = null
+                }
+            }
         }
     }
 
@@ -214,12 +256,12 @@ class HubViewModel private constructor(
         return consumed
     }
 
-    private fun observePhone(generation: Long) {
+    private fun observePhone(generation: Long, target: WallpaperTarget) {
         var deadline: Job? = null
         val probe = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try {
                 if (wallpaperGateway != null) {
-                    val snapshot = try { wallpaperGateway.refresh() }
+                    val snapshot = try { wallpaperGateway.refresh(target) }
                     catch (cancelled: CancellationException) { throw cancelled }
                     catch (_: Exception) { null }
                     onAction(HubAction.Phone(PhoneWallpaperAction.Observed(generation, snapshot)))

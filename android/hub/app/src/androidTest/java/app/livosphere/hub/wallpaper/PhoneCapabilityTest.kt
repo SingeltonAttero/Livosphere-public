@@ -33,16 +33,16 @@ class PhoneCapabilityTest {
     @Test fun recordsIndependentPhoneCapabilities() = runBlocking<Unit> {
         val gateway = AndroidWallpaperGateway(context, Clock.systemUTC())
         assertNull(gateway.snapshots.value)
-        val snapshot = gateway.refresh()
+        val snapshot = gateway.refresh(checkNotNull(gateway.initialBrowsingTarget))
         val report = report("recordsIndependentPhoneCapabilities", snapshot)
         try {
             if (controlledEmulator) assertTrue("Controlled scenario requires an emulator", emulator)
             assertEquals(snapshot, gateway.snapshots.value)
             assertEquals(WallpaperFact.Known(WallpaperPresence.AVAILABLE), snapshot.presence)
-            val direct = AndroidWallpaperTarget.directPreviewIntent(context)
+            val direct = AndroidWallpaperTarget.directPreviewIntent(checkNotNull(AndroidWallpaperTarget.initialBrowsingTarget(context)))
             assertEquals(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER, direct.action)
             @Suppress("DEPRECATION")
-            assertEquals(AndroidWallpaperTarget.component(context),
+            assertEquals(AndroidWallpaperTarget.component(checkNotNull(AndroidWallpaperTarget.initialBrowsingTarget(context))),
                 direct.getParcelableExtra<ComponentName>(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT))
             assertEquals(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER, AndroidWallpaperTarget.chooserIntent().action)
 
@@ -59,7 +59,7 @@ class PhoneCapabilityTest {
                     val expected = when {
                         raw.failure != null -> WallpaperFact.Unknown(UnknownReason.PROBE_FAILED, raw.failure)
                         raw.value == null -> WallpaperFact.Unknown(UnknownReason.NO_COMPONENT_INFO)
-                        raw.value == AndroidWallpaperTarget.component(context) -> WallpaperFact.Known(WallpaperApplication.ACTIVE)
+                        raw.value == AndroidWallpaperTarget.component(checkNotNull(AndroidWallpaperTarget.initialBrowsingTarget(context))) -> WallpaperFact.Known(WallpaperApplication.ACTIVE)
                         else -> WallpaperFact.Known(WallpaperApplication.INACTIVE)
                     }
                     assertEquals("Independent $surface component comparison", expected, actual)
@@ -95,18 +95,27 @@ class PhoneCapabilityTest {
 
     @Test fun disabledServiceIsObservedAndOriginalOverrideRestored() = runBlocking<Unit> {
         org.junit.Assume.assumeTrue("Negative presence scenario requires the controlled emulator", controlledEmulator && emulator)
-        val target = AndroidWallpaperTarget.component(context)
+        val selected = checkNotNull(AndroidWallpaperTarget.resolve(context,
+            InstrumentationRegistry.getArguments().getString("disabledWallpaperId") ?: "isolation-fixture-wallpaper"))
+        val target = AndroidWallpaperTarget.component(selected)
         val packages = context.packageManager
         val original = packages.getComponentEnabledSetting(target)
         val gateway = AndroidWallpaperGateway(context, Clock.systemUTC())
-        val initial = gateway.refresh()
+        val initial = gateway.refresh(selected)
+        // App API UNKNOWN remains UNKNOWN. A controlled test uses a separate shell observation
+        // to prove that B is not applied before temporarily disabling it; no production inference changes.
+        val appliedBefore = systemAppliedComponents()
+        org.junit.Assume.assumeTrue("Only a proven inactive fixture may be disabled",
+            appliedBefore.isNotEmpty() && target.flattenToString() !in appliedBefore)
         val report = report("disabledServiceIsObservedAndOriginalOverrideRestored", initial)
             .put("originalComponentOverride", original)
+            .put("negativeTargetInactivitySource", "CONTROLLED_EMULATOR_DUMPSYS_WALLPAPER")
+            .put("appliedComponentsBefore", org.json.JSONArray(appliedBefore))
         try {
             assertEquals(WallpaperFact.Known(WallpaperPresence.AVAILABLE), initial.presence)
             try {
                 packages.setComponentEnabledSetting(target, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
-                val disabled = gateway.refresh()
+                val disabled = gateway.refresh(selected)
                 report.put("disabledObservation", snapshot(disabled))
                 assertEquals(WallpaperFact.Known(WallpaperPresence.DISABLED), disabled.presence)
                 for (application in listOf(disabled.home, disabled.lock)) {
@@ -114,11 +123,14 @@ class PhoneCapabilityTest {
                 }
             } finally {
                 packages.setComponentEnabledSetting(target, original, PackageManager.DONT_KILL_APP)
-                val recovered = gateway.refresh()
+                val recovered = gateway.refresh(selected)
                 report.put("recoveredObservation", snapshot(recovered))
                 report.put("restoredComponentOverride", packages.getComponentEnabledSetting(target))
                 assertEquals(original, packages.getComponentEnabledSetting(target))
                 assertEquals(WallpaperFact.Known(WallpaperPresence.AVAILABLE), recovered.presence)
+                val appliedAfter = systemAppliedComponents()
+                report.put("appliedComponentsAfter", org.json.JSONArray(appliedAfter))
+                assertEquals("Disabling B must preserve applied components", appliedBefore, appliedAfter)
             }
             report.put("localVerdict", if (emulator) "PASS" else "OBSERVATION_ONLY")
         } finally {
@@ -126,9 +138,15 @@ class PhoneCapabilityTest {
         }
     }
 
+    private fun systemAppliedComponents(): List<String> {
+        val descriptor = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("dumpsys wallpaper")
+        val dump = android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor).bufferedReader().use { it.readText() }
+        return Regex("mWallpaperComponent=ComponentInfo\\{([^}]+)\\}").findAll(dump).map { it.groupValues[1] }.toList()
+    }
+
     @Suppress("DEPRECATION")
     private fun verifyPackagedService(report: JSONObject) {
-        val info = context.packageManager.getServiceInfo(AndroidWallpaperTarget.component(context), PackageManager.GET_META_DATA)
+        val info = context.packageManager.getServiceInfo(AndroidWallpaperTarget.component(checkNotNull(AndroidWallpaperTarget.initialBrowsingTarget(context))), PackageManager.GET_META_DATA)
         val metadata = info.metaData?.getInt(WallpaperService.SERVICE_META_DATA, 0) ?: 0
         report.put("packagedService", JSONObject().put("exported", info.exported)
             .put("permission", info.permission ?: JSONObject.NULL).put("wallpaperMetadataResource", metadata))
@@ -170,7 +188,7 @@ class PhoneCapabilityTest {
     }
 
     private fun report(testId: String, observation: PhoneWallpaperSnapshot): JSONObject {
-        val descriptor = AndroidWallpaperTarget.descriptor
+        val descriptor = app.livosphere.generated.GeneratedSetRegistry.sets.single { it.wallpaper.componentId.value == observation.wallpaperId }
         val artifact = File(context.applicationInfo.sourceDir)
         val sha = MessageDigest.getInstance("SHA-256")
         artifact.inputStream().use { input ->
@@ -232,6 +250,8 @@ class PhoneCapabilityTest {
         File(latest.parentFile, "phone-capability-${report.getString("runId")}.json").writeText(json)
         // Stable file is the primary capability report; each test also has immutable run history.
         if (report.getString("testId") == "recordsIndependentPhoneCapabilities") latest.writeText(json)
+        if (report.getString("testId") == "disabledServiceIsObservedAndOriginalOverrideRestored")
+            File(latest.parentFile, "phone-capability-disabled-fixture.json").writeText(json)
     }
 
     companion object {

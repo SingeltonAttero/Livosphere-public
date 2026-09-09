@@ -15,7 +15,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.livosphere.hub.LivosphereTheme
-import app.livosphere.wallpapers.contour.WallpaperMotionMode
+import app.livosphere.settings.WallpaperMotionMode
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

@@ -89,6 +89,9 @@ tasks.register("assetsCheck") {
         ":sets:contour:preview:validateSetContract",
         ":wallpapers:contour:validateSetContract",
         ":watchfaces:contour-wff:validateSetContract",
+        ":wallpapers:fixture:validateSetContract",
+        ":sets:fixture:preview:validateSetContract",
+        ":sets:fixture:clock-widget:validateSetContract",
     )
 }
 
@@ -100,7 +103,28 @@ tasks.register("generateSetContracts") {
         ":sets:contour:preview:generateSetResources",
         ":wallpapers:contour:generateSetResources",
         ":watchfaces:contour-wff:generateSetResources",
+        ":wallpapers:fixture:generateSetResources",
+        ":sets:fixture:preview:generateSetResources",
+        ":sets:fixture:clock-widget:generateSetResources",
     )
+}
+
+// Gradle may discard resolved input dependency providers after executing a task.
+// Capture the real package edges before execution; validate this immutable snapshot in check.
+val packageDependencySnapshot = mutableMapOf<String, Set<String>>()
+gradle.taskGraph.whenReady {
+    subprojects.filter { it.buildFile.isFile }.forEach { module ->
+        listOf("assembleDebug", "bundleDebug").forEach { name ->
+            module.tasks.findByName(name)?.let { packageTask ->
+                val visited = mutableSetOf<String>()
+                fun visit(task: org.gradle.api.Task) {
+                    if (visited.add(task.path)) task.taskDependencies.getDependencies(task).forEach(::visit)
+                }
+                visit(packageTask)
+                packageDependencySnapshot[packageTask.path] = visited.toSet()
+            }
+        }
+    }
 }
 
 tasks.register("verifyModuleGraph") {
@@ -110,13 +134,18 @@ tasks.register("verifyModuleGraph") {
             ":hub:app" to setOf(
                 "implementation" to ":hub:domain",
                 "implementation" to ":wallpapers:contour",
+                "implementation" to ":wallpapers:fixture",
+                "implementation" to ":core:settings",
+                "implementation" to ":sets:fixture:preview",
+                "implementation" to ":sets:fixture:clock-widget",
                 "implementation" to ":sets:contour:preview",
                 "testImplementation" to ":core:testing",
                 "androidTestImplementation" to ":wallpapers:engine",
             ),
             ":hub:domain" to setOf("api" to ":core:contract"),
             ":wallpapers:engine" to setOf("api" to ":core:contract"),
-            ":wallpapers:contour" to setOf("implementation" to ":wallpapers:engine"),
+            ":wallpapers:contour" to setOf("implementation" to ":wallpapers:engine", "implementation" to ":core:settings"),
+            ":wallpapers:fixture" to setOf("implementation" to ":wallpapers:engine", "implementation" to ":core:settings"),
             ":quality:macrobenchmark" to setOf(
                 "compileOnly" to ":hub:app",
                 "testedApks" to ":hub:app",
@@ -127,6 +156,10 @@ tasks.register("verifyModuleGraph") {
             ":hub:domain",
             ":core:contract",
             ":core:testing",
+            ":core:settings",
+            ":wallpapers:fixture",
+            ":sets:fixture:preview",
+            ":sets:fixture:clock-widget",
             ":wallpapers:engine",
             ":wallpapers:contour",
             ":watchfaces:contour-wff",
@@ -179,19 +212,14 @@ tasks.register("verifyModuleGraph") {
             ":sets:contour:preview",
             ":wallpapers:contour",
             ":watchfaces:contour-wff",
+            ":wallpapers:fixture",
+            ":sets:fixture:preview",
+            ":sets:fixture:clock-widget",
         )) { "Set consumer conventions подключены неверно: $setConsumers" }
         check(project(":hub:app").pluginManager.hasPlugin("livosphere.set-registry")) {
             ":hub:app обязан получать registry через livosphere.set-registry"
         }
 
-        fun org.gradle.api.Task.transitivelyDependsOn(requiredPath: String): Boolean {
-            val visited = mutableSetOf<String>()
-            fun visit(task: org.gradle.api.Task): Boolean {
-                if (!visited.add(task.path)) return false
-                return task.path == requiredPath || task.taskDependencies.getDependencies(task).any(::visit)
-            }
-            return visit(this)
-        }
         val realPackagePredecessors = mapOf(
             ":hub:app:assembleDebug" to listOf(":hub:app:validateSetRegistry", ":hub:app:generateSetRegistry"),
             ":sets:contour:preview:assembleDebug" to listOf(
@@ -201,10 +229,11 @@ tasks.register("verifyModuleGraph") {
             ":watchfaces:contour-wff:bundleDebug" to listOf(
                 ":watchfaces:contour-wff:validateSetContract", ":watchfaces:contour-wff:generateSetResources"),
         )
-        realPackagePredecessors.forEach { (packageTaskPath, requiredTasks) ->
-            val packageTask = tasks.getByPath(packageTaskPath)
+        val fixturePackagePredecessors = listOf(":wallpapers:fixture", ":sets:fixture:preview", ":sets:fixture:clock-widget")
+            .associate { "$it:assembleDebug" to listOf("$it:validateSetContract", "$it:generateSetResources") }
+        (realPackagePredecessors + fixturePackagePredecessors).forEach { (packageTaskPath, requiredTasks) ->
             requiredTasks.forEach { required ->
-                check(packageTask.transitivelyDependsOn(required)) {
+                check(required in packageDependencySnapshot.getValue(packageTaskPath)) {
                     "$required обязан быть predecessor реального package path $packageTaskPath"
                 }
             }
@@ -263,6 +292,10 @@ tasks.named("check") {
         ":hub:domain:check",
         ":core:contract:check",
         ":core:testing:check",
+        ":core:settings:check",
+        ":wallpapers:fixture:check",
+        ":sets:fixture:preview:check",
+        ":sets:fixture:clock-widget:check",
         ":wallpapers:engine:check",
         ":wallpapers:contour:check",
         ":watchfaces:contour-wff:check",

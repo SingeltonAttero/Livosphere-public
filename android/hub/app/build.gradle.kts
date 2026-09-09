@@ -63,6 +63,8 @@ android {
 dependencies {
     implementation(project(":hub:domain"))
     implementation(project(":wallpapers:contour"))
+    implementation(project(":core:settings"))
+    implementation(project(":wallpapers:fixture"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)
@@ -87,6 +89,8 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.espresso.core)
+    androidTestImplementation(libs.datastore.preferences)
+    androidTestImplementation(libs.datastore.preferences)
     androidTestImplementation(project(":wallpapers:engine"))
     debugImplementation(libs.compose.ui.test.manifest)
 }

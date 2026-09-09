@@ -160,6 +160,9 @@ fun HubApp(
                     entryProvider = entryProvider {
                         entry<ThemeKey> {
                             ThemeScreen(
+                                setId = app.livosphere.generated.GeneratedSetRegistry.sets.singleOrNull {
+                                    it.wallpaper.componentId.value == state.phone.target?.wallpaperId
+                                }?.setId?.value,
                                 selectedSurface = state.selectedSurface,
                                 hasSeenThemePreview = state.hasSeenThemePreview,
                                 onSurfaceSelected = { surface ->

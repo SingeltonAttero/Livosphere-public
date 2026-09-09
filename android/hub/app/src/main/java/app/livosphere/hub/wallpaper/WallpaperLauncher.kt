@@ -16,8 +16,9 @@ internal class AndroidWallpaperLauncher(
     private val start: (Intent) -> Unit,
 ) : WallpaperLauncher {
     override fun launch(request: WallpaperLaunchRequest): Outcome<Unit, WallpaperLaunchFailure> = try {
+        require(AndroidWallpaperTarget.resolve(context, request.target.wallpaperId) == request.target) { "Unavailable wallpaper target" }
         start(when (request.route) {
-            WallpaperRoute.DIRECT -> AndroidWallpaperTarget.directPreviewIntent(context)
+            WallpaperRoute.DIRECT -> AndroidWallpaperTarget.directPreviewIntent(request.target)
             WallpaperRoute.CHOOSER -> AndroidWallpaperTarget.chooserIntent()
         })
         Outcome.Success(Unit)

@@ -27,7 +27,7 @@ class AndroidWallpaperProbeTest {
     @Test fun `legacy never invokes flagged query or substitutes unflagged API`() {
         for (api in 29..33) for (surface in WallpaperSurface.entries) {
             val probe = AndroidWallpaperProbe({ error("Unrelated context access") },
-                { error("Unrelated target access") }, api) { error("Not supported on $api") }
+                { error("Unrelated target access") }, api, applicationQuery = { error("Not supported on $api") })
             assertNull(probe.appliedComponent(surface))
         }
     }

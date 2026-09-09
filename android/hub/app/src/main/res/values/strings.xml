@@ -8,8 +8,8 @@
     <string name="hub_theme_value">Живой мир для телефона и часов</string>
     <string name="hub_surface_wallpaper">Обои</string>
     <string name="hub_surface_watchface">Циферблат</string>
-    <string name="hub_wallpaper_preview_description">Preview обоев набора «Контур»</string>
-    <string name="hub_watchface_preview_description">Preview циферблата набора «Контур»</string>
+    <string name="hub_wallpaper_preview_description">Предпросмотр обоев набора «Контур»</string>
+    <string name="hub_watchface_preview_description">Предпросмотр циферблата набора «Контур»</string>
     <string name="hub_wallpaper_action">Примерить обои</string>
     <string name="hub_watchface_action">К установке циферблата</string>
     <string name="hub_wallpaper_action_explanation">Системная примерка пока недоступна. Этот preview ничего не применяет.</string>
@@ -23,7 +23,7 @@
     <string name="hub_onboarding_title">Один мир, две поверхности</string>
     <string name="hub_onboarding_description">В «Теме» можно отдельно рассмотреть обои и циферблат. Для доступного телефонного пути «Примерить обои» открывает Android; применение требует вашего подтверждения. Preview в приложении ничего не устанавливает. Путь установки циферблата пока недоступен.</string>
     <string name="phone_direct_explanation">Откроется системная примерка. Применение — после подтверждения.</string>
-    <string name="phone_chooser_explanation">Откроется системный выбор живых обоев. Выберите «Контур» и подтвердите применение.</string>
+    <string name="phone_chooser_explanation">Откроется системный выбор живых обоев. Выберите нужные обои и подтвердите применение.</string>
     <string name="phone_chooser_action">Выбрать живые обои</string>
     <string name="phone_checking">Проверяем доступность системной примерки.</string>
     <string name="phone_facts_checking">Проверяем факты телефона…</string>
@@ -53,7 +53,7 @@
     <string name="phone_chooser_reason">Системный выбор — %1$s</string>
     <string name="phone_home_reason">HOME — %1$s</string>
     <string name="phone_lock_reason">LOCK — %1$s</string>
-    <string name="phone_active">применены обои «Контур»</string>
+    <string name="phone_active">применены выбранные обои</string>
     <string name="phone_inactive">применены другие обои</string>
     <string name="phone_unknown">не удалось определить</string>
     <string name="phone_available">доступно</string>
@@ -82,10 +82,10 @@
     <string name="phone_policy_help">Изменить ограничение может администратор устройства. Приложение не обходит запрет; оформление можно рассмотреть в «Теме».</string>
     <string name="phone_component_help">Установите или включите полную версию Livosphere с компонентом обоев и повторите проверку. Preview и циферблат доступны независимо.</string>
     <string name="phone_unsupported_help">На этом устройстве доступен просмотр оформления. Поддержка циферблата проверяется отдельно на часах.</string>
-    <string name="phone_system_help">В «Теме» выберите обои и доступное системное действие. Если откроется список, выберите «Контур». Android запрашивает подтверждение применения. При недоступном пути проверьте раздел обоев в настройках телефона: его наличие и название зависят от устройства. Отмена безопасна; можно попробовать снова.</string>
+    <string name="phone_system_help">В «Теме» выберите обои и доступное системное действие. Если откроется список, выберите нужные обои. Android запрашивает подтверждение применения. При недоступном пути проверьте раздел обоев в настройках телефона: его наличие и название зависят от устройства. Отмена безопасна; можно попробовать снова.</string>
     <string name="hub_onboarding_go">Перейти к оформлению</string>
     <string name="hub_onboarding_skip">Пропустить</string>
-    <string name="hub_settings_description">Управление реакциями применяется к обоям «Контур» независимо от хаба и циферблата.</string>
+    <string name="hub_settings_description">Управление реакциями применяется к выбранным обоям независимо от хаба и часов.</string>
     <string name="hub_touch_reactions_title">Реакции на касания</string>
     <string name="hub_touch_reactions_description">Короткое касание может подсветить ядро обоев. Жесты Android не перехватываются.</string>
     <string name="hub_touch_reactions_unavailable">Настройка реакций сейчас недоступна. Обои продолжают работать в безопасном базовом режиме.</string>
@@ -115,4 +115,8 @@
     <string name="settings_about_title">О приложении</string>
     <string name="settings_about_summary">Версия и сведения о приложении</string>
     <string name="settings_about_body">Livosphere %1$s. Графика набора «Контур» и значок приложения созданы для Livosphere, без заимствованных персонажей и эмблем. Установка приложения не предоставляет отдельную лицензию на распространение исходной графики. Настройки хранятся на устройстве; для работы не нужны аккаунт, подключение к сети или уведомления.</string>
+    <string name="theme_preview_unavailable">Предпросмотр этого набора недоступен</string>
+    <string name="theme_set_name_unavailable">Набор</string>
+    <string name="preview_wallpaper_named">Предпросмотр обоев набора «%1$s»</string>
+    <string name="preview_watchface_named">Предпросмотр циферблата набора «%1$s»</string>
 </resources>

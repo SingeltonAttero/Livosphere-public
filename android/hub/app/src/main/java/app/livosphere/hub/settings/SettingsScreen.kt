@@ -31,7 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.livosphere.R
 import app.livosphere.hub.HubSectionScreen
-import app.livosphere.wallpapers.contour.WallpaperMotionMode
+import app.livosphere.settings.WallpaperMotionMode
 
 /** One scrollable page: preferences are app-owned and never represent platform facts. */
 @Composable

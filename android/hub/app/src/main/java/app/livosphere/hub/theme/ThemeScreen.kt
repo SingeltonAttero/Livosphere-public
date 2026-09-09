@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -118,7 +119,12 @@ internal fun ThemeScreen(
     onPhoneRefresh: () -> Unit = {},
     onPhoneHelp: () -> Unit = {},
     hubMotionReduced: Boolean = false,
+    setId: String? = PreviewAssetResolver.initialBrowsingSetId,
 ) {
+    val descriptor = PreviewAssetResolver.descriptor(setId)
+    val availableSetId = descriptor?.setId?.value
+    val context = LocalContext.current
+    val displayName = remember(descriptor, context) { descriptor?.let { PreviewAssetResolver.displayName(context, it) } }
     val systemMotionReduced = rememberCoroutineScope().coroutineContext[MotionDurationScale]?.scaleFactor == 0f
     val reduced = systemMotionReduced || hubMotionReduced
     Box(modifier = Modifier.fillMaxSize()) {
@@ -132,19 +138,23 @@ internal fun ThemeScreen(
                 .semantics { testTag = "hub-screen-theme" },
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            ProductHeader()
+            ProductHeader(displayName)
             SurfaceSelector(
                 selectedSurface = selectedSurface,
                 onSurfaceSelected = onSurfaceSelected,
                 reduced = reduced,
             )
+            key(availableSetId) {
             ArtworkStage(
                 selectedSurface = selectedSurface,
+                setId = availableSetId,
+                displayName = displayName,
                 playStartup = !hasSeenThemePreview,
                 onThemePreviewSeen = onThemePreviewSeen,
                 previewPainter = previewPainter,
                 reduced = reduced,
             )
+            }
             TryOnAction(selectedSurface, phoneState, onTry)
             if (selectedSurface == HubSurface.WALLPAPER && phoneState != null &&
                 (phoneState.failure != null || phoneState.helpVisible ||
@@ -156,10 +166,10 @@ internal fun ThemeScreen(
 }
 
 @Composable
-private fun ProductHeader() {
+private fun ProductHeader(displayName: String?) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
-            text = stringResource(R.string.hub_theme_name),
+            text = displayName ?: stringResource(R.string.theme_preview_unavailable),
             modifier = Modifier.semantics { heading() },
             color = MaterialTheme.colorScheme.onBackground,
             fontSize = 40.sp,
@@ -334,6 +344,8 @@ private fun SurfaceSelectorItem(
 @Composable
 private fun ArtworkStage(
     selectedSurface: HubSurface,
+    setId: String?,
+    displayName: String?,
     playStartup: Boolean,
     onThemePreviewSeen: () -> Unit,
     previewPainter: (@Composable (HubSurface) -> Painter)?,
@@ -393,7 +405,7 @@ private fun ArtworkStage(
             outgoingSurface = null
         }
     }
-    val targetAsset = PreviewAssetResolver.resolve(context, selectedSurface)
+    val targetAsset = PreviewAssetResolver.resolve(context, setId, selectedSurface)
     val progress = when {
         reduced -> 1f
         previousSurface != selectedSurface -> 0f
@@ -401,7 +413,7 @@ private fun ArtworkStage(
     }
     val outgoing = (if (previousSurface != selectedSurface) previousSurface else outgoingSurface)
         .takeIf { progress < 1f && it != selectedSurface }
-    val currentAsset = PreviewAssetResolver.resolve(context, outgoing ?: selectedSurface)
+    val currentAsset = PreviewAssetResolver.resolve(context, setId, outgoing ?: selectedSurface)
     val startupVisuallyRunning =
         startupAlpha.value < 1f || startupTranslationY.value != 0f || startupScale.value != 1f
     val applyStartupTransform =
@@ -416,7 +428,9 @@ private fun ArtworkStage(
         surfaceSwitchRunning -> "switch"
         else -> "idle"
     }
-    val accessibleDescription = stringResource(selectedSurface.previewDescriptionResource)
+    val accessibleDescription = if (targetAsset == null || displayName == null) stringResource(R.string.theme_preview_unavailable)
+        else if (setId == "contour-draft") stringResource(selectedSurface.previewDescriptionResource)
+        else stringResource(if (selectedSurface == HubSurface.WALLPAPER) R.string.preview_wallpaper_named else R.string.preview_watchface_named, displayName)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -428,8 +442,8 @@ private fun ArtworkStage(
                 contentDescription = accessibleDescription
                 previewMotionPhase = motionPhase
                 previewStartupAlpha = renderedStartupAlpha
-                previewTargetAsset = targetAsset.symbolicName
-                previewCurrentAsset = currentAsset.symbolicName
+                previewTargetAsset = targetAsset?.symbolicName ?: "unavailable"
+                previewCurrentAsset = currentAsset?.symbolicName ?: "unavailable"
                 previewSwitchProgress = progress
             },
         contentAlignment = Alignment.Center,
@@ -451,7 +465,7 @@ private fun ArtworkStage(
                     scaleX = 1f + 0.015f * progress
                     scaleY = scaleX
                 }) {
-                    PreviewImage(PreviewAssetResolver.resolve(context, surface), surface, previewPainter)
+                    PreviewImage(PreviewAssetResolver.resolve(context, setId, surface), surface, previewPainter)
                 }
             }
             Box(Modifier.fillMaxSize().graphicsLayer {
@@ -470,10 +484,15 @@ private fun ArtworkStage(
 
 @Composable
 private fun PreviewImage(
-    asset: PreviewAsset,
+    asset: PreviewAsset?,
     surface: HubSurface,
     previewPainter: (@Composable (HubSurface) -> Painter)?,
 ) {
+    if (asset == null) {
+        Text(stringResource(R.string.theme_preview_unavailable), modifier = Modifier.padding(24.dp),
+            color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center)
+        return
+    }
     val artTag = "theme-preview-art-${asset.symbolicName}"
     when (surface) {
         HubSurface.WALLPAPER -> Image(

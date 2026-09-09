@@ -39,7 +39,7 @@ class WallpaperObservationTest {
             WallpaperSurface.HOME -> call(WallpaperProbeId.HOME, home)
             WallpaperSurface.LOCK -> call(WallpaperProbeId.LOCK, lock)
         }
-        fun capture(minApi: Int = 29) = WallpaperObservation.capture(this, target, minApi, at)
+        fun capture(minApi: Int = 29) = WallpaperObservation.capture(this, target, minApi, at, "contour-wallpaper")
     }
 
     private fun PhoneWallpaperSnapshot.facts() = listOf(feature, supported, allowed, presence, directPreview, chooser, home, lock)

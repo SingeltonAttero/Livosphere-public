@@ -18,6 +18,10 @@ dependencyResolutionManagement {
 rootProject.name = "Livosphere"
 
 include(
+    ":core:settings",
+    ":wallpapers:fixture",
+    ":sets:fixture:preview",
+    ":sets:fixture:clock-widget",
     ":hub:app",
     ":hub:domain",
     ":core:contract",
@@ -38,3 +42,11 @@ project(":wallpapers:contour").projectDir = file("wallpapers/contour")
 project(":watchfaces:contour-wff").projectDir = file("watchfaces/contour-wff")
 project(":sets:contour:preview").projectDir = file("sets/contour/preview")
 project(":quality:macrobenchmark").projectDir = file("quality/macrobenchmark")
+
+project(":core:settings").projectDir = file("core/settings")
+
+project(":wallpapers:fixture").projectDir = file("wallpapers/fixture")
+
+project(":sets:fixture:preview").projectDir = file("sets/fixture/preview")
+
+project(":sets:fixture:clock-widget").projectDir = file("sets/fixture/clock-widget")

@@ -5,7 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
 import androidx.datastore.dataStoreFile
 import app.livosphere.hub.onboarding.HubSettingsRepository
-import app.livosphere.wallpapers.contour.WallpaperSettingsRepository
+import app.livosphere.settings.WallpaperSettingsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -48,5 +48,5 @@ object HubSettingsModule {
 
     @Provides @Singleton
     fun wallpaperSettings(@ApplicationContext context: Context): WallpaperSettingsRepository =
-        WallpaperSettingsRepository(context)
+        WallpaperSettingsRepository(context, "contour-wallpaper")
 }

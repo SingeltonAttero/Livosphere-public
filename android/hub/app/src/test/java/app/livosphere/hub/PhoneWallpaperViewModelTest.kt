@@ -23,11 +23,16 @@ class PhoneWallpaperViewModelTest {
     private val unknown = WallpaperFact.Unknown(UnknownReason.NO_COMPONENT_INFO)
     private val facts = PhoneWallpaperSnapshot(now, WallpaperComponent("app.livosphere", "ContourService"), 29, 34,
         WallpaperFact.Known(true), WallpaperFact.Known(true), WallpaperFact.Known(true),
-        WallpaperFact.Known(WallpaperPresence.AVAILABLE), WallpaperFact.Known(true), WallpaperFact.Known(true), unknown, unknown)
+        WallpaperFact.Known(WallpaperPresence.AVAILABLE), WallpaperFact.Known(true), WallpaperFact.Known(true), unknown, unknown, "contour-wallpaper")
+    private val observedTargets = mutableListOf<WallpaperTarget>()
     private val requests = mutableListOf<CompletableDeferred<PhoneWallpaperSnapshot>>()
     private val gateway = object : PhoneWallpaperGateway {
+        override val initialBrowsingTarget = facts.target
         override val snapshots = MutableStateFlow<PhoneWallpaperSnapshot?>(null)
-        override suspend fun refresh(): PhoneWallpaperSnapshot = CompletableDeferred<PhoneWallpaperSnapshot>().also(requests::add).await()
+        override suspend fun refresh(target: WallpaperTarget): PhoneWallpaperSnapshot {
+            observedTargets += target
+            return CompletableDeferred<PhoneWallpaperSnapshot>().also(requests::add).await()
+        }
     }
     private val repository = object : HubSettingsRepository {
         override val history = flowOf(Outcome.Success(InvitationHistory()))
@@ -98,9 +103,11 @@ class PhoneWallpaperViewModelTest {
         runCurrent()
         vm.onAction(HubAction.GoToTheme)
         vm.onAction(HubAction.SurfaceSelected(HubSurface.WATCH_FACE))
+        runCurrent()
+        val beforeWatchTryOn = requests.size
         vm.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn))
         runCurrent()
-        assertEquals(1, requests.size)
+        assertEquals(beforeWatchTryOn, requests.size)
         assertNull(vm.state.value.phone.readyRequest)
         assertEquals(HubSurface.WATCH_FACE, vm.state.value.selectedSurface)
     }
@@ -119,7 +126,7 @@ class PhoneWallpaperViewModelTest {
         assertFalse(vm.state.value.phone.refreshing)
         vm.onAction(HubAction.Phone(PhoneWallpaperAction.Refresh))
         runCurrent()
-        requests[2].complete(facts)
+        requests.last().complete(facts)
         runCurrent()
         assertEquals(WallpaperRoute.DIRECT, vm.state.value.phone.path.route)
     }
@@ -147,7 +154,7 @@ class PhoneWallpaperViewModelTest {
         assertTrue(vm.state.value.onboardingVisible)
         vm.onAction(HubAction.Phone(PhoneWallpaperAction.Refresh))
         runCurrent()
-        requests[2].complete(facts)
+        requests.last().complete(facts)
         runCurrent()
         assertEquals(WallpaperRoute.DIRECT, vm.state.value.phone.path.route)
         requests[1].complete(facts.copy(allowed = WallpaperFact.Known(false)))
@@ -175,4 +182,42 @@ class PhoneWallpaperViewModelTest {
         assertEquals(0, claims)
         assertFalse(vm.state.value.onboardingVisible)
     }
+    @Test fun foregroundSelectionBUsesBObservationAndImmutableLaunchAndMissingTargetDisablesIt() = runTest(dispatcher) {
+        val vm = vm(); runCurrent()
+        val bFacts = facts.copy(component = WallpaperComponent("app.livosphere", "FixtureService"), wallpaperId = "isolation-fixture-wallpaper")
+        requests[0].complete(facts); runCurrent()
+        vm.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn)); runCurrent()
+        val lateA = requests.last()
+        vm.onAction(HubAction.Phone(PhoneWallpaperAction.TargetSelected(bFacts.target))); runCurrent()
+        assertEquals(bFacts.target, observedTargets.last())
+        requests.last().complete(bFacts); runCurrent()
+        lateA.complete(facts); runCurrent()
+        assertEquals(bFacts, vm.state.value.phone.snapshot)
+        vm.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn)); runCurrent()
+        assertEquals(bFacts.target, observedTargets.last())
+        requests.last().complete(bFacts); runCurrent()
+        val requestB = requireNotNull(vm.state.value.phone.readyRequest)
+        assertEquals(bFacts.target, requestB.target)
+        vm.onAction(HubAction.Phone(PhoneWallpaperAction.TargetSelected(null))); runCurrent()
+        vm.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn)); runCurrent()
+        assertNull(vm.state.value.phone.readyRequest)
+        assertNull(vm.state.value.phone.path.route)
+        val staleConsume = async { vm.consumeWallpaperRequest(requestB) }; runCurrent(); assertFalse(staleConsume.await())
+    }
+
+    @Test fun sameTargetNavigationPreservesRejectedDirectRoute() = runTest(dispatcher) {
+        val vm = vm(); runCurrent(); requests.last().complete(facts); runCurrent()
+        vm.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn)); runCurrent()
+        requests.last().complete(facts); runCurrent()
+        val request = requireNotNull(vm.state.value.phone.readyRequest)
+        val consume = async { vm.consumeWallpaperRequest(request) }; runCurrent(); assertTrue(consume.await())
+        vm.onAction(HubAction.Phone(PhoneWallpaperAction.LaunchFailed(request, WallpaperLaunchFailure.NO_HANDLER)))
+        runCurrent()
+        vm.onAction(HubAction.SectionSelected(HubSection.DEVICES)); runCurrent()
+        requests.last().complete(facts); runCurrent()
+        vm.onAction(HubAction.GoToTheme); runCurrent()
+        requests.last().complete(facts); runCurrent()
+        assertEquals(WallpaperRoute.CHOOSER, vm.state.value.phone.path.route)
+    }
+
 }

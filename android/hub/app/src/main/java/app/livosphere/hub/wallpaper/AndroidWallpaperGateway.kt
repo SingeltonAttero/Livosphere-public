@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import app.livosphere.generated.GeneratedSetRegistry
-import app.livosphere.wallpapers.contour.ContourWallpaperService
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -22,50 +21,60 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Single explicit mapping from logical registry component to the packaged Android service. */
 object AndroidWallpaperTarget {
-    val descriptor get() = GeneratedSetRegistry.sets.single { it.wallpaper.componentId.value == "contour-wallpaper" }
-    fun component(context: Context): ComponentName = ComponentName(context, ContourWallpaperService::class.java)
-    fun directPreviewIntent(context: Context): Intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
-        .putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, component(context))
+    fun resolve(context: Context, wallpaperId: String): WallpaperTarget? =
+        GeneratedSetRegistry.sets.singleOrNull { it.wallpaper.componentId.value == wallpaperId }?.wallpaper?.let {
+            WallpaperTarget(it.componentId.value, WallpaperComponent(context.packageName, it.serviceClassName), it.compatibility.minimumApi)
+        }
+    /** Only the initial presentation default; never used for a missing saved reference or a launch. */
+    fun initialBrowsingTarget(context: Context): WallpaperTarget? = GeneratedSetRegistry.sets.firstOrNull()?.let {
+        resolve(context, it.wallpaper.componentId.value)
+    }
+    fun component(target: WallpaperTarget): ComponentName = ComponentName(target.component.packageName, target.component.className)
+    fun directPreviewIntent(target: WallpaperTarget): Intent = directPreviewIntent(component(target))
+    internal fun directPreviewIntent(component: ComponentName): Intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+        .putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, component)
     fun chooserIntent(): Intent = Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
 }
 
 @Singleton
 class AndroidWallpaperGateway internal constructor(
     private val clock: Clock,
-    private val observe: (Instant) -> PhoneWallpaperSnapshot,
+    override val initialBrowsingTarget: WallpaperTarget?,
+    private val observe: (WallpaperTarget, Instant) -> PhoneWallpaperSnapshot,
 ) : PhoneWallpaperGateway {
     @Inject constructor(@ApplicationContext context: Context, clock: Clock) : this(
         clock,
+        AndroidWallpaperTarget.initialBrowsingTarget(context),
         platformObservation(context.applicationContext),
     )
 
     private val mutableSnapshots = MutableStateFlow<PhoneWallpaperSnapshot?>(null)
     override val snapshots = mutableSnapshots.asStateFlow()
-    private val mutex = Mutex()
+    private val publicationLock = Any()
+    private var latestRequest = 0L
 
-    override suspend fun refresh(): PhoneWallpaperSnapshot = withContext(Dispatchers.IO) {
-        mutex.withLock {
-            val snapshot = observe(clock.instant())
+    override suspend fun refresh(target: WallpaperTarget): PhoneWallpaperSnapshot {
+        val request = synchronized(publicationLock) { ++latestRequest }
+        return withContext(Dispatchers.IO) {
+            val snapshot = observe(target, clock.instant())
             currentCoroutineContext().ensureActive()
-            mutableSnapshots.value = snapshot
+            synchronized(publicationLock) {
+                if (request == latestRequest) mutableSnapshots.value = snapshot
+            }
             snapshot
         }
     }
 }
 
-private fun platformObservation(context: Context): (Instant) -> PhoneWallpaperSnapshot = { at ->
-    val target = AndroidWallpaperTarget.component(context)
+private fun platformObservation(context: Context): (WallpaperTarget, Instant) -> PhoneWallpaperSnapshot = { target, at ->
+    require(AndroidWallpaperTarget.resolve(context, target.wallpaperId) == target) { "Unavailable wallpaper target" }
     WallpaperObservation.capture(
-        AndroidWallpaperProbe(context, target),
-        WallpaperComponent(target.packageName, target.className),
-        AndroidWallpaperTarget.descriptor.wallpaper.compatibility.minimumApi,
-        at,
+        AndroidWallpaperProbe(context, AndroidWallpaperTarget.component(target)),
+        target.component, target.minimumApi, at, target.wallpaperId,
     )
 }
 
@@ -74,6 +83,7 @@ internal class AndroidWallpaperProbe internal constructor(
     private val targetProvider: () -> ComponentName,
     override val deviceApi: Int,
     private val applicationQuery: (Int) -> WallpaperComponent?,
+    private val intentResolution: ((Intent) -> Boolean)? = null,
 ) : WallpaperPlatformProbe {
     constructor(context: Context, target: ComponentName) : this(
         { context }, { target }, Build.VERSION.SDK_INT,
@@ -111,9 +121,9 @@ internal class AndroidWallpaperProbe internal constructor(
         return if (appEnabled && serviceEnabled) WallpaperPresence.AVAILABLE else WallpaperPresence.DISABLED
     }
 
-    override fun resolvesDirectPreview() = resolves(AndroidWallpaperTarget.directPreviewIntent(context))
+    override fun resolvesDirectPreview() = resolves(AndroidWallpaperTarget.directPreviewIntent(targetProvider()))
     override fun resolvesChooser() = resolves(AndroidWallpaperTarget.chooserIntent())
-    private fun resolves(intent: Intent): Boolean = intent.resolveActivity(packages) != null
+    private fun resolves(intent: Intent): Boolean = intentResolution?.invoke(intent) ?: (intent.resolveActivity(packages) != null)
 
     override fun appliedComponent(surface: WallpaperSurface): WallpaperComponent? =
         readApplicationComponent(surface, deviceApi, applicationQuery)

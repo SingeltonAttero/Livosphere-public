@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.StateFlow
 
 /** Android-free identity: both package and fully qualified service class must match. */
 data class WallpaperComponent(val packageName: String, val className: String)
+data class WallpaperTarget(val wallpaperId: String, val component: WallpaperComponent, val minimumApi: Int)
+
 enum class WallpaperProbeId { FEATURE, SUPPORTED, ALLOWED, SERVICE, DIRECT_PREVIEW, CHOOSER, HOME, LOCK }
 enum class WallpaperFailureCode { ACCESS_DENIED, UNAVAILABLE, INVALID_REQUEST, PLATFORM_INCIDENT }
 data class WallpaperFailure(val probe: WallpaperProbeId, val code: WallpaperFailureCode)
@@ -32,14 +34,17 @@ data class PhoneWallpaperSnapshot(
     val chooser: WallpaperFact<Boolean>,
     val home: WallpaperFact<WallpaperApplication>,
     val lock: WallpaperFact<WallpaperApplication>,
+    val wallpaperId: String,
 ) {
+    val target get() = WallpaperTarget(wallpaperId, component, minimumApi)
     val compatible: Boolean get() = deviceApi >= minimumApi
 }
 
 interface PhoneWallpaperGateway {
     /** Null until the first completed observation; never restored from app preferences. */
     val snapshots: StateFlow<PhoneWallpaperSnapshot?>
-    suspend fun refresh(): PhoneWallpaperSnapshot
+    val initialBrowsingTarget: WallpaperTarget?
+    suspend fun refresh(target: WallpaperTarget): PhoneWallpaperSnapshot
 }
 
 /** Calls are deliberately separate: one failed probe cannot erase another fact. */
@@ -55,7 +60,7 @@ interface WallpaperPlatformProbe {
 }
 
 object WallpaperObservation {
-    fun capture(probe: WallpaperPlatformProbe, component: WallpaperComponent, minimumApi: Int, at: Instant): PhoneWallpaperSnapshot {
+    fun capture(probe: WallpaperPlatformProbe, component: WallpaperComponent, minimumApi: Int, at: Instant, wallpaperId: String): PhoneWallpaperSnapshot {
         val feature = query(WallpaperProbeId.FEATURE, probe::hasLiveWallpaperFeature).fact()
         val supported = query(WallpaperProbeId.SUPPORTED, probe::isWallpaperSupported).fact()
         val allowed = query(WallpaperProbeId.ALLOWED, probe::isSetWallpaperAllowed).fact()
@@ -78,7 +83,7 @@ object WallpaperObservation {
             }
         }
         return PhoneWallpaperSnapshot(at, component, minimumApi, probe.deviceApi, feature, supported, allowed,
-            presence, direct, chooser, application(WallpaperSurface.HOME), application(WallpaperSurface.LOCK))
+            presence, direct, chooser, application(WallpaperSurface.HOME), application(WallpaperSurface.LOCK), wallpaperId)
     }
 
     private fun <T> query(id: WallpaperProbeId, block: () -> T): Outcome<T, WallpaperFailure> = try {
