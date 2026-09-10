@@ -5,6 +5,7 @@ import java.util.TreeSet;
 import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.ProjectDependency;
+import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 
 /** Resolve the real graph, retaining ownership of private transitive dependencies. */
@@ -12,7 +13,9 @@ record VariantProjectClosure(Set<String> runtime, Set<String> excluded) {
     static VariantProjectClosure resolve(Project app, String variant, VariantContentSelection selection) {
         Set<String> runtime = projects(app, variant);
         Set<String> excluded = new TreeSet<>();
-        selection.excludedProjects().forEach(path -> excluded.addAll(projects(app.getRootProject().project(path), "debug")));
+        // Resolve the same build type/fallback that AGP selected for the app. Inspecting an
+        // excluded debug contribution must never build that contribution for a release audit.
+        selection.excludedProjects().forEach(path -> excluded.addAll(components(app.getRootProject().project(path), variant)));
         // Neutral runtime must be explicitly owned by the shell, independently of any contribution.
         // Merely adding an excluded private module to a public contribution cannot make it shared.
         Set<String> contributionProjects = new TreeSet<>(selection.projects());
@@ -23,9 +26,11 @@ record VariantProjectClosure(Set<String> runtime, Set<String> excluded) {
             if (config == null) continue;
             config.getDependencies().withType(ProjectDependency.class).forEach(dependency -> {
                 if (!contributionProjects.contains(dependency.getPath()))
-                    neutral.addAll(projects(app.getRootProject().project(dependency.getPath()), variant));
+                    neutral.addAll(components(app.getRootProject().project(dependency.getPath()), variant));
             });
         }
+        // Only an explicitly shell-owned dependency can be neutral. An excluded contribution
+        // (or any of its private dependencies) is never removed through a neutral bridge.
         excluded.removeAll(neutral);
         Set<String> leaks = new TreeSet<>(runtime); leaks.retainAll(excluded);
         if (!leaks.isEmpty()) throw new GradleException("Excluded contribution in transitive " + variant + " runtime graph: " + leaks);
@@ -33,11 +38,18 @@ record VariantProjectClosure(Set<String> runtime, Set<String> excluded) {
     }
 
     private static Set<String> projects(Project project, String variant) {
+        Set<String> result = new TreeSet<>();
+        for (String component : components(project, variant)) if (component.startsWith(":")) result.add(component);
+        return result;
+    }
+
+    private static Set<String> components(Project project, String variant) {
         Set<String> result = new TreeSet<>(); result.add(project.getPath());
         var config = project.getConfigurations().findByName(variant + "RuntimeClasspath");
         if (config == null) config = project.getConfigurations().findByName("runtimeClasspath");
         if (config != null && config.isCanBeResolved()) config.getIncoming().getResolutionResult().getAllComponents().forEach(component -> {
-            if (component.getId() instanceof ProjectComponentIdentifier id) result.add(id.getProjectPath());
+            ComponentIdentifier id = component.getId();
+            result.add(id instanceof ProjectComponentIdentifier projectId ? projectId.getProjectPath() : id.getDisplayName());
         });
         return result;
     }

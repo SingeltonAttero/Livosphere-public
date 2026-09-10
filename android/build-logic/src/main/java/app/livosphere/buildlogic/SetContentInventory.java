@@ -2,6 +2,7 @@ package app.livosphere.buildlogic;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
@@ -18,7 +19,7 @@ final class SetContentInventory {
     final Set<String> components = new TreeSet<>();
     final Set<String> assetPaths = new TreeSet<>();
     final Set<String> references = new TreeSet<>();
-    private static final Pattern REFERENCE = Pattern.compile("[@?](?:\\+)?(?:([A-Za-z_][\\w.]*):)?([a-zA-Z_][\\w]*)/([a-zA-Z_][\\w.]*)");
+    private static final Pattern REFERENCE = Pattern.compile("^[@?](?:\\+)?(?:([A-Za-z_][\\w.]*):)?([a-zA-Z_][\\w]*)/([a-zA-Z_][\\w.]*)$");
 
     void contribution(SetManifest manifest, SetManifest.Contribution contribution) {
         String prefix = "ls_" + manifest.setId().replace('-', '_') + "_" + contribution.surface().replace('-', '_') + "_";
@@ -33,6 +34,7 @@ final class SetContentInventory {
     }
 
     void module(Path root, String variant, String buildType) {
+        String namespace = namespace(root);
         for (String sourceSet : new java.util.LinkedHashSet<>(java.util.List.of("main", buildType, variant))) {
             Path source = root.resolve("src/" + sourceSet);
             if (!Files.isDirectory(source)) continue;
@@ -42,7 +44,7 @@ final class SetContentInventory {
                     if (relative.startsWith("res/")) resource(file, relative.substring(4));
                     else if (relative.startsWith("assets/")) assetPaths.add(relative);
                     else if (relative.endsWith(".kt") || relative.endsWith(".java")) sourceClass(file);
-                    else if (relative.equals("AndroidManifest.xml")) manifest(file);
+                    else if (relative.equals("AndroidManifest.xml")) manifest(file, namespace);
                 });
             } catch (Exception error) { throw new GradleException("Cannot inventory module " + root, error); }
         }
@@ -62,20 +64,27 @@ final class SetContentInventory {
                 if (!type.equals("declare-styleable") && !type.equals("public")) resources.add(type + "/" + e.getAttribute("name"));
             }
         }
-        collectReferences(root);
+        collectReferences(root, false);
     }
 
-    private void collectReferences(Node node) {
-        if (node.getNodeValue() != null) {
-            var match = REFERENCE.matcher(node.getNodeValue());
-            while (match.find()) {
-                String ref = (match.group(1) == null ? "" : match.group(1) + ":") + match.group(2) + "/" + match.group(3);
-                if (match.group().startsWith("@+id/")) resources.add("id/" + match.group(3));
-                references.add(ref);
-            }
-        }
-        if (node.hasAttributes()) for (int i = 0; i < node.getAttributes().getLength(); i++) collectReferences(node.getAttributes().item(i));
-        for (Node child = node.getFirstChild(); child != null; child = child.getNextSibling()) collectReferences(child);
+    private void collectReferences(Node node, boolean itemValue) {
+        if (node.getNodeType() == Node.ATTRIBUTE_NODE || itemValue) addReference(node.getNodeValue());
+        if (node.hasAttributes()) for (int i = 0; i < node.getAttributes().getLength(); i++) collectReferences(node.getAttributes().item(i), false);
+        boolean childIsReferenceValue = node instanceof Element element
+                && (element.getTagName().equals("item") || element.getTagName().equals("attr"));
+        for (Node child = node.getFirstChild(); child != null; child = child.getNextSibling()) collectReferences(child, childIsReferenceValue);
+    }
+
+    private void addReference(String raw) {
+        if (raw == null) return;
+        var match = REFERENCE.matcher(raw.trim());
+        if (!match.matches()) return; // comments and escaped/literal text are not Android references.
+        String type = match.group(2);
+        String name = match.group(3);
+        String packageName = match.group(1);
+        String ref = "android".equals(packageName) ? "android:" + type + "/" + name : type + "/" + name;
+        if (raw.trim().startsWith("@+id/")) resources.add("id/" + name);
+        references.add(ref);
     }
 
     private void sourceClass(Path file) {
@@ -84,24 +93,41 @@ final class SetContentInventory {
             var pkg = Pattern.compile("(?m)^\\s*package\\s+([\\w.]+)").matcher(text);
             if (!pkg.find()) return;
             String namespace = pkg.group(1);
-            var names = Pattern.compile("\\b(?:class|interface|object)\\s+([A-Za-z_][\\w]*)").matcher(text);
+            var names = Pattern.compile("\\b(?:class|interface|object|record|enum|annotation\\s+class|data\\s+class|sealed\\s+class|value\\s+class)\\s+([A-Za-z_][\\w]*)").matcher(text);
             while (names.find()) classes.add(namespace + "." + names.group(1));
-            if (file.toString().endsWith(".kt")) classes.add(namespace + "." + file.getFileName().toString().replace(".kt", "Kt"));
+            if (file.toString().endsWith(".kt")) {
+                var jvmName = Pattern.compile("@file:JvmName\\(\\\"([A-Za-z_][\\w]*)\\\"\\)").matcher(text);
+                classes.add(namespace + "." + (jvmName.find() ? jvmName.group(1) : file.getFileName().toString().replace(".kt", "Kt")));
+            }
         } catch (Exception error) { throw new GradleException("Cannot inventory classes " + file, error); }
     }
 
-    private void manifest(Path file) {
+    void manifest(Path file, String defaultPackage) {
         Element root = xml(file);
         String pkg = root.getAttribute("package");
+        if (pkg.isEmpty()) pkg = defaultPackage;
         for (String tag : Set.of("service", "provider", "receiver", "activity", "activity-alias")) {
             var entries = root.getElementsByTagName(tag);
             for (int i = 0; i < entries.getLength(); i++) {
                 String name = ((Element) entries.item(i)).getAttributeNS("http://schemas.android.com/apk/res/android", "name");
                 if (name.startsWith(".") && !pkg.isEmpty()) name = pkg + name;
+                else if (!name.isEmpty() && name.indexOf('.') < 0 && !pkg.isEmpty()) name = pkg + "." + name;
                 if (!name.isEmpty()) components.add(name);
             }
         }
-        collectReferences(root);
+        collectReferences(root, false);
+    }
+
+    private static String namespace(Path root) {
+        for (String build : java.util.List.of("build.gradle.kts", "build.gradle")) {
+            Path file = root.resolve(build);
+            if (!Files.isRegularFile(file)) continue;
+            try {
+                var match = Pattern.compile("(?m)\\bnamespace\\s*(?:=)?\\s*['\\\"]([A-Za-z_][\\w.]*)['\\\"]").matcher(Files.readString(file));
+                if (match.find()) return match.group(1);
+            } catch (Exception error) { throw new GradleException("Cannot resolve Android namespace " + file, error); }
+        }
+        return "";
     }
 
     static Element xml(Path file) {
