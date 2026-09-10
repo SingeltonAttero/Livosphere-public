@@ -6,6 +6,7 @@ import static org.junit.Assert.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.gradle.testkit.runner.BuildResult;
+import org.gradle.testkit.runner.TaskOutcome;
 import org.junit.Test;
 
 /** The mutable verdict must be withdrawn when any audit prerequisite fails. */
@@ -124,6 +125,27 @@ public class AuditReportLifecycleTest {
             assertTrue(failed.getOutput(), failed.getOutput().contains("Android resource linking failed"));
             assertTrue(failed.getOutput(), failed.getOutput().contains("drawable/not_in_closure"));
             assertNoPass(root);
+        } finally {
+            fixture.temporary.delete();
+        }
+    }
+
+    @Test public void activityWithWallpaperNameCannotImpersonateSelectedService() throws Exception {
+        VariantContentPackagingTest fixture = new VariantContentPackagingTest();
+        fixture.temporary.create();
+        try {
+            Path root = fixture.packagingProject();
+            assertPass(root);
+            Path manifest = root.resolve("sets/public-sentinel/wallpaper/src/main/AndroidManifest.xml");
+            Files.writeString(manifest, "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"><application>"
+                    + "<activity android:name=\"test.public_sentinel.WallpaperService\" android:exported=\"false\"/>"
+                    + "</application></manifest>");
+            BuildResult failed = VariantContentPackagingTest.run(root, ":app:assembleRelease").buildAndFail();
+            save(failed, "activity-service-impersonation-failure.txt");
+            assertTrue(failed.task(":app:auditReleaseSetApk") != null);
+            assertTrue(failed.task(":app:auditReleaseSetApk").getOutcome() == TaskOutcome.FAILED);
+            assertTrue(failed.getOutput(), failed.getOutput().contains("Selected wallpaper service missing in APK manifest"));
+            assertFalse(Files.exists(root.resolve("app/build/reports/set-content/release/app-release-unsigned.apk-audit.txt")));
         } finally {
             fixture.temporary.delete();
         }

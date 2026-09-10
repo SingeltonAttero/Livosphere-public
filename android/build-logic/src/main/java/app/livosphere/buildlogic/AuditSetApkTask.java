@@ -147,11 +147,11 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
             require(actualResources.contains(canonical),
                     "Resource XML reference outside allowed closure/framework: " + reference);
         }
-        Set<String> manifestComponents = manifestComponents(manifest);
-        for (String component : excluded.components) require(!manifestComponents.contains(component), "Excluded manifest component in APK: " + component);
+        ManifestComponents manifestComponents = manifestComponents(manifest);
+        for (String component : excluded.components) require(!manifestComponents.all().contains(component), "Excluded manifest component in APK: " + component);
         for (SetManifest selected : selection.selected()) {
             String service = selected.contributionFor("wallpaper").serviceClassName();
-            require(manifestComponents.contains(service), "Selected wallpaper service missing in APK manifest: " + service);
+            require(manifestComponents.services().contains(service), "Selected wallpaper service missing in APK manifest: " + service);
         }
         Set<String> types = new TreeSet<>();
         Set<String> registryStrings = new TreeSet<>();
@@ -203,8 +203,11 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
     }
 
     /** Extract only actual Android component nodes; a name in meta-data is not a component. */
-    private static Set<String> manifestComponents(String dump) {
+    private record ManifestComponents(Set<String> all, Set<String> services) {}
+
+    private static ManifestComponents manifestComponents(String dump) {
         Set<String> result = new TreeSet<>();
+        Set<String> services = new TreeSet<>();
         Set<String> componentTags = Set.of("service", "provider", "receiver", "activity", "activity-alias");
         String current = null;
         Pattern element = Pattern.compile("^\\s*E: ([\\w-]+)");
@@ -214,9 +217,12 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
             if (elementMatch.find()) current = componentTags.contains(elementMatch.group(1)) ? elementMatch.group(1) : null;
             if (current == null) continue;
             var nameMatch = name.matcher(line);
-            if (nameMatch.find()) result.add(nameMatch.group(1));
+            if (nameMatch.find()) {
+                result.add(nameMatch.group(1));
+                if (current.equals("service")) services.add(nameMatch.group(1));
+            }
         }
-        return result;
+        return new ManifestComponents(result, services);
     }
 
     private Path sdkTool(String name) throws Exception {

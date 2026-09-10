@@ -127,7 +127,7 @@ public class VariantContentPackagingTest {
                     }
                 }
                 """);
-        assertAuditFailure(root, "Generated registry descriptor differs from authoritative variant selection");
+        assertGeneratedRegistryFailure(root, "Generated registry descriptor differs from authoritative variant selection");
         Files.writeString(appBuild, normalBuild);
 
         // A saved component name in meta-data cannot impersonate the required service node.
@@ -392,6 +392,15 @@ public class VariantContentPackagingTest {
         assertFalse(Files.exists(root.resolve("app/build/reports/set-content/release/app-release-unsigned.apk-audit.txt")));
         Path evidence = Path.of(System.getProperty("livosphere.packagingEvidence"));
         Files.writeString(evidence.resolve("sentinel-rejections.txt"), expected + "\n", java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+    }
+
+    private static void assertGeneratedRegistryFailure(Path root, String expected) throws Exception {
+        BuildResult result = run(root, ":app:assembleRelease").buildAndFail();
+        Path evidence = Path.of(System.getProperty("livosphere.packagingEvidence"));
+        Files.writeString(evidence.resolve("generated-registry-failure.txt"), result.getOutput());
+        assertEquals(result.getOutput(), TaskOutcome.FAILED, result.task(":app:verifyReleaseGeneratedSetRegistry").getOutcome());
+        assertTrue(result.getOutput(), result.getOutput().contains(expected));
+        assertFalse(Files.exists(root.resolve("app/build/reports/set-content/release/app-release-unsigned.apk-audit.txt")));
     }
     private static void assertLocalBinaryRejected(Path root, String filename) {
         BuildResult result = run(root, ":app:validateReleaseSetRegistry").buildAndFail();
