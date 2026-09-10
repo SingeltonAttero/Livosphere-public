@@ -59,6 +59,14 @@ public final class SetRegistryPlugin implements Plugin<Project> {
                                     .dir("generated/set-registry/" + name));
                             task.dependsOn(validate);
                         });
+                TaskProvider<Task> verifyGenerated = project.getTasks().register(
+                        "verify" + suffix + "GeneratedSetRegistry", task -> {
+                            task.dependsOn(generate);
+                            task.doLast(t -> verifyGeneratedRegistry(project, generate, selection));
+                        });
+                project.getTasks().matching(t -> t.getName().equals("compile" + suffix + "Kotlin")
+                        || t.getName().equals("compile" + suffix + "JavaWithJavac"))
+                        .configureEach(t -> t.dependsOn(verifyGenerated));
                 if (variant.getSources().getKotlin() == null) throw new GradleException("Kotlin sources unavailable");
                 variant.getSources().getKotlin().addGeneratedSourceDirectory(generate, GenerateSetRegistryTask::getOutputDirectory);
                 project.getTasks().matching(t -> t.getName().equals("pre" + suffix + "Build"))
@@ -100,6 +108,19 @@ public final class SetRegistryPlugin implements Plugin<Project> {
             }
         } catch (Exception e) {
             throw new GradleException("Unable to invalidate set content audit reports", e);
+        }
+    }
+
+    private static void verifyGeneratedRegistry(Project project, TaskProvider<GenerateSetRegistryTask> generate,
+            VariantContentSelection selection) {
+        java.nio.file.Path registry = generate.get().getOutputDirectory().get().getAsFile().toPath()
+                .resolve("app/livosphere/generated/GeneratedSetRegistry.kt");
+        try {
+            if (!java.nio.file.Files.isRegularFile(registry)
+                    || !java.nio.file.Files.readString(registry).equals(SetContractEngine.registrySource(selection)))
+                throw new GradleException("Generated registry descriptor differs from authoritative variant selection");
+        } catch (java.io.IOException e) {
+            throw new GradleException("Unable to read generated registry descriptor", e);
         }
     }
 }
