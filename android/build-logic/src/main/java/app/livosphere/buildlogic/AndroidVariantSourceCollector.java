@@ -88,14 +88,18 @@ public final class AndroidVariantSourceCollector {
         List<RegisteredGeneratedRoot> registered = registeredGeneratedRoots
                 .getOrDefault(project, Map.of()).getOrDefault(variant, List.of());
         if (!includeGenerated) {
+            for (RegisteredGeneratedRoot root : registered) if (root.required && !new java.io.File(root.path).isDirectory())
+                throw new GradleException("Registered generated Android source missing for " + project + " " + variant
+                        + "; excluded generators are not executed: " + root.path);
+            List<String> unsupported;
             try {
-                List<String> unsupported = inputs.unregisteredGeneratedRoots(registered);
-                if (!unsupported.isEmpty()) throw new GradleException("Unsupported generated Android source input for excluded contribution "
-                        + project + " " + variant + "; register the buildDirectory-relative root explicitly: " + unsupported);
+                unsupported = inputs.unregisteredGeneratedRoots(registered);
             } catch (Exception error) {
                 throw new GradleException("Unsupported generated Android source input for excluded contribution " + project + " "
-                        + variant + "; AGP metadata cannot be inspected without executing the excluded producer", error);
+                        + variant + "; AGP metadata cannot be inspected without executing the excluded producer");
             }
+            if (!unsupported.isEmpty()) throw new GradleException("Unsupported generated Android source input for excluded contribution "
+                    + project + " " + variant + "; register the buildDirectory-relative root explicitly: " + unsupported);
         }
         try {
             return new SourceMetadata(inputs.sourceDirectories(includeGenerated, registered), inputs.namespace.get(),
@@ -142,9 +146,6 @@ public final class AndroidVariantSourceCollector {
         private static void collectUnknown(List<String> result, String type, SourceInput directories,
                 List<RegisteredGeneratedRoot> registered) {
             if (directories == null) return;
-            // A required root is intentionally read from its declared stable path below. Querying
-            // AGP's combined provider would realize its excluded producer before audit.
-            if (registered.stream().anyMatch(root -> root.sourceType.equals(type) && root.required)) return;
             Set<String> staticPaths = directories.staticRoots.get().stream()
                     .map(directory -> directory.getAsFile().getAbsolutePath()).collect(Collectors.toSet());
             for (Directory directory : directories.all.get()) {
@@ -156,14 +157,21 @@ public final class AndroidVariantSourceCollector {
 
         private static void addDirectories(List<String> result, String type, SourceInput directories, boolean includeGenerated,
                 List<RegisteredGeneratedRoot> registered) {
-            if (directories != null) for (Directory directory : (includeGenerated ? directories.all : directories.staticRoots).get())
-                result.add(entryType(type, directory.getAsFile().getAbsolutePath(), registered) + "|" + directory.getAsFile().getAbsolutePath());
+            if (directories == null) return;
+            Set<String> staticPaths = directories.staticRoots.get().stream().map(directory -> directory.getAsFile().getAbsolutePath())
+                    .collect(Collectors.toSet());
+            for (Directory directory : (includeGenerated ? directories.all : directories.staticRoots).get()) {
+                String path = directory.getAsFile().getAbsolutePath();
+                boolean generated = includeGenerated && !staticPaths.contains(path);
+                result.add(entryType(type, path, generated, includeGenerated, registered) + "|" + path);
+            }
         }
 
-        private static String entryType(String type, String path, List<RegisteredGeneratedRoot> registered) {
+        private static String entryType(String type, String path, boolean generated, boolean includeGenerated,
+                List<RegisteredGeneratedRoot> registered) {
             for (RegisteredGeneratedRoot root : registered) if (!root.required && root.sourceType.equals(type) && root.path.equals(path))
-                return "canonical-generated-" + type;
-            return type;
+                return includeGenerated ? "selected-generated-" + type : "canonical-generated-" + type;
+            return generated ? "selected-generated-" + type : type;
         }
 
         private static SourceInput flat(SourceDirectories.Flat sources) {

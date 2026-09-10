@@ -42,7 +42,9 @@ final class SetContentInventory {
             String type = entry.substring(0, separator);
             Path source = Path.of(entry.substring(separator + 1));
             boolean requiredGenerated = type.startsWith("required-generated-");
+            boolean selectedGenerated = type.startsWith("selected-generated-");
             if (requiredGenerated) type = type.substring("required-generated-".length());
+            if (selectedGenerated) type = type.substring("selected-generated-".length());
             if (type.startsWith("canonical-generated-")) type = type.substring("canonical-generated-".length());
             String sourceType = type;
             // AGP's getAll also reports conventional but empty src/<variant> directories.
@@ -50,6 +52,8 @@ final class SetContentInventory {
             if (!Files.exists(source)) {
                 if (requiredGenerated) throw new GradleException("Registered generated Android source missing for "
                         + module + " " + variant + "; excluded generators are not executed: " + source);
+                if (selectedGenerated) throw new GradleException("Selected generated Android source missing for "
+                        + module + " " + variant + "; producer did not create its declared output: " + source);
                 continue;
             }
             if (type.equals("manifest")) { manifest(source, namespace, placeholders); continue; }

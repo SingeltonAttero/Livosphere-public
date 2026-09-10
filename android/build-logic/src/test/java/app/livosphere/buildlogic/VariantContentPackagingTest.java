@@ -249,9 +249,27 @@ public class VariantContentPackagingTest {
         BuildResult unsupportedRejected = run(unsupported, ":app:assembleRelease").buildAndFail();
         assertEquals(unsupportedRejected.getOutput(), TaskOutcome.FAILED,
                 unsupportedRejected.task(":app:auditReleaseSetApk").getOutcome());
-        assertTrue(unsupportedRejected.getOutput(), unsupportedRejected.getOutput().contains("before task"
-                + " ':sets:debug-sentinel:wallpaper:generateUnsupportedAuditSource' has completed is not supported"));
+        assertTrue(unsupportedRejected.getOutput(), unsupportedRejected.getOutput().contains("Unsupported generated Android source input"
+                + " for excluded contribution :sets:debug-sentinel:wallpaper release"));
         assertNull(unsupportedRejected.task(":sets:debug-sentinel:wallpaper:generateUnsupportedAuditSource"));
+
+        Path mixed = packagingProject();
+        addExistingRegisteredGeneratedRoot(mixed, "sets/debug-sentinel/wallpaper", "generated/registered-java");
+        addGeneratedAuditSource(mixed, "sets/debug-sentinel/wallpaper", "generateMixedUnknownAuditSource",
+                "test.debug_sentinel.GeneratedMixedUnknownAuditSource");
+        BuildResult mixedRejected = run(mixed, ":app:assembleRelease").buildAndFail();
+        assertEquals(mixedRejected.getOutput(), TaskOutcome.FAILED, mixedRejected.task(":app:auditReleaseSetApk").getOutcome());
+        assertTrue(mixedRejected.getOutput(), mixedRejected.getOutput().contains("Unsupported generated Android source input"
+                + " for excluded contribution :sets:debug-sentinel:wallpaper release"));
+        assertNull(mixedRejected.task(":sets:debug-sentinel:wallpaper:generateMixedUnknownAuditSource"));
+
+        Path selectedMissing = packagingProject();
+        addMissingGeneratedAuditSource(selectedMissing, "sets/public-sentinel/wallpaper", "generateMissingSelectedAuditSource");
+        BuildResult selectedRejected = run(selectedMissing, ":app:assembleRelease").buildAndFail();
+        assertEquals(selectedRejected.getOutput(), TaskOutcome.FAILED, selectedRejected.task(":app:auditReleaseSetApk").getOutcome());
+        assertTrue(selectedRejected.getOutput(), selectedRejected.getOutput().contains("Selected generated Android source missing for"
+                + " :sets:public-sentinel:wallpaper release; producer did not create its declared output"));
+        assertEquals(TaskOutcome.SUCCESS, selectedRejected.task(":sets:public-sentinel:wallpaper:generateMissingSelectedAuditSource").getOutcome());
     }
 
     @Test public void collectorNormalizesPlaceholderRelativeComponentsWithFinalVariantNamespace() throws Exception {
@@ -517,6 +535,30 @@ public class VariantContentPackagingTest {
                 rootProject.extensions.getByType(app.livosphere.buildlogic.AndroidVariantSourceCollector)
                     .registerRequiredGeneratedRoot(project, 'release', 'java', 'generated/%s')
                 """.formatted(taskName));
+    }
+    private static void addExistingRegisteredGeneratedRoot(Path root, String module, String relativeOutput) throws Exception {
+        write(root.resolve(module + "/build/" + relativeOutput + "/test/debug_sentinel/Registered.java"),
+                "package test.debug_sentinel; public final class Registered {}\\n");
+        append(root.resolve(module + "/build.gradle"), """
+                rootProject.extensions.getByType(app.livosphere.buildlogic.AndroidVariantSourceCollector)
+                    .registerRequiredGeneratedRoot(project, 'release', 'java', '%s')
+                """.formatted(relativeOutput));
+    }
+    private static void addMissingGeneratedAuditSource(Path root, String module, String taskName) throws Exception {
+        append(root.resolve(module + "/build.gradle"), """
+                import org.gradle.api.DefaultTask
+                import org.gradle.api.file.DirectoryProperty
+                import org.gradle.api.tasks.OutputDirectory
+                import org.gradle.api.tasks.TaskAction
+                abstract class MissingGeneratedAuditSource extends DefaultTask {
+                    @OutputDirectory abstract DirectoryProperty getOutputDirectory()
+                    @TaskAction void declareOutputWithoutCreatingIt() { outputDirectory.get().asFile.deleteDir() }
+                }
+                def %s = tasks.register('%s', MissingGeneratedAuditSource) { outputDirectory.set(layout.buildDirectory.dir('generated/%s')) }
+                androidComponents { onVariants(selector().withName('release')) { variant ->
+                    variant.sources.java.addGeneratedSourceDirectory(%s, { it.outputDirectory })
+                } }
+                """.formatted(taskName, taskName, taskName, taskName));
     }
     private static void addGeneratedResource(Path root, String module, String taskName, String resourceName) throws Exception {
         Path build = root.resolve(module + "/build.gradle");
