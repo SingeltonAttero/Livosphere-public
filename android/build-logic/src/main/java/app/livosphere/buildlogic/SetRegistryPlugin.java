@@ -21,6 +21,13 @@ public final class SetRegistryPlugin implements Plugin<Project> {
                 String name = variant.getName();
                 String suffix = SetPluginSupport.taskSuffix(name);
                 String buildType = variant.getBuildType();
+                // Selection can fail during configuration, before the audit task is created.
+                try {
+                    AuditSetApkTask.clearReports(project.getLayout().getBuildDirectory()
+                            .dir("reports/set-content/" + name).get().getAsFile().toPath());
+                } catch (Exception e) {
+                    throw new GradleException("Unable to invalidate set content audit reports", e);
+                }
                 VariantContentSelection selection = SetContractEngine.select(manifests.stream()
                         .map(project.getRootProject()::file).map(java.io.File::toPath).toList(), buildType);
                 selection.projects().stream().sorted().forEach(path -> {
@@ -31,6 +38,14 @@ public final class SetRegistryPlugin implements Plugin<Project> {
                 TaskProvider<ValidateSetContractsTask> validate = project.getTasks().register(
                         "validate" + suffix + "SetRegistry", ValidateSetContractsTask.class, task -> {
                             SetPluginSupport.configureVariantInputs(project, task, manifests, buildType);
+                            task.doFirst(t -> {
+                                try {
+                                    AuditSetApkTask.clearReports(project.getLayout().getBuildDirectory()
+                                            .dir("reports/set-content/" + name).get().getAsFile().toPath());
+                                } catch (Exception e) {
+                                    throw new GradleException("Unable to invalidate set content audit reports", e);
+                                }
+                            });
                             task.doLast(t -> VariantProjectClosure.resolve(project, name, task.selection()));
                         });
                 TaskProvider<GenerateSetRegistryTask> generate = project.getTasks().register(

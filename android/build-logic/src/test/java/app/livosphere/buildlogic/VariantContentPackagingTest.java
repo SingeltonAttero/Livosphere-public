@@ -264,7 +264,7 @@ public class VariantContentPackagingTest {
         assertTrue(excluded.resources.contains("xml/watch_face_info"));
     }
 
-    private Path packagingProject() throws Exception {
+    Path packagingProject() throws Exception {
         Path root = temporary.newFolder().toPath();
         compilablePublic(root, "public-sentinel"); PhoneSetFixture.create(root, "debug-sentinel");
         List<String> modules = new ArrayList<>(List.of(":app", ":debug-payload", ":bridge"));
@@ -369,7 +369,7 @@ public class VariantContentPackagingTest {
     private static String report(Path root, String variant, String file) throws Exception { return Files.readString(root.resolve("app/build/reports/set-content/" + variant + "/" + file)); }
     private static Path write(Path file, String content) throws Exception { Files.createDirectories(file.getParent()); Files.writeString(file, content); return file; }
     private static void replace(Path file, String from, String to) throws Exception { Files.writeString(file, Files.readString(file).replace(from, to)); }
-    private static GradleRunner run(Path root, String task) {
+    static GradleRunner run(Path root, String task) {
         GradleRunner runner = GradleRunner.create().withProjectDir(root.toFile()).withPluginClasspath().withTestKitDir(Path.of(System.getProperty("livosphere.testKitHome")).toFile());
         List<File> classpath = new ArrayList<>(runner.getPluginClasspath());
         Arrays.stream(System.getProperty("livosphere.testKitPluginClasspath").split(Pattern.quote(File.pathSeparator))).map(File::new).forEach(classpath::add);

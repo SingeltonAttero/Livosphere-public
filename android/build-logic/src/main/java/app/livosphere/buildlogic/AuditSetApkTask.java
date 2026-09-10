@@ -31,10 +31,13 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
 
     @TaskAction
     public void audit() throws Exception {
-        VariantContentSelection selection = selection();
-        selection.requireNonEmpty();
         String variant = getName().substring("audit".length(), getName().length() - "SetApk".length());
         variant = Character.toLowerCase(variant.charAt(0)) + variant.substring(1);
+        Path reports = getInventoryDirectory().get().getAsFile().toPath();
+        // Invalidate before any prerequisite, selection, graph, inventory, or XML work.
+        clearReports(reports);
+        VariantContentSelection selection = selection();
+        selection.requireNonEmpty();
         VariantProjectClosure graph = VariantProjectClosure.resolve(getProject(), variant, selection);
         Set<String> runtimeProjects = graph.runtimeProjects();
         Set<String> excludedModules = graph.excludedProjects();
@@ -47,8 +50,6 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
         // Excluded contributions can have release/fallback source sets too.  Inventory the
         // variant actually being audited, rather than assuming their debug source tree.
         for (String module : excludedModules) inventoryModule(excluded, module, variant, getBuildType().get());
-        Path reports = getInventoryDirectory().get().getAsFile().toPath();
-        clearReports(reports);
         verifyGeneratedRegistry(selection);
         verifyShellDoesNotOverrideSelection(selection, runtimeProjects, variant, getBuildType().get());
         Files.write(reports.resolve("inventory.txt"), List.of("variant=" + variant,
@@ -66,14 +67,6 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
         }
         require(!apks.isEmpty(), "APK missing for content audit");
         for (Path apk : apks) auditApk(apk, aapt2, dexdump, selection, allowed, excluded, reports);
-    }
-
-    /** A failed prerequisite must never leave a stale PASS report for this variant. */
-    private static void clearReports(Path reports) throws Exception {
-        if (Files.exists(reports)) try (var files = Files.list(reports)) {
-            for (Path file : files.filter(Files::isRegularFile).toList()) Files.delete(file);
-        }
-        Files.createDirectories(reports);
     }
 
     private void verifyGeneratedRegistry(VariantContentSelection selection) throws Exception {
@@ -110,6 +103,14 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
     private void inventoryModule(SetContentInventory inventory, String module, String variant, String buildType) {
         String directory = getModuleDirectories().get().get(module);
         if (directory != null) inventory.module(Path.of(directory), variant, buildType);
+    }
+
+    /** A failed prerequisite must never leave a stale PASS report for this variant. */
+    public static void clearReports(Path reports) throws Exception {
+        if (Files.exists(reports)) try (var files = Files.list(reports)) {
+            for (Path file : files.filter(Files::isRegularFile).toList()) Files.delete(file);
+        }
+        Files.createDirectories(reports);
     }
 
     private void auditApk(Path apk, Path aapt2, Path dexdump, VariantContentSelection selection,
