@@ -78,9 +78,47 @@ public class AuditReportLifecycleTest {
             Files.writeString(root.resolve("sets/public-sentinel/wallpaper/build.gradle"),
                     "\ndependencies { implementation project(':bridge') }\n",
                     java.nio.file.StandardOpenOption.APPEND);
-            BuildResult failed = VariantContentPackagingTest.run(root, ":app:assembleRelease").buildAndFail();
+            BuildResult failed = VariantContentPackagingTest.run(root, ":app:validateReleaseSetRegistry").buildAndFail();
             save(failed, "graph-failure.txt");
-            assertTrue(failed.getOutput(), failed.getOutput().contains("Excluded set debug-sentinel for variant release"));
+            assertTrue(failed.getOutput(), failed.getOutput().contains("Excluded contribution in transitive release runtime graph"));
+            assertNoPass(root);
+        } finally {
+            fixture.temporary.delete();
+        }
+    }
+
+    @Test public void allowedNestedStyleableAndFrameworkReferencesPassTestKit() throws Exception {
+        VariantContentPackagingTest fixture = new VariantContentPackagingTest();
+        fixture.temporary.create();
+        try {
+            Path root = fixture.packagingProject();
+            Path values = root.resolve("app/src/release/res/values/references.xml");
+            Files.createDirectories(values.getParent());
+            Files.writeString(values, "<resources>"
+                    + "<declare-styleable name=\"Sentinel\"><attr name=\"preview\">@drawable/ls_public_sentinel_preview_wallpaper</attr></declare-styleable>"
+                    + "<item type=\"string\" name=\"framework_ref\">@android:string/ok</item>"
+                    + "</resources>");
+            assertPass(root);
+        } finally {
+            fixture.temporary.delete();
+        }
+    }
+
+    @Test public void unknownReferenceFailsWithClosureCause() throws Exception {
+        VariantContentPackagingTest fixture = new VariantContentPackagingTest();
+        fixture.temporary.create();
+        try {
+            Path root = fixture.packagingProject();
+            assertPass(root);
+            Path values = root.resolve("app/src/release/res/values/unknown-reference.xml");
+            Files.createDirectories(values.getParent());
+            Files.writeString(values, "<resources><string name=\"unknown\">@drawable/not_in_closure</string></resources>");
+            BuildResult failed = VariantContentPackagingTest.run(root, ":app:assembleRelease").buildAndFail();
+            save(failed, "unknown-reference-failure.txt");
+            // AGP rejects an actually missing resource before the audit task; this is the
+            // honest prerequisite failure for an unknown reference, and must still withdraw PASS.
+            assertTrue(failed.getOutput(), failed.getOutput().contains("Android resource linking failed"));
+            assertTrue(failed.getOutput(), failed.getOutput().contains("drawable/not_in_closure"));
             assertNoPass(root);
         } finally {
             fixture.temporary.delete();

@@ -83,7 +83,7 @@ final class SetContentInventory {
         String type = match.group(2);
         String name = match.group(3);
         String packageName = match.group(1);
-        String ref = "android".equals(packageName) ? "android:" + type + "/" + name : type + "/" + name;
+        String ref = packageName == null ? type + "/" + name : packageName + ":" + type + "/" + name;
         if (raw.trim().startsWith("@+id/")) resources.add("id/" + name);
         references.add(ref);
     }
