@@ -63,6 +63,12 @@ final class SetContentInventory {
                 String type = e.getTagName().equals("item") ? e.getAttribute("type") : e.getTagName();
                 if (type.equals("string-array") || type.equals("integer-array")) type = "array";
                 if (!type.equals("declare-styleable") && !type.equals("public")) resources.add(type + "/" + e.getAttribute("name"));
+                if (type.equals("declare-styleable")) {
+                    for (Node nested = e.getFirstChild(); nested != null; nested = nested.getNextSibling()) {
+                        if (nested instanceof Element attr && attr.getTagName().equals("attr") && attr.hasAttribute("name"))
+                            resources.add("attr/" + attr.getAttribute("name"));
+                    }
+                }
             }
         }
         collectReferences(root, false);

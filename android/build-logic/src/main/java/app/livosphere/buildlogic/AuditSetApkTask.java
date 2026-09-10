@@ -134,8 +134,14 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
         }
         for (String name : actualResources) if (name.substring(name.indexOf('/') + 1).startsWith("ls_"))
             require(allowed.resources.contains(name), "Undeclared set resource in APK: " + name);
-        for (String reference : allowed.references) require(reference.startsWith("android:") || actualResources.contains(reference),
-                "Resource XML reference outside allowed closure/framework: " + reference);
+        for (String reference : allowed.references) {
+            if (reference.startsWith("android:")) continue;
+            String canonical = reference;
+            int packageSeparator = reference.indexOf(':');
+            if (packageSeparator > 0) canonical = reference.substring(packageSeparator + 1);
+            require(actualResources.contains(canonical),
+                    "Resource XML reference outside allowed closure/framework: " + reference);
+        }
         Set<String> manifestComponents = manifestComponents(manifest);
         for (String component : excluded.components) require(!manifestComponents.contains(component), "Excluded manifest component in APK: " + component);
         for (SetManifest selected : selection.selected()) {

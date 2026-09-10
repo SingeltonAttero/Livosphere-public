@@ -95,8 +95,12 @@ public class AuditReportLifecycleTest {
             Path values = root.resolve("app/src/release/res/values/references.xml");
             Files.createDirectories(values.getParent());
             Files.writeString(values, "<resources>"
-                    + "<declare-styleable name=\"Sentinel\"><attr name=\"preview\">@drawable/ls_public_sentinel_preview_wallpaper</attr></declare-styleable>"
+                    + "<!-- @drawable/commented -->"
+                    + "<declare-styleable name=\"Sentinel\"><attr name=\"preview\" format=\"reference\"/></declare-styleable>"
+                    + "<item type=\"drawable\" name=\"qualified_ref\">@test.livosphere.packaging:drawable/ls_public_sentinel_preview_wallpaper</item>"
+                    + "<item type=\"attr\" name=\"theme_ref\">?attr/preview</item>"
                     + "<item type=\"string\" name=\"framework_ref\">@android:string/ok</item>"
+                    + "<string name=\"literal\">\\@drawable/not_a_ref</string>"
                     + "</resources>");
             assertPass(root);
         } finally {

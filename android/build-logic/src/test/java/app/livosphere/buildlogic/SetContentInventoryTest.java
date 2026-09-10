@@ -17,6 +17,7 @@ public class SetContentInventoryTest {
                     + "<string name=\"literal\">\\@drawable/not_a_ref</string></resources>");
             SetContentInventory inventory = new SetContentInventory();
             inventory.resource(xml, "values/references.xml");
+            assertTrue(inventory.resources.contains("attr/preview"));
             assertTrue(inventory.references.contains("pkg.example:drawable/preview"));
             assertTrue(inventory.references.contains("android:string/ok"));
             assertFalse(inventory.references.contains("drawable/commented"));
