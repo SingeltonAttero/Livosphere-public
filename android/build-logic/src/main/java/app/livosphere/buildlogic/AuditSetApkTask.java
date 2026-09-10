@@ -46,12 +46,12 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
         selection.selected().forEach(m -> m.contributions().stream().filter(c -> !c.surface().equals("watchface"))
                 .forEach(c -> allowed.contribution(m, c)));
         selection.excluded().forEach(m -> m.contributions().forEach(c -> excluded.contribution(m, c)));
-        for (String module : runtimeProjects) inventoryModule(allowed, module, variant, getBuildType().get());
+        for (String module : runtimeProjects) inventoryModule(allowed, module, graph.projectVariants());
         // Excluded contributions can have release/fallback source sets too.  Inventory the
         // variant actually being audited, rather than assuming their debug source tree.
-        for (String module : excludedModules) inventoryModule(excluded, module, variant, getBuildType().get());
+        for (String module : excludedModules) inventoryModule(excluded, module, graph.projectVariants());
         verifyGeneratedRegistry(selection);
-        verifyShellDoesNotOverrideSelection(selection, runtimeProjects, variant, getBuildType().get());
+        verifyShellDoesNotOverrideSelection(selection, runtimeProjects, graph.projectVariants());
         Files.write(reports.resolve("inventory.txt"), List.of("variant=" + variant,
                 "selected=" + selection.selected().stream().map(SetManifest::setId).sorted().toList(),
                 "excluded=" + selection.excluded().stream().map(SetManifest::setId).sorted().toList(),
@@ -79,14 +79,12 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
 
     /** A shell/app overlay may not replace an approved set resource under the same identifier. */
     private void verifyShellDoesNotOverrideSelection(VariantContentSelection selection, Set<String> runtime,
-            String variant, String buildType) {
+            java.util.Map<String, String> projectVariants) {
         Set<String> contributionProjects = selection.projects();
         for (String module : runtime) {
             if (contributionProjects.contains(module)) continue;
-            String directory = getModuleDirectories().get().get(module);
-            if (directory == null) continue;
             SetContentInventory inventory = new SetContentInventory();
-            inventory.module(Path.of(directory), variant, buildType);
+            inventoryModule(inventory, module, projectVariants);
             for (String resource : inventory.resources) {
                 if (resource.startsWith("values/")) continue;
                 for (SetManifest selected : selection.selected()) {
@@ -100,9 +98,10 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
         }
     }
 
-    private void inventoryModule(SetContentInventory inventory, String module, String variant, String buildType) {
+    private void inventoryModule(SetContentInventory inventory, String module, java.util.Map<String, String> projectVariants) {
+        String variant = projectVariants.get(module);
         String directory = getModuleDirectories().get().get(module);
-        if (directory != null) inventory.module(Path.of(directory), variant, buildType);
+        if (directory != null && variant != null) inventory.module(Path.of(directory), variant);
     }
 
     /** A failed prerequisite must never leave a stale PASS report for this variant. */

@@ -1,8 +1,15 @@
 package app.livosphere.buildlogic;
 
+import com.android.build.api.attributes.BuildTypeAttr;
+import com.android.build.api.dsl.ApplicationExtension;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.TreeMap;
 import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -13,83 +20,121 @@ import org.gradle.api.artifacts.result.DependencyResult;
 import org.gradle.api.artifacts.result.ResolvedComponentResult;
 import org.gradle.api.artifacts.result.ResolvedDependencyResult;
 
-/** Resolves component ownership without treating a contribution's dependencies as shell-owned. */
-record VariantProjectClosure(Set<String> runtimeComponents, Set<String> runtimeProjects, Set<String> excludedProjects) {
-    static VariantProjectClosure resolve(Project app, String variant, VariantContentSelection selection) {
-        Set<String> runtimeComponents = components(app, variant);
-        Set<String> runtimeProjects = projectPaths(runtimeComponents);
+/** Resolves actual AGP variant ownership without treating contribution dependencies as shell-owned. */
+record VariantProjectClosure(Set<String> runtimeComponents, Set<String> runtimeProjects, Set<String> excludedProjects,
+        Map<String, String> projectVariants) {
+    static VariantProjectClosure resolve(Project app, String requestedVariant, VariantContentSelection selection) {
+        List<String> candidates = configuredVariants(app, requestedVariant);
+        VariantGraph runtime = graph(app, candidates);
+        Set<String> runtimeProjects = projectPaths(runtime.components());
         Set<String> excludedComponents = new TreeSet<>();
         Set<String> excludedGraphProjects = new TreeSet<>();
+        Map<String, String> variants = new TreeMap<>(runtime.projectVariants());
         for (String path : selection.excludedProjects()) {
-            Set<String> closure = components(app.getRootProject().project(path), variant);
-            excludedComponents.addAll(closure);
-            excludedGraphProjects.addAll(projectPaths(closure));
+            // Excluded roots do not participate in the app graph, so only the app's explicit
+            // matchingFallbacks may choose their real runtime configuration.
+            VariantGraph closure = graph(app.getRootProject().project(path), candidates);
+            excludedComponents.addAll(closure.components());
+            excludedGraphProjects.addAll(projectPaths(closure.components()));
+            mergeVariants(variants, closure.projectVariants());
         }
 
         Set<String> contributionRoots = new TreeSet<>(selection.projects());
         contributionRoots.addAll(selection.excludedProjects());
         Set<String> neutralComponents = new TreeSet<>();
-        for (DependencyResult edge : runtimeRoot(app, variant).getDependencies()) {
+        Map<String, String> neutralVariants = new TreeMap<>();
+        for (DependencyResult edge : runtime.root().getDependencies()) {
             if (!(edge instanceof ResolvedDependencyResult resolved)) continue;
             String root = identity(resolved.getSelected().getId());
-            if (!contributionRoots.contains(root)) neutralComponents.addAll(reachable(resolved.getSelected()));
+            if (!contributionRoots.contains(root)) collect(resolved.getSelected(), neutralComponents, neutralVariants);
         }
+        mergeVariants(variants, neutralVariants);
         Set<String> neutralProjects = projectPaths(neutralComponents);
 
         // A neutral bridge may share its own transitive dependencies, but never an excluded
-        // contribution root. This is deliberately applied after the neutral subtraction.
+        // contribution root. This is deliberately applied after neutral subtraction.
         excludedComponents.removeAll(neutralComponents);
         excludedComponents.addAll(selection.excludedProjects());
-        Set<String> componentLeaks = new TreeSet<>(runtimeComponents);
+        Set<String> componentLeaks = new TreeSet<>(runtime.components());
         componentLeaks.retainAll(excludedComponents);
         if (!componentLeaks.isEmpty())
-            throw new GradleException("Excluded contribution in transitive " + variant + " runtime graph: " + componentLeaks);
+            throw new GradleException("Excluded contribution in transitive " + requestedVariant + " runtime graph: " + componentLeaks);
 
-        Set<Path> runtimeFiles = declaredFiles(app, runtimeProjects, variant);
-        Set<Path> excludedFiles = declaredFiles(app, excludedGraphProjects, variant);
-        // A direct shell dependency and complete non-contribution first-level closures are
-        // neutral owners. Selected contributions never become neutral seeds.
-        Set<Path> neutralFiles = declaredFiles(app, Set.of(app.getPath()), variant);
-        neutralFiles.addAll(declaredFiles(app, neutralProjects, variant));
+        Set<Path> runtimeFiles = declaredFiles(app, runtimeProjects, variants);
+        Set<Path> excludedFiles = declaredFiles(app, excludedGraphProjects, variants);
+        Set<Path> neutralFiles = declaredFiles(app, Set.of(app.getPath()), variants);
+        neutralFiles.addAll(declaredFiles(app, neutralProjects, variants));
         excludedFiles.removeAll(neutralFiles);
         runtimeFiles.retainAll(excludedFiles);
         if (!runtimeFiles.isEmpty())
-            throw new GradleException("Excluded local binary in " + variant + " runtime graph: " + runtimeFiles);
-        // Source inventory must receive only private excluded projects. A shared project that
-        // survived only through a neutral shell edge belongs to the allowed inventory instead.
+            throw new GradleException("Excluded local binary in " + requestedVariant + " runtime graph: " + runtimeFiles);
+
         Set<String> privateExcludedProjects = projectPaths(excludedComponents);
-        return new VariantProjectClosure(runtimeComponents, runtimeProjects, privateExcludedProjects);
+        Map<String, String> sourceVariants = new TreeMap<>();
+        for (String path : runtimeProjects) sourceVariants.put(path, requireVariant(variants, path));
+        for (String path : privateExcludedProjects) sourceVariants.put(path, requireVariant(variants, path));
+        return new VariantProjectClosure(runtime.components(), runtimeProjects, privateExcludedProjects, sourceVariants);
     }
 
-    private static ResolvedComponentResult runtimeRoot(Project project, String variant) {
-        Configuration configuration = runtimeConfiguration(project, variant);
-        if (configuration == null || !configuration.isCanBeResolved())
-            throw new GradleException("Runtime configuration missing for " + project.getPath() + " variant " + variant);
-        return configuration.getIncoming().getResolutionResult().getRoot();
-    }
-
-    private static Set<String> components(Project project, String variant) {
-        Set<String> result = new TreeSet<>(); result.add(project.getPath());
-        Configuration configuration = runtimeConfiguration(project, variant);
-        if (configuration != null && configuration.isCanBeResolved())
-            configuration.getIncoming().getResolutionResult().getAllComponents()
-                    .forEach(component -> result.add(identity(component.getId())));
+    private static List<String> configuredVariants(Project app, String requested) {
+        List<String> result = new ArrayList<>(); result.add(requested);
+        ApplicationExtension android = app.getExtensions().findByType(ApplicationExtension.class);
+        if (android == null) throw new GradleException("Application extension missing for " + app.getPath());
+        var buildType = android.getBuildTypes().findByName(requested);
+        if (buildType == null) throw new GradleException("Application build type missing for " + requested);
+        for (String fallback : buildType.getMatchingFallbacks()) if (!result.contains(fallback)) result.add(fallback);
         return result;
     }
 
-    private static Configuration runtimeConfiguration(Project project, String variant) {
-        Configuration variantRuntime = project.getConfigurations().findByName(variant + "RuntimeClasspath");
-        return variantRuntime != null ? variantRuntime : project.getConfigurations().findByName("runtimeClasspath");
+    private static VariantGraph graph(Project project, List<String> candidates) {
+        RuntimeConfiguration runtime = runtimeConfiguration(project, candidates);
+        Set<String> components = new TreeSet<>();
+        Map<String, String> variants = new TreeMap<>();
+        components.add(project.getPath());
+        variants.put(project.getPath(), runtime.variant());
+        collect(runtime.configuration().getIncoming().getResolutionResult().getRoot(), components, variants);
+        return new VariantGraph(components, variants, runtime.configuration().getIncoming().getResolutionResult().getRoot());
     }
 
-    private static Set<String> reachable(ResolvedComponentResult root) {
-        Set<String> result = new TreeSet<>(); collect(root, result); return result;
+    private static RuntimeConfiguration runtimeConfiguration(Project project, List<String> candidates) {
+        for (String candidate : candidates) {
+            Configuration configuration = project.getConfigurations().findByName(candidate + "RuntimeClasspath");
+            if (configuration != null && configuration.isCanBeResolved()) return new RuntimeConfiguration(configuration, candidate);
+        }
+        Configuration plain = project.getConfigurations().findByName("runtimeClasspath");
+        if (plain != null && plain.isCanBeResolved()) return new RuntimeConfiguration(plain, "runtime");
+        throw new GradleException("No runtime configuration for " + project.getPath() + " among configured variants " + candidates);
     }
 
-    private static void collect(ResolvedComponentResult component, Set<String> result) {
-        if (!result.add(identity(component.getId()))) return;
-        for (DependencyResult edge : component.getDependencies())
-            if (edge instanceof ResolvedDependencyResult resolved) collect(resolved.getSelected(), result);
+    private static void collect(ResolvedComponentResult component, Set<String> components, Map<String, String> variants) {
+        components.add(identity(component.getId()));
+        for (DependencyResult edge : component.getDependencies()) {
+            if (!(edge instanceof ResolvedDependencyResult resolved)) continue;
+            ComponentIdentifier selected = resolved.getSelected().getId();
+            String identity = identity(selected);
+            if (selected instanceof ProjectComponentIdentifier) {
+                BuildTypeAttr buildType = resolved.getResolvedVariant().getAttributes().getAttribute(BuildTypeAttr.ATTRIBUTE);
+                if (buildType != null) putVariant(variants, identity, buildType.getName());
+            }
+            if (components.add(identity)) collect(resolved.getSelected(), components, variants);
+        }
+    }
+
+    private static void mergeVariants(Map<String, String> target, Map<String, String> source) {
+        source.forEach((path, variant) -> putVariant(target, path, variant));
+    }
+
+    private static void putVariant(Map<String, String> variants, String path, String variant) {
+        String current = variants.putIfAbsent(path, variant);
+        if (current != null && !current.equals(variant))
+            throw new GradleException("Ambiguous selected runtime variants for " + path + ": " + current + ", " + variant);
+    }
+
+    private static String requireVariant(Map<String, String> variants, String path) {
+        String variant = variants.get(path);
+        if (variant == null || variant.equals("runtime"))
+            throw new GradleException("Selected Android runtime variant missing for " + path);
+        return variant;
     }
 
     private static String identity(ComponentIdentifier component) {
@@ -102,13 +147,18 @@ record VariantProjectClosure(Set<String> runtimeComponents, Set<String> runtimeP
         return result;
     }
 
-    private static Set<Path> declaredFiles(Project root, Set<String> paths, String variant) {
+    private static Set<Path> declaredFiles(Project root, Set<String> paths, Map<String, String> variants) {
         Set<Path> result = new TreeSet<>();
         for (String path : paths) {
             Project project = root.getRootProject().findProject(path);
             if (project == null) continue;
-            for (String name : Set.of("api", "implementation", "runtimeOnly", variant + "Api",
-                    variant + "Implementation", variant + "RuntimeOnly", variant + "RuntimeClasspath", "runtimeClasspath")) {
+            String variant = variants.get(path);
+            List<String> names = new ArrayList<>(List.of("api", "implementation", "runtimeOnly", "runtimeClasspath"));
+            if (variant != null && !variant.equals("runtime")) {
+                names.add(variant + "Api"); names.add(variant + "Implementation");
+                names.add(variant + "RuntimeOnly"); names.add(variant + "RuntimeClasspath");
+            }
+            for (String name : names) {
                 Configuration configuration = project.getConfigurations().findByName(name);
                 if (configuration == null) continue;
                 configuration.getAllDependencies().withType(FileCollectionDependency.class).forEach(dependency ->
@@ -123,4 +173,6 @@ record VariantProjectClosure(Set<String> runtimeComponents, Set<String> runtimeP
         catch (Exception error) { throw new GradleException("Cannot resolve declared local binary " + path, error); }
     }
 
+    private record RuntimeConfiguration(Configuration configuration, String variant) {}
+    private record VariantGraph(Set<String> components, Map<String, String> projectVariants, ResolvedComponentResult root) {}
 }

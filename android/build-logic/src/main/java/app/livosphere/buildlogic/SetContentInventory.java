@@ -33,9 +33,9 @@ final class SetContentInventory {
         }
     }
 
-    void module(Path root, String variant, String buildType) {
+    void module(Path root, String variant) {
         String namespace = namespace(root);
-        for (String sourceSet : new java.util.LinkedHashSet<>(java.util.List.of("main", buildType, variant))) {
+        for (String sourceSet : new java.util.LinkedHashSet<>(java.util.List.of("main", variant))) {
             Path source = root.resolve("src/" + sourceSet);
             if (!Files.isDirectory(source)) continue;
             try (var files = Files.walk(source)) {

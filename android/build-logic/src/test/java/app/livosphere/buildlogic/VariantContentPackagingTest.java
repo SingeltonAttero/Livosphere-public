@@ -191,6 +191,30 @@ public class VariantContentPackagingTest {
         assertNull(rejected.task(":app:packageBenchmark"));
     }
 
+    @Test public void benchmarkUsesConfiguredReleaseFallbackForExcludedPrivateProjectAndBinary() throws Exception {
+        Path projectLeak = packagingProject();
+        addBenchmark(projectLeak);
+        addReleasePayload(projectLeak);
+        for (String module : List.of("sets/public-sentinel/wallpaper", "sets/debug-sentinel/wallpaper"))
+            append(projectLeak.resolve(module + "/build.gradle"), "dependencies { releaseImplementation project(':release-payload') }\n");
+        BuildResult projectRejected = run(projectLeak, ":app:validateBenchmarkSetRegistry").buildAndFail();
+        assertEquals(projectRejected.getOutput(), TaskOutcome.FAILED,
+                projectRejected.task(":app:validateBenchmarkSetRegistry").getOutcome());
+        assertTrue(projectRejected.getOutput(), projectRejected.getOutput()
+                .contains("Excluded contribution in transitive benchmark runtime graph: [:release-payload]"));
+
+        Path binaryLeak = packagingProject();
+        addBenchmark(binaryLeak); archive(binaryLeak.resolve("local/release-private.jar"));
+        for (String module : List.of("sets/public-sentinel/wallpaper", "sets/debug-sentinel/wallpaper"))
+            append(binaryLeak.resolve(module + "/build.gradle"),
+                    "dependencies { releaseImplementation files('../../../local/release-private.jar') }\n");
+        BuildResult binaryRejected = run(binaryLeak, ":app:validateBenchmarkSetRegistry").buildAndFail();
+        assertEquals(binaryRejected.getOutput(), TaskOutcome.FAILED,
+                binaryRejected.task(":app:validateBenchmarkSetRegistry").getOutcome());
+        assertTrue(binaryRejected.getOutput(), binaryRejected.getOutput()
+                .contains("Excluded local binary in benchmark runtime graph") && binaryRejected.getOutput().contains("release-private.jar"));
+    }
+
     @Test public void rejectsPrivateLocalBinariesFromContributionsButAllowsNeutralShellOwnership() throws Exception {
         Path direct = packagingProject();
         archive(direct.resolve("local/private.jar"));
@@ -359,6 +383,18 @@ public class VariantContentPackagingTest {
                 "package test.shared; public final class SharedPayload { public static String value() { return \"shared\"; } }\n");
         write(root.resolve("shared/src/main/res/values/shared.xml"),
                 "<resources><string name=\"shell_shared_marker\">shared</string></resources>\n");
+    }
+    private static void addBenchmark(Path root) throws Exception {
+        append(root.resolve("app/build.gradle"),
+                "android { buildTypes { benchmark { initWith release; matchingFallbacks = ['release'] } } }\n");
+    }
+    private static void addReleasePayload(Path root) throws Exception {
+        append(root.resolve("settings.gradle"), "include ':release-payload'\n");
+        write(root.resolve("release-payload/build.gradle"), "plugins { id 'com.android.library' }\n"
+                + "android { namespace 'test.release_payload'; compileSdk 37; defaultConfig { minSdk 29 } }\n");
+        write(root.resolve("release-payload/src/main/AndroidManifest.xml"), "<manifest/>\n");
+        write(root.resolve("release-payload/src/release/java/test/release_payload/PrivateReleasePayload.java"),
+                "package test.release_payload; public final class PrivateReleasePayload {}\n");
     }
     private static void archive(Path file) throws Exception {
         Files.createDirectories(file.getParent());
