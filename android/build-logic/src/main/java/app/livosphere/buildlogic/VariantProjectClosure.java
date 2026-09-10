@@ -19,11 +19,11 @@ record VariantProjectClosure(Set<String> runtimeComponents, Set<String> runtimeP
         Set<String> runtimeComponents = components(app, variant);
         Set<String> runtimeProjects = projectPaths(runtimeComponents);
         Set<String> excludedComponents = new TreeSet<>();
-        Set<String> excludedProjects = new TreeSet<>();
+        Set<String> excludedGraphProjects = new TreeSet<>();
         for (String path : selection.excludedProjects()) {
             Set<String> closure = components(app.getRootProject().project(path), variant);
             excludedComponents.addAll(closure);
-            excludedProjects.addAll(projectPaths(closure));
+            excludedGraphProjects.addAll(projectPaths(closure));
         }
 
         Set<String> contributionRoots = new TreeSet<>(selection.projects());
@@ -46,7 +46,7 @@ record VariantProjectClosure(Set<String> runtimeComponents, Set<String> runtimeP
             throw new GradleException("Excluded contribution in transitive " + variant + " runtime graph: " + componentLeaks);
 
         Set<Path> runtimeFiles = declaredFiles(app, runtimeProjects, variant);
-        Set<Path> excludedFiles = declaredFiles(app, excludedProjects, variant);
+        Set<Path> excludedFiles = declaredFiles(app, excludedGraphProjects, variant);
         // A direct shell dependency and complete non-contribution first-level closures are
         // neutral owners. Selected contributions never become neutral seeds.
         Set<Path> neutralFiles = declaredFiles(app, Set.of(app.getPath()), variant);
@@ -55,7 +55,10 @@ record VariantProjectClosure(Set<String> runtimeComponents, Set<String> runtimeP
         runtimeFiles.retainAll(excludedFiles);
         if (!runtimeFiles.isEmpty())
             throw new GradleException("Excluded local binary in " + variant + " runtime graph: " + runtimeFiles);
-        return new VariantProjectClosure(runtimeComponents, runtimeProjects, excludedProjects);
+        // Source inventory must receive only private excluded projects. A shared project that
+        // survived only through a neutral shell edge belongs to the allowed inventory instead.
+        Set<String> privateExcludedProjects = projectPaths(excludedComponents);
+        return new VariantProjectClosure(runtimeComponents, runtimeProjects, privateExcludedProjects);
     }
 
     private static ResolvedComponentResult runtimeRoot(Project project, String variant) {

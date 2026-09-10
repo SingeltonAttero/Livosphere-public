@@ -225,6 +225,29 @@ public class VariantContentPackagingTest {
         assertEquals(shared.getOutput(), TaskOutcome.SUCCESS, shared.task(":app:validateReleaseSetRegistry").getOutcome());
     }
 
+    @Test public void shellOwnedSharedProjectRemainsAllowedInRealReleasePackaging() throws Exception {
+        Path root = packagingProject();
+        addSharedProject(root);
+        for (String module : List.of("app", "sets/public-sentinel/wallpaper", "sets/debug-sentinel/wallpaper"))
+            append(root.resolve(module + "/build.gradle"), "dependencies { implementation project(':shared') }\n");
+        BuildResult release = run(root, ":app:assembleRelease").build();
+        assertEquals(release.getOutput(), TaskOutcome.SUCCESS, release.task(":app:auditReleaseSetApk").getOutcome());
+        assertTrue(report(root, "release", "app-release-unsigned.apk-dex-types.txt").contains("test.shared.SharedPayload"));
+        String excluded = report(root, "release", "inventory.txt").lines()
+                .filter(line -> line.startsWith("excludedResources=")).findFirst().orElseThrow();
+        assertFalse(excluded, excluded.contains("shell_shared_marker"));
+    }
+
+    @Test public void shellOwnedBridgeCannotLaunderExcludedContributionRoot() throws Exception {
+        Path root = packagingProject();
+        append(root.resolve("app/build.gradle"), "dependencies { implementation project(':bridge') }\n");
+        append(root.resolve("bridge/build.gradle"), "dependencies { api project(':sets:debug-sentinel:preview') }\n");
+        BuildResult rejected = run(root, ":app:validateReleaseSetRegistry").buildAndFail();
+        assertEquals(rejected.getOutput(), TaskOutcome.FAILED, rejected.task(":app:validateReleaseSetRegistry").getOutcome());
+        assertTrue(rejected.getOutput(), rejected.getOutput().contains("Excluded contribution in transitive release runtime graph")
+                && rejected.getOutput().contains(":sets:debug-sentinel:preview"));
+    }
+
 
     @Test public void xmlInventoryRejectsExternalEntitiesAndUnknownReference() throws Exception {
         Path root = temporary.newFolder().toPath();
@@ -326,6 +349,16 @@ public class VariantContentPackagingTest {
     }
     private static void append(Path file, String content) throws Exception {
         Files.writeString(file, content, java.nio.file.StandardOpenOption.APPEND);
+    }
+    private static void addSharedProject(Path root) throws Exception {
+        append(root.resolve("settings.gradle"), "include ':shared'\n");
+        write(root.resolve("shared/build.gradle"), "plugins { id 'com.android.library' }\n"
+                + "android { namespace 'test.shared'; compileSdk 37; defaultConfig { minSdk 29 } }\n");
+        write(root.resolve("shared/src/main/AndroidManifest.xml"), "<manifest/>\n");
+        write(root.resolve("shared/src/main/java/test/shared/SharedPayload.java"),
+                "package test.shared; public final class SharedPayload { public static String value() { return \"shared\"; } }\n");
+        write(root.resolve("shared/src/main/res/values/shared.xml"),
+                "<resources><string name=\"shell_shared_marker\">shared</string></resources>\n");
     }
     private static void archive(Path file) throws Exception {
         Files.createDirectories(file.getParent());
