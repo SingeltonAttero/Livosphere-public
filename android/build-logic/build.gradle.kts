@@ -71,10 +71,11 @@ tasks.test {
 
 tasks.register<Test>("integrationTest") {
     group = "verification"
-    description = "Runs the two selected phone/legacy profile wiring scenarios."
+    description = "Runs the selected phone-profile or Story 8.4 theme wiring scenarios."
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
     filter.includeTestsMatching("app.livosphere.buildlogic.PhoneProfileIntegrationTest")
+    filter.includeTestsMatching("app.livosphere.buildlogic.ThemeBuildIntegrationTest")
     shouldRunAfter(tasks.test)
     configureBuildLogicFixtureEnvironment("reports/theme-build-integration")
 }

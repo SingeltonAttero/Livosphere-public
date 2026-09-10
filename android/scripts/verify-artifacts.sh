@@ -51,18 +51,6 @@ printf '%s\n' "$service_block" | grep -Fq 'android:exported="true"'
 printf '%s\n' "$service_block" | grep -Fq 'android:permission="android.permission.BIND_WALLPAPER"'
 grep -Fq 'android:name="app.livosphere.LivosphereApplication"' "$phone_manifest"
 
-if test "$profile" = phone; then
-    echo "Phone build artifact verified:"
-    echo "  ${phone_apk#"$repo_root/"}"
-    exit 0
-fi
-
-test -s "$watch_aab" || {
-    echo "WFF AAB не найден: $watch_aab" >&2
-    exit 1
-}
-unzip -tqq "$watch_aab"
-
 manifest_value() {
     awk -F= -v key="$1" '$1 == key { print substr($0, index($0, "=") + 1) }' "$set_manifest"
 }
@@ -105,6 +93,18 @@ assert_phone_surface() {
 
 assert_phone_surface preview
 assert_phone_surface wallpaper
+
+if test "$profile" = phone; then
+    echo "Phone build artifact verified:"
+    echo "  ${phone_apk#"$repo_root/"}"
+    exit 0
+fi
+
+test -s "$watch_aab" || {
+    echo "WFF AAB не найден: $watch_aab" >&2
+    exit 1
+}
+unzip -tqq "$watch_aab"
 
 watch_contribution=$(manifest_value contributions | tr ',' '\n' | while IFS= read -r key; do
     if test "$(manifest_value "contribution.$key.surface")" = watchface; then printf '%s\n' "$key"; fi
