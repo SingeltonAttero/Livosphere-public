@@ -7,9 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -31,7 +29,7 @@ public class VariantContentPackagingTest {
         Path approvedDebug = PhoneSetFixture.create(root, "approved-debug");
         replace(approvedDebug, "contentStatus=draft", "contentStatus=html-approved");
         PhoneSetFixture.approval(approvedDebug, "image"); PhoneSetFixture.approval(approvedDebug, "html");
-        Path publicSet = compilablePublic(root, "public-sentinel");
+        Path publicSet = PhoneSetFixture.createPublic(root, "public-sentinel");
         var all = List.of(draft, approvedDebug, publicSet);
         assertEquals(3, SetContractEngine.select(all, "debug").selected().size());
         assertEquals(List.of("public-sentinel"), SetContractEngine.select(all, "release").selected().stream().map(SetManifest::setId).toList());
@@ -385,7 +383,7 @@ public class VariantContentPackagingTest {
 
     Path packagingProject() throws Exception {
         Path root = temporary.newFolder().toPath();
-        compilablePublic(root, "public-sentinel"); PhoneSetFixture.create(root, "debug-sentinel");
+        PhoneSetFixture.createPublic(root, "public-sentinel"); PhoneSetFixture.create(root, "debug-sentinel");
         List<String> modules = new ArrayList<>(List.of(":app", ":debug-payload", ":bridge"));
         for (String id : List.of("public-sentinel", "debug-sentinel")) for (String surface : List.of("preview", "wallpaper", "clock-widget")) {
             String modulePath = ":sets:" + id + ":" + surface; modules.add(modulePath);
@@ -429,29 +427,6 @@ public class VariantContentPackagingTest {
         return root;
     }
 
-    private static Path compilablePublic(Path root, String id) throws Exception {
-        Path manifest = PhoneSetFixture.create(root, id);
-        Map<String, String> values = new LinkedHashMap<>();
-        for (String line : Files.readAllLines(manifest)) { int equals = line.indexOf('='); if (equals > 0) values.put(line.substring(0, equals), line.substring(equals + 1)); }
-        values.put("distribution", "public"); values.put("contentStatus", "html-approved"); values.put("contribution.clock-main.layoutStatus", "native");
-        Path source = manifest.getParent().getParent().resolve("source-assets");
-        List<String> checksums = new ArrayList<>();
-        for (String key : new ArrayList<>(values.keySet())) if (key.startsWith("asset.") && key.endsWith(".path")) {
-            String prefix = key.substring(0, key.length() - 4); String relative = values.get(key);
-            if (relative.startsWith("clock-widget/raw/")) {
-                Files.delete(source.resolve(relative)); relative = relative.replace("clock-widget/raw/", "clock-widget/layout/");
-                values.put(key, relative); values.put(prefix + "resourcePath", values.get(prefix + "resourcePath").replace("raw/", "layout/"));
-                write(source.resolve(relative), "<TextClock xmlns:android=\"http://schemas.android.com/apk/res/android\" android:layout_width=\"match_parent\" android:layout_height=\"match_parent\" android:format24Hour=\"HH:mm\"/>");
-            }
-            if (relative.startsWith("wallpaper/xml/")) write(source.resolve(relative), "<wallpaper xmlns:android=\"http://schemas.android.com/apk/res/android\"/>");
-            String hash = PhoneSetFixture.hash(source.resolve(relative)); values.put(prefix + "sha256", hash); checksums.add(hash + "  " + relative);
-        }
-        Files.write(source.resolve("checksums.sha256"), checksums);
-        Files.write(manifest, values.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).toList());
-        PhoneSetFixture.approval(manifest, "image"); PhoneSetFixture.approval(manifest, "html");
-        return manifest;
-    }
-
     private static void assertAuditFailure(Path root, String expected) throws Exception {
         BuildResult result = run(root, ":app:assembleRelease").buildAndFail();
         assertEquals(result.getOutput(), TaskOutcome.FAILED, result.task(":app:auditReleaseSetApk").getOutcome());
@@ -465,7 +440,7 @@ public class VariantContentPackagingTest {
         BuildResult result = run(root, ":app:assembleRelease").buildAndFail();
         Path evidence = Path.of(System.getProperty("livosphere.packagingEvidence"));
         Files.writeString(evidence.resolve("generated-registry-failure.txt"), result.getOutput());
-        assertEquals(result.getOutput(), TaskOutcome.FAILED, result.task(":app:verifyReleaseGeneratedSetRegistry").getOutcome());
+        assertEquals(result.getOutput(), TaskOutcome.FAILED, result.task(":app:auditReleaseSetApk").getOutcome());
         assertTrue(result.getOutput(), result.getOutput().contains(expected));
         assertFalse(Files.exists(root.resolve("app/build/reports/set-content/release/app-release-unsigned.apk-audit.txt")));
     }
@@ -593,8 +568,13 @@ public class VariantContentPackagingTest {
         GradleRunner runner = GradleRunner.create().withProjectDir(root.toFile()).withPluginClasspath().withTestKitDir(Path.of(System.getProperty("livosphere.testKitHome")).toFile());
         List<File> classpath = new ArrayList<>(runner.getPluginClasspath());
         Arrays.stream(System.getProperty("livosphere.testKitPluginClasspath").split(Pattern.quote(File.pathSeparator))).map(File::new).forEach(classpath::add);
-        List<String> arguments = new ArrayList<>(List.of("--offline", "--console=plain", "--max-workers=2"));
+        List<String> arguments = new ArrayList<>(List.of("--offline", "--console=plain", "--max-workers=2",
+                "-Plivosphere.enableLegacySetApkAudit=true"));
         arguments.addAll(List.of(tasks));
+        for (String task : tasks) {
+            var matcher = Pattern.compile(":app:(?:assemble|bundle)([A-Z].*)").matcher(task);
+            if (matcher.matches()) arguments.add(":app:audit" + matcher.group(1) + "SetApk");
+        }
         return runner.withPluginClasspath(classpath).withArguments(arguments);
     }
 }

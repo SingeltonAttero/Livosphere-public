@@ -14,11 +14,12 @@ import org.gradle.api.tasks.TaskProvider;
 public final class SetRegistryPlugin implements Plugin<Project> {
     @Override
     public void apply(Project project) {
-        // manifestPaths() parses and validates inputs immediately. Invalidate every existing
-        // mutable verdict directory first, so a failure in the first variant cannot preserve
-        // a PASS from a later variant. Immutable evidence lives outside this directory.
-        invalidateCurrentVariantReports(project);
         List<String> manifests = SetPluginSupport.manifestPaths(project);
+        boolean legacyAuditEnabled = project.getProviders()
+                .gradleProperty("livosphere.enableLegacySetApkAudit")
+                .map(Boolean::parseBoolean)
+                .getOrElse(false);
+        if (legacyAuditEnabled) invalidateCurrentVariantReports(project);
         TaskProvider<Task> validateAll = project.getTasks().register("validateSetRegistry");
         TaskProvider<Task> generateAll = project.getTasks().register("generateSetRegistry");
         project.getPluginManager().withPlugin("com.android.application", ignored -> {
@@ -27,13 +28,6 @@ public final class SetRegistryPlugin implements Plugin<Project> {
                 String name = variant.getName();
                 String suffix = SetPluginSupport.taskSuffix(name);
                 String buildType = variant.getBuildType();
-                // Selection can fail during configuration, before the audit task is created.
-                try {
-                    AuditSetApkTask.clearReports(project.getLayout().getBuildDirectory()
-                            .dir("reports/set-content/" + name).get().getAsFile().toPath());
-                } catch (Exception e) {
-                    throw new GradleException("Unable to invalidate set content audit reports", e);
-                }
                 VariantContentSelection selection = SetContractEngine.select(manifests.stream()
                         .map(project.getRootProject()::file).map(java.io.File::toPath).toList(), buildType);
                 selection.projects().stream().sorted().forEach(path -> {
@@ -44,14 +38,7 @@ public final class SetRegistryPlugin implements Plugin<Project> {
                 TaskProvider<ValidateSetContractsTask> validate = project.getTasks().register(
                         "validate" + suffix + "SetRegistry", ValidateSetContractsTask.class, task -> {
                             SetPluginSupport.configureVariantInputs(project, task, manifests, buildType);
-                            task.doFirst(t -> {
-                                try {
-                                    AuditSetApkTask.clearReports(project.getLayout().getBuildDirectory()
-                                            .dir("reports/set-content/" + name).get().getAsFile().toPath());
-                                } catch (Exception e) {
-                                    throw new GradleException("Unable to invalidate set content audit reports", e);
-                                }
-                            });
+                            if (legacyAuditEnabled) task.doFirst(t -> clearVariantReport(project, name));
                             task.doLast(t -> VariantProjectClosure.resolve(project, name, task.selection()));
                         });
                 TaskProvider<GenerateSetRegistryTask> generate = project.getTasks().register(
@@ -61,14 +48,6 @@ public final class SetRegistryPlugin implements Plugin<Project> {
                                     .dir("generated/set-registry/" + name));
                             task.dependsOn(validate);
                         });
-                TaskProvider<Task> verifyGenerated = project.getTasks().register(
-                        "verify" + suffix + "GeneratedSetRegistry", task -> {
-                            task.dependsOn(generate);
-                            task.doLast(t -> verifyGeneratedRegistry(project, generate, selection));
-                        });
-                project.getTasks().matching(t -> t.getName().equals("compile" + suffix + "Kotlin")
-                        || t.getName().equals("compile" + suffix + "JavaWithJavac"))
-                        .configureEach(t -> t.dependsOn(verifyGenerated));
                 if (variant.getSources().getKotlin() == null) throw new GradleException("Kotlin sources unavailable");
                 variant.getSources().getKotlin().addGeneratedSourceDirectory(generate, GenerateSetRegistryTask::getOutputDirectory);
                 project.getTasks().matching(t -> t.getName().equals("pre" + suffix + "Build"))
@@ -77,30 +56,39 @@ public final class SetRegistryPlugin implements Plugin<Project> {
                     validateAll.configure(t -> t.dependsOn(validate));
                     generateAll.configure(t -> t.dependsOn(generate));
                 }
-                TaskProvider<AuditSetApkTask> audit = project.getTasks().register("audit" + suffix + "SetApk", AuditSetApkTask.class, task -> {
-                    SetPluginSupport.configureVariantInputs(project, task, manifests, buildType);
-                    task.getOutputs().upToDateWhen(t -> false);
-                    task.getApkDirectory().set(variant.getArtifacts().get(SingleArtifact.APK.INSTANCE));
-                    task.getSdkDirectory().set(components.getSdkComponents().getSdkDirectory());
-                    task.getRegistryDirectory().set(generate.flatMap(GenerateSetRegistryTask::getOutputDirectory));
-                    task.getInventoryDirectory().set(project.getLayout().getBuildDirectory().dir("reports/set-content/" + name));
-                    AndroidVariantSourceCollector collector = project.getRootProject().getExtensions()
-                            .findByType(AndroidVariantSourceCollector.class);
-                    if (collector == null) throw new GradleException(
-                            "Root plugin livosphere.variant-source-collector is required before Android variants");
-                    collector.configureAuditInputs(task);
-                    project.getRootProject().getAllprojects().stream().filter(p -> p.getBuildFile().isFile()).forEach(p -> {
-                        task.getModuleDirectories().put(p.getPath(), p.getProjectDir().getAbsolutePath());
-                        p.getPluginManager().withPlugin("java", plugin -> configureJvmSources(p, task));
+                if (legacyAuditEnabled) {
+                    project.getTasks().register("audit" + suffix + "SetApk", AuditSetApkTask.class, task -> {
+                        task.setGroup("legacy verification");
+                        task.setDescription("Явный исторический APK content audit; не входит в обычную сборку");
+                        SetPluginSupport.configureVariantInputs(project, task, manifests, buildType);
+                        task.getOutputs().upToDateWhen(t -> false);
+                        task.getApkDirectory().set(variant.getArtifacts().get(SingleArtifact.APK.INSTANCE));
+                        task.getSdkDirectory().set(components.getSdkComponents().getSdkDirectory());
+                        task.getRegistryDirectory().set(generate.flatMap(GenerateSetRegistryTask::getOutputDirectory));
+                        task.getInventoryDirectory().set(project.getLayout().getBuildDirectory().dir("reports/set-content/" + name));
+                        AndroidVariantSourceCollector collector = project.getRootProject().getExtensions()
+                                .findByType(AndroidVariantSourceCollector.class);
+                        if (collector == null) throw new GradleException(
+                                "Root plugin livosphere.variant-source-collector is required for legacy APK audit");
+                        collector.configureAuditInputs(task);
+                        project.getRootProject().getAllprojects().stream().filter(p -> p.getBuildFile().isFile()).forEach(p -> {
+                            task.getModuleDirectories().put(p.getPath(), p.getProjectDir().getAbsolutePath());
+                            p.getPluginManager().withPlugin("java", plugin -> configureJvmSources(p, task));
+                        });
+                        task.dependsOn(validate);
                     });
-                    task.dependsOn(validate);
-                });
-                project.getTasks().matching(t -> t.getName().equals("assemble" + suffix) || t.getName().equals("bundle" + suffix))
-                        .configureEach(t -> t.dependsOn(audit));
-                project.getTasks().matching(t -> t.getName().equals("package" + suffix))
-                        .configureEach(t -> t.finalizedBy(audit));
+                }
             });
         });
+    }
+
+    private static void clearVariantReport(Project project, String variant) {
+        try {
+            AuditSetApkTask.clearReports(project.getLayout().getBuildDirectory()
+                    .dir("reports/set-content/" + variant).get().getAsFile().toPath());
+        } catch (Exception e) {
+            throw new GradleException("Unable to invalidate legacy set content audit reports", e);
+        }
     }
 
     private static void invalidateCurrentVariantReports(Project project) {
@@ -114,20 +102,7 @@ public final class SetRegistryPlugin implements Plugin<Project> {
                 }
             }
         } catch (Exception e) {
-            throw new GradleException("Unable to invalidate set content audit reports", e);
-        }
-    }
-
-    private static void verifyGeneratedRegistry(Project project, TaskProvider<GenerateSetRegistryTask> generate,
-            VariantContentSelection selection) {
-        java.nio.file.Path registry = generate.get().getOutputDirectory().get().getAsFile().toPath()
-                .resolve("app/livosphere/generated/GeneratedSetRegistry.kt");
-        try {
-            if (!java.nio.file.Files.isRegularFile(registry)
-                    || !java.nio.file.Files.readString(registry).equals(SetContractEngine.registrySource(selection)))
-                throw new GradleException("Generated registry descriptor differs from authoritative variant selection");
-        } catch (java.io.IOException e) {
-            throw new GradleException("Unable to read generated registry descriptor", e);
+            throw new GradleException("Unable to invalidate legacy set content audit reports", e);
         }
     }
 

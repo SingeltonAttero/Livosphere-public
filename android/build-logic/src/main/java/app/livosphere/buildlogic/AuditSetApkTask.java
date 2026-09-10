@@ -17,7 +17,7 @@ import org.gradle.api.provider.MapProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.*;
 
-/** Verifies actual compiled APK contents. Reports are external and bound to the immutable APK digest. */
+/** Explicit legacy verification for historical APK evidence; ordinary builds never depend on this task. */
 public abstract class AuditSetApkTask extends AbstractSetTask {
     @InputDirectory @PathSensitive(PathSensitivity.RELATIVE)
     public abstract DirectoryProperty getApkDirectory();

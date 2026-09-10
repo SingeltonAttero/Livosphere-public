@@ -102,6 +102,53 @@ final class PhoneSetFixture {
         return manifest;
     }
 
+    static Path createPublic(Path root, String setId) throws Exception {
+        Path manifest = create(root, setId);
+        Map<String, String> values = properties(manifest);
+        values.put("distribution", "public");
+        values.put("contentStatus", "html-approved");
+        values.put("contribution.clock-main.layoutStatus", "native");
+        Path source = manifest.getParent().getParent().resolve("source-assets");
+        List<String> checksums = new ArrayList<>();
+        for (String key : new ArrayList<>(values.keySet())) {
+            if (!key.startsWith("asset.") || !key.endsWith(".path")) continue;
+            String prefix = key.substring(0, key.length() - 4);
+            String relative = values.get(key);
+            if (relative.startsWith("clock-widget/raw/")) {
+                Files.delete(source.resolve(relative));
+                relative = relative.replace("clock-widget/raw/", "clock-widget/layout/");
+                values.put(key, relative);
+                values.put(prefix + "resourcePath", values.get(prefix + "resourcePath").replace("raw/", "layout/"));
+                Path layout = source.resolve(relative);
+                Files.createDirectories(layout.getParent());
+                Files.writeString(layout, "<TextClock xmlns:android=\"http://schemas.android.com/apk/res/android\" "
+                        + "android:layout_width=\"match_parent\" android:layout_height=\"match_parent\" "
+                        + "android:format24Hour=\"HH:mm\"/>\n");
+            }
+            if (relative.startsWith("wallpaper/xml/")) {
+                Files.writeString(source.resolve(relative),
+                        "<wallpaper xmlns:android=\"http://schemas.android.com/apk/res/android\"/>\n");
+            }
+            String hash = hash(source.resolve(relative));
+            values.put(prefix + "sha256", hash);
+            checksums.add(hash + "  " + relative);
+        }
+        Files.write(source.resolve("checksums.sha256"), checksums);
+        Files.write(manifest, values.entrySet().stream().map(entry -> entry.getKey() + "=" + entry.getValue()).toList());
+        approval(manifest, "image");
+        approval(manifest, "html");
+        return manifest;
+    }
+
+    private static Map<String, String> properties(Path manifest) throws Exception {
+        Map<String, String> values = new LinkedHashMap<>();
+        for (String line : Files.readAllLines(manifest)) {
+            int equals = line.indexOf('=');
+            if (equals > 0) values.put(line.substring(0, equals), line.substring(equals + 1));
+        }
+        return values;
+    }
+
     static void approval(Path manifest, String stage) throws Exception {
         String record = "approvals/" + stage + ".md";
         Path file = manifest.getParent().getParent().resolve(record);

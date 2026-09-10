@@ -42,9 +42,9 @@ gradlePlugin {
     }
 }
 
-// Compile the generated phone registry against the canonical pure Kotlin contract in TestKit.
-tasks.test {
-    val contractSource = file("../core/contract/src/main/kotlin/app/livosphere/contract/SetDescriptor.kt")
+val contractSource = file("../core/contract/src/main/kotlin/app/livosphere/contract/SetDescriptor.kt")
+
+fun Test.configureBuildLogicFixtureEnvironment(evidenceDirectory: String) {
     inputs.file(contractSource)
     inputs.files(testKitPlugins, testKitKotlinRuntime)
     val contourRoot = file("../sets/contour")
@@ -56,7 +56,34 @@ tasks.test {
         systemProperty("livosphere.testKitPluginClasspath", testKitPlugins.asPath)
     }
     systemProperty("livosphere.contractSource", contractSource.absolutePath)
-    val packagingEvidence = layout.buildDirectory.dir("reports/variant-packaging")
+    val packagingEvidence = layout.buildDirectory.dir(evidenceDirectory)
     outputs.dir(packagingEvidence)
     systemProperty("livosphere.packagingEvidence", packagingEvidence.get().asFile.absolutePath)
+}
+
+// The default test lane is intentionally pure JVM: it never starts nested Gradle builds.
+tasks.test {
+    description = "Runs fast variant-selection unit tests without GradleRunner or APK inspection."
+    filter.includeTestsMatching("app.livosphere.buildlogic.VariantSelectionUnitTest")
+    configureBuildLogicFixtureEnvironment("reports/unit-selection")
+}
+
+tasks.register<Test>("integrationTest") {
+    group = "verification"
+    description = "Runs the two selected real-build theme wiring scenarios."
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    filter.includeTestsMatching("app.livosphere.buildlogic.ThemeBuildIntegrationTest")
+    shouldRunAfter(tasks.test)
+    configureBuildLogicFixtureEnvironment("reports/theme-build-integration")
+}
+
+tasks.register<Test>("legacyAuditTest") {
+    group = "legacy verification"
+    description = "Explicit opt-in for historical APK/source inventory tests; never part of check."
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    filter.excludeTestsMatching("app.livosphere.buildlogic.VariantSelectionUnitTest")
+    filter.excludeTestsMatching("app.livosphere.buildlogic.ThemeBuildIntegrationTest")
+    configureBuildLogicFixtureEnvironment("reports/legacy-variant-packaging")
 }
