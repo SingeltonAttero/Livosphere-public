@@ -75,7 +75,11 @@ final class SetContentInventory {
     }
 
     private void collectReferences(Node node, boolean itemValue) {
-        if (node.getNodeType() == Node.ATTRIBUTE_NODE || itemValue) addReference(node.getNodeValue());
+        short nodeType = node.getNodeType();
+        if (nodeType == Node.COMMENT_NODE) return;
+        if (nodeType == Node.ATTRIBUTE_NODE
+                || (itemValue && (nodeType == Node.TEXT_NODE || nodeType == Node.CDATA_SECTION_NODE)))
+            addReference(node.getNodeValue());
         if (node.hasAttributes()) for (int i = 0; i < node.getAttributes().getLength(); i++) collectReferences(node.getAttributes().item(i), false);
         boolean childIsReferenceValue = node instanceof Element element
                 && (element.getTagName().equals("item") || element.getTagName().equals("attr"));

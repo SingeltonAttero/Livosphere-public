@@ -12,7 +12,8 @@ public class SetContentInventoryTest {
         Path xml = Files.createTempFile("set-content-", ".xml");
         try {
             Files.writeString(xml, "<resources><!-- @drawable/commented -->"
-                    + "<declare-styleable name=\"Sentinel\"><attr name=\"preview\">@pkg.example:drawable/preview</attr></declare-styleable>"
+                    + "<declare-styleable name=\"Sentinel\"><attr name=\"preview\">@pkg.example:drawable/preview</attr>"
+                    + "<!-- @drawable/nested_comment --></declare-styleable>"
                     + "<item type=\"string\" name=\"framework\">@android:string/ok</item>"
                     + "<string name=\"literal\">\\@drawable/not_a_ref</string></resources>");
             SetContentInventory inventory = new SetContentInventory();
