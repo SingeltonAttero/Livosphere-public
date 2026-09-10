@@ -11,6 +11,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import org.gradle.api.GradleException;
 import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.GradleRunner;
@@ -189,6 +191,40 @@ public class VariantContentPackagingTest {
         assertNull(rejected.task(":app:packageBenchmark"));
     }
 
+    @Test public void rejectsPrivateLocalBinariesFromContributionsButAllowsNeutralShellOwnership() throws Exception {
+        Path direct = packagingProject();
+        archive(direct.resolve("local/private.jar"));
+        append(direct.resolve("sets/public-sentinel/wallpaper/build.gradle"),
+                "dependencies { api fileTree(dir: '../../../local', include: ['private.jar']) }\n");
+        append(direct.resolve("sets/debug-sentinel/wallpaper/build.gradle"),
+                "dependencies { api files('../../../local/private.jar') }\n");
+        assertLocalBinaryRejected(direct, "private.jar");
+
+        Path transitive = packagingProject();
+        archive(transitive.resolve("local/private.aar"));
+        append(transitive.resolve("bridge/build.gradle"), "dependencies { api files('../local/private.aar') }\n");
+        append(transitive.resolve("sets/public-sentinel/wallpaper/build.gradle"), "dependencies { api project(':bridge') }\n");
+        append(transitive.resolve("sets/debug-sentinel/wallpaper/build.gradle"),
+                "dependencies { api files('../../../local/private.aar') }\n");
+        assertLocalBinaryRejected(transitive, "private.aar");
+
+        Path shellOwned = packagingProject();
+        archive(shellOwned.resolve("local/shared.jar"));
+        append(shellOwned.resolve("app/build.gradle"), "dependencies { api files('../local/shared.jar') }\n");
+        append(shellOwned.resolve("sets/debug-sentinel/wallpaper/build.gradle"),
+                "dependencies { api files('../../../local/shared.jar') }\n");
+        BuildResult allowed = run(shellOwned, ":app:validateReleaseSetRegistry").build();
+        assertEquals(allowed.getOutput(), TaskOutcome.SUCCESS, allowed.task(":app:validateReleaseSetRegistry").getOutcome());
+
+        Path kotlinShared = packagingProject();
+        append(kotlinShared.resolve("app/build.gradle"),
+                "dependencies { implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.3.21' }\n");
+        append(kotlinShared.resolve("sets/debug-sentinel/wallpaper/build.gradle"),
+                "dependencies { implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.3.21' }\n");
+        BuildResult shared = run(kotlinShared, ":app:validateReleaseSetRegistry").build();
+        assertEquals(shared.getOutput(), TaskOutcome.SUCCESS, shared.task(":app:validateReleaseSetRegistry").getOutcome());
+    }
+
 
     @Test public void xmlInventoryRejectsExternalEntitiesAndUnknownReference() throws Exception {
         Path root = temporary.newFolder().toPath();
@@ -281,6 +317,21 @@ public class VariantContentPackagingTest {
         assertFalse(Files.exists(root.resolve("app/build/reports/set-content/release/app-release-unsigned.apk-audit.txt")));
         Path evidence = Path.of(System.getProperty("livosphere.packagingEvidence"));
         Files.writeString(evidence.resolve("sentinel-rejections.txt"), expected + "\n", java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+    }
+    private static void assertLocalBinaryRejected(Path root, String filename) {
+        BuildResult result = run(root, ":app:validateReleaseSetRegistry").buildAndFail();
+        assertEquals(result.getOutput(), TaskOutcome.FAILED, result.task(":app:validateReleaseSetRegistry").getOutcome());
+        assertTrue(result.getOutput(), result.getOutput().contains("Excluded local binary in release runtime graph")
+                && result.getOutput().contains(filename));
+    }
+    private static void append(Path file, String content) throws Exception {
+        Files.writeString(file, content, java.nio.file.StandardOpenOption.APPEND);
+    }
+    private static void archive(Path file) throws Exception {
+        Files.createDirectories(file.getParent());
+        try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(file))) {
+            output.putNextEntry(new ZipEntry("placeholder.txt")); output.write(new byte[] { 0 }); output.closeEntry();
+        }
     }
     private static String report(Path root, String variant, String file) throws Exception { return Files.readString(root.resolve("app/build/reports/set-content/" + variant + "/" + file)); }
     private static Path write(Path file, String content) throws Exception { Files.createDirectories(file.getParent()); Files.writeString(file, content); return file; }

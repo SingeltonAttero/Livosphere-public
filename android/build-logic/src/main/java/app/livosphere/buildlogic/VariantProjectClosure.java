@@ -1,51 +1,96 @@
 package app.livosphere.buildlogic;
 
+import java.nio.file.Path;
 import java.util.Set;
 import java.util.TreeSet;
-import java.nio.file.Path;
 import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.FileCollectionDependency;
-import org.gradle.api.artifacts.ProjectDependency;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
+import org.gradle.api.artifacts.result.DependencyResult;
+import org.gradle.api.artifacts.result.ResolvedComponentResult;
+import org.gradle.api.artifacts.result.ResolvedDependencyResult;
 
-/** Resolve the real graph, retaining ownership of private transitive dependencies. */
-record VariantProjectClosure(Set<String> runtime, Set<String> excluded) {
+/** Resolves component ownership without treating a contribution's dependencies as shell-owned. */
+record VariantProjectClosure(Set<String> runtimeComponents, Set<String> runtimeProjects, Set<String> excludedProjects) {
     static VariantProjectClosure resolve(Project app, String variant, VariantContentSelection selection) {
-        Set<String> runtime = projectPaths(components(app, variant));
-        Set<String> excluded = new TreeSet<>();
-        // Resolve the same build type/fallback that AGP selected for the app. Inspecting an
-        // excluded debug contribution must never build that contribution for a release audit.
-        selection.excludedProjects().forEach(path -> excluded.addAll(components(app.getRootProject().project(path), variant)));
-        // Neutral runtime must be explicitly owned by the shell, independently of any contribution.
-        // Merely adding an excluded private module to a public contribution cannot make it shared.
-        Set<String> contributionProjects = new TreeSet<>(selection.projects());
-        contributionProjects.addAll(selection.excludedProjects());
-        Set<String> neutral = new TreeSet<>();
-        for (String bucket : Set.of("api", "implementation", "runtimeOnly")) {
-            var config = app.getConfigurations().findByName(bucket);
-            if (config == null) continue;
-            config.getDependencies().withType(ProjectDependency.class).forEach(dependency -> {
-                if (!contributionProjects.contains(dependency.getPath()))
-                    neutral.addAll(components(app.getRootProject().project(dependency.getPath()), variant));
-            });
+        Set<String> runtimeComponents = components(app, variant);
+        Set<String> runtimeProjects = projectPaths(runtimeComponents);
+        Set<String> excludedComponents = new TreeSet<>();
+        Set<String> excludedProjects = new TreeSet<>();
+        for (String path : selection.excludedProjects()) {
+            Set<String> closure = components(app.getRootProject().project(path), variant);
+            excludedComponents.addAll(closure);
+            excludedProjects.addAll(projectPaths(closure));
         }
-        // A shell-owned bridge may share core code, but it cannot launder an excluded
-        // contribution itself.  Retaining contribution roots makes neutral -> excluded edges
-        // fail even when Gradle's component graph also lists the bridge as shell-owned.
-        Set<String> excludedContributionRoots = new TreeSet<>(selection.excludedProjects());
-        excluded.removeAll(neutral);
-        excluded.addAll(excludedContributionRoots);
-        Set<String> leaks = new TreeSet<>(runtime); leaks.retainAll(excluded);
-        if (!leaks.isEmpty()) throw new GradleException("Excluded contribution in transitive " + variant + " runtime graph: " + leaks);
-        Set<Path> runtimeFiles = declaredFiles(app, runtime, variant);
-        Set<Path> excludedFiles = declaredFiles(app, projectPaths(excluded), variant);
-        excludedFiles.removeAll(declaredFiles(app, Set.of(app.getPath()), variant));
+
+        Set<String> contributionRoots = new TreeSet<>(selection.projects());
+        contributionRoots.addAll(selection.excludedProjects());
+        Set<String> neutralComponents = new TreeSet<>();
+        for (DependencyResult edge : runtimeRoot(app, variant).getDependencies()) {
+            if (!(edge instanceof ResolvedDependencyResult resolved)) continue;
+            String root = identity(resolved.getSelected().getId());
+            if (!contributionRoots.contains(root)) neutralComponents.addAll(reachable(resolved.getSelected()));
+        }
+        Set<String> neutralProjects = projectPaths(neutralComponents);
+
+        // A neutral bridge may share its own transitive dependencies, but never an excluded
+        // contribution root. This is deliberately applied after the neutral subtraction.
+        excludedComponents.removeAll(neutralComponents);
+        excludedComponents.addAll(selection.excludedProjects());
+        Set<String> componentLeaks = new TreeSet<>(runtimeComponents);
+        componentLeaks.retainAll(excludedComponents);
+        if (!componentLeaks.isEmpty())
+            throw new GradleException("Excluded contribution in transitive " + variant + " runtime graph: " + componentLeaks);
+
+        Set<Path> runtimeFiles = declaredFiles(app, runtimeProjects, variant);
+        Set<Path> excludedFiles = declaredFiles(app, excludedProjects, variant);
+        // A direct shell dependency and complete non-contribution first-level closures are
+        // neutral owners. Selected contributions never become neutral seeds.
+        Set<Path> neutralFiles = declaredFiles(app, Set.of(app.getPath()), variant);
+        neutralFiles.addAll(declaredFiles(app, neutralProjects, variant));
+        excludedFiles.removeAll(neutralFiles);
         runtimeFiles.retainAll(excludedFiles);
-        if (!runtimeFiles.isEmpty()) throw new GradleException("Excluded local binary in " + variant + " runtime graph: " + runtimeFiles);
-        return new VariantProjectClosure(runtime, excluded);
+        if (!runtimeFiles.isEmpty())
+            throw new GradleException("Excluded local binary in " + variant + " runtime graph: " + runtimeFiles);
+        return new VariantProjectClosure(runtimeComponents, runtimeProjects, excludedProjects);
+    }
+
+    private static ResolvedComponentResult runtimeRoot(Project project, String variant) {
+        Configuration configuration = runtimeConfiguration(project, variant);
+        if (configuration == null || !configuration.isCanBeResolved())
+            throw new GradleException("Runtime configuration missing for " + project.getPath() + " variant " + variant);
+        return configuration.getIncoming().getResolutionResult().getRoot();
+    }
+
+    private static Set<String> components(Project project, String variant) {
+        Set<String> result = new TreeSet<>(); result.add(project.getPath());
+        Configuration configuration = runtimeConfiguration(project, variant);
+        if (configuration != null && configuration.isCanBeResolved())
+            configuration.getIncoming().getResolutionResult().getAllComponents()
+                    .forEach(component -> result.add(identity(component.getId())));
+        return result;
+    }
+
+    private static Configuration runtimeConfiguration(Project project, String variant) {
+        Configuration variantRuntime = project.getConfigurations().findByName(variant + "RuntimeClasspath");
+        return variantRuntime != null ? variantRuntime : project.getConfigurations().findByName("runtimeClasspath");
+    }
+
+    private static Set<String> reachable(ResolvedComponentResult root) {
+        Set<String> result = new TreeSet<>(); collect(root, result); return result;
+    }
+
+    private static void collect(ResolvedComponentResult component, Set<String> result) {
+        if (!result.add(identity(component.getId()))) return;
+        for (DependencyResult edge : component.getDependencies())
+            if (edge instanceof ResolvedDependencyResult resolved) collect(resolved.getSelected(), result);
+    }
+
+    private static String identity(ComponentIdentifier component) {
+        return component instanceof ProjectComponentIdentifier project ? project.getProjectPath() : component.getDisplayName();
     }
 
     private static Set<String> projectPaths(Set<String> components) {
@@ -54,23 +99,13 @@ record VariantProjectClosure(Set<String> runtime, Set<String> excluded) {
         return result;
     }
 
-    private static Set<String> components(Project project, String variant) {
-        Set<String> result = new TreeSet<>(); result.add(project.getPath());
-        var config = project.getConfigurations().findByName(variant + "RuntimeClasspath");
-        if (config == null) config = project.getConfigurations().findByName("runtimeClasspath");
-        if (config != null && config.isCanBeResolved()) config.getIncoming().getResolutionResult().getAllComponents().forEach(component -> {
-            ComponentIdentifier id = component.getId();
-            result.add(id instanceof ProjectComponentIdentifier projectId ? projectId.getProjectPath() : id.getDisplayName());
-        });
-        return result;
-    }
-
     private static Set<Path> declaredFiles(Project root, Set<String> paths, String variant) {
         Set<Path> result = new TreeSet<>();
         for (String path : paths) {
             Project project = root.getRootProject().findProject(path);
             if (project == null) continue;
-            for (String name : Set.of("implementation", "runtimeOnly", variant + "Implementation", variant + "RuntimeOnly")) {
+            for (String name : Set.of("api", "implementation", "runtimeOnly", variant + "Api",
+                    variant + "Implementation", variant + "RuntimeOnly", variant + "RuntimeClasspath", "runtimeClasspath")) {
                 Configuration configuration = project.getConfigurations().findByName(name);
                 if (configuration == null) continue;
                 configuration.getAllDependencies().withType(FileCollectionDependency.class).forEach(dependency ->

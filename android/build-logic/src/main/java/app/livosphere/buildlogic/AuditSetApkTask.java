@@ -36,25 +36,26 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
         String variant = getName().substring("audit".length(), getName().length() - "SetApk".length());
         variant = Character.toLowerCase(variant.charAt(0)) + variant.substring(1);
         VariantProjectClosure graph = VariantProjectClosure.resolve(getProject(), variant, selection);
-        Set<String> runtime = graph.runtime();
-        Set<String> excludedModules = graph.excluded();
+        Set<String> runtimeProjects = graph.runtimeProjects();
+        Set<String> excludedModules = graph.excludedProjects();
         SetContentInventory allowed = new SetContentInventory();
         SetContentInventory excluded = new SetContentInventory();
         selection.selected().forEach(m -> m.contributions().stream().filter(c -> !c.surface().equals("watchface"))
                 .forEach(c -> allowed.contribution(m, c)));
         selection.excluded().forEach(m -> m.contributions().forEach(c -> excluded.contribution(m, c)));
-        for (String module : runtime) inventoryModule(allowed, module, variant, getBuildType().get());
+        for (String module : runtimeProjects) inventoryModule(allowed, module, variant, getBuildType().get());
         // Excluded contributions can have release/fallback source sets too.  Inventory the
         // variant actually being audited, rather than assuming their debug source tree.
         for (String module : excludedModules) inventoryModule(excluded, module, variant, getBuildType().get());
         Path reports = getInventoryDirectory().get().getAsFile().toPath();
         clearReports(reports);
         verifyGeneratedRegistry(selection);
-        verifyShellDoesNotOverrideSelection(selection, runtime, variant, getBuildType().get());
+        verifyShellDoesNotOverrideSelection(selection, runtimeProjects, variant, getBuildType().get());
         Files.write(reports.resolve("inventory.txt"), List.of("variant=" + variant,
                 "selected=" + selection.selected().stream().map(SetManifest::setId).sorted().toList(),
                 "excluded=" + selection.excluded().stream().map(SetManifest::setId).sorted().toList(),
-                "runtimeProjects=" + runtime, "excludedProjects=" + excludedModules,
+                "runtimeComponents=" + graph.runtimeComponents(), "runtimeProjects=" + runtimeProjects,
+                "excludedProjects=" + excludedModules,
                 "allowedResources=" + allowed.resources, "excludedResources=" + excluded.resources,
                 "excludedClasses=" + excluded.classes, "excludedComponents=" + excluded.components));
         Path aapt2 = sdkTool("aapt2");
