@@ -41,18 +41,26 @@ final class SetContentInventory {
             if (separator <= 0) throw new GradleException("Unsupported Android source metadata for " + module + " " + variant);
             String type = entry.substring(0, separator);
             Path source = Path.of(entry.substring(separator + 1));
+            boolean requiredGenerated = type.startsWith("required-generated-");
+            if (requiredGenerated) type = type.substring("required-generated-".length());
+            if (type.startsWith("canonical-generated-")) type = type.substring("canonical-generated-".length());
+            String sourceType = type;
             // AGP's getAll also reports conventional but empty src/<variant> directories.
             // A missing conventional root is not an omitted generated input.
-            if (!Files.exists(source)) continue;
+            if (!Files.exists(source)) {
+                if (requiredGenerated) throw new GradleException("Registered generated Android source missing for "
+                        + module + " " + variant + "; excluded generators are not executed: " + source);
+                continue;
+            }
             if (type.equals("manifest")) { manifest(source, namespace, placeholders); continue; }
             if (!Files.isDirectory(source)) throw new GradleException("Unsupported Android source input for "
                     + module + " " + variant + ": " + source);
             try (var files = Files.walk(source)) {
                 files.filter(Files::isRegularFile).forEach(file -> {
                     String relative = source.relativize(file).toString().replace('\\', '/');
-                    if (type.equals("res")) resource(file, relative);
-                    else if (type.equals("assets")) assetPaths.add("assets/" + relative);
-                    else if (type.equals("java") || type.equals("kotlin")) {
+                    if (sourceType.equals("res")) resource(file, relative);
+                    else if (sourceType.equals("assets")) assetPaths.add("assets/" + relative);
+                    else if (sourceType.equals("java") || sourceType.equals("kotlin")) {
                         if (relative.endsWith(".kt") || relative.endsWith(".java")) sourceClass(file);
                     }
                 });

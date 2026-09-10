@@ -50,15 +50,39 @@ public final class SetConsumerPlugin implements Plugin<Project> {
                 SetPluginSupport.configureVariantInputs(project, task, manifests, variant.getBuildType());
                 task.getSetId().set(extension.getSetId());
                 task.getSurface().set(extension.getSurface());
-                task.getOutputDirectory().convention(project.getLayout().getBuildDirectory().dir("generated/set-resources/" + name));
+                task.getOutputDirectory().set(project.getLayout().getBuildDirectory()
+                        .dir("generated/res/generate" + suffix + "SetResources"));
                 task.dependsOn(validate);
             });
             if (variant.getSources().getRes() == null) throw new GradleException(project.getPath() + ": Android resources отключены");
-            variant.getSources().getRes().addGeneratedSourceDirectory(generate, GenerateSetResourcesTask::getOutputDirectory);
+            // Keep the output path inspectable for an excluded contribution without resolving the
+            // generated-source Provider (which realizes that excluded producer during audit).
+            // Every known AGP resource consumer receives the explicit producer edge lazily.
+            String generatedRelativePath = "generated/res/generate" + suffix + "SetResources";
+            String generatedSourcePath = project.getLayout().getBuildDirectory().dir(generatedRelativePath)
+                    .get().getAsFile().getAbsolutePath();
+            variant.getSources().getRes().addStaticSourceDirectory(generatedSourcePath);
+            AndroidVariantSourceCollector collector = project.getRootProject().getExtensions()
+                    .findByType(AndroidVariantSourceCollector.class);
+            if (collector != null) collector.registerCanonicalGeneratedResourceRoot(project, name, generatedRelativePath);
+            wireGeneratedResourceConsumerEdges(project, suffix, generate);
             if (variant.getBuildType().equals("debug")) {
                 validateAll.configure(t -> t.dependsOn(validate));
                 generateAll.configure(t -> t.dependsOn(generate));
             }
+        });
+    }
+
+    private static void wireGeneratedResourceConsumerEdges(Project project, String suffix,
+            TaskProvider<GenerateSetResourcesTask> generate) {
+        String validateName = "validate" + suffix + "SetContract";
+        String generateName = "generate" + suffix + "SetResources";
+        project.getTasks().configureEach(task -> {
+            // AGP registers several resource readers after onVariants, including task types
+            // introduced between AGP releases.  The only producer prerequisite is validate;
+            // every other task for this exact variant must wait for the canonical output.
+            if (task.getName().contains(suffix) && !task.getName().equals(validateName)
+                    && !task.getName().equals(generateName)) task.dependsOn(generate);
         });
     }
 }

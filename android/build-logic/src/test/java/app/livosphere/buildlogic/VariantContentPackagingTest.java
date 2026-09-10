@@ -235,11 +235,23 @@ public class VariantContentPackagingTest {
         assertTrue(report(selected, "release", "inventory.txt").contains("test.public_sentinel.GeneratedSelectedAuditSource"));
 
         Path excluded = packagingProject();
-        addGeneratedResource(excluded, "app", "generateExcludedAuditSource", "ls_debug_sentinel_generated_payload");
+        addRegisteredGeneratedAuditSource(excluded, "sets/debug-sentinel/wallpaper", "generateExcludedAuditSource",
+                "test.debug_sentinel.GeneratedExcludedAuditSource");
         BuildResult rejected = run(excluded, ":app:assembleRelease").buildAndFail();
         assertEquals(rejected.getOutput(), TaskOutcome.FAILED, rejected.task(":app:auditReleaseSetApk").getOutcome());
-        assertTrue(rejected.getOutput(), rejected.getOutput().contains("Excluded resource namespace in APK: string/ls_debug_sentinel_generated_payload"));
-        assertEquals(TaskOutcome.SUCCESS, rejected.task(":app:generateExcludedAuditSource").getOutcome());
+        assertTrue(rejected.getOutput(), rejected.getOutput().contains("Registered generated Android source missing for"
+                + " :sets:debug-sentinel:wallpaper release; excluded generators are not executed"));
+        assertNull(rejected.task(":sets:debug-sentinel:wallpaper:generateExcludedAuditSource"));
+
+        Path unsupported = packagingProject();
+        addGeneratedAuditSource(unsupported, "sets/debug-sentinel/wallpaper", "generateUnsupportedAuditSource",
+                "test.debug_sentinel.GeneratedUnsupportedAuditSource");
+        BuildResult unsupportedRejected = run(unsupported, ":app:assembleRelease").buildAndFail();
+        assertEquals(unsupportedRejected.getOutput(), TaskOutcome.FAILED,
+                unsupportedRejected.task(":app:auditReleaseSetApk").getOutcome());
+        assertTrue(unsupportedRejected.getOutput(), unsupportedRejected.getOutput().contains("before task"
+                + " ':sets:debug-sentinel:wallpaper:generateUnsupportedAuditSource' has completed is not supported"));
+        assertNull(unsupportedRejected.task(":sets:debug-sentinel:wallpaper:generateUnsupportedAuditSource"));
     }
 
     @Test public void collectorNormalizesPlaceholderRelativeComponentsWithFinalVariantNamespace() throws Exception {
@@ -498,6 +510,13 @@ public class VariantContentPackagingTest {
                     variant.sources.java.addGeneratedSourceDirectory(%s, { it.outputDirectory })
                 } }
                 """.formatted(type.replace('.', '/'), packageName, className, taskName, taskName, taskName, taskName));
+    }
+    private static void addRegisteredGeneratedAuditSource(Path root, String module, String taskName, String type) throws Exception {
+        addGeneratedAuditSource(root, module, taskName, type);
+        append(root.resolve(module + "/build.gradle"), """
+                rootProject.extensions.getByType(app.livosphere.buildlogic.AndroidVariantSourceCollector)
+                    .registerRequiredGeneratedRoot(project, 'release', 'java', 'generated/%s')
+                """.formatted(taskName));
     }
     private static void addGeneratedResource(Path root, String module, String taskName, String resourceName) throws Exception {
         Path build = root.resolve(module + "/build.gradle");

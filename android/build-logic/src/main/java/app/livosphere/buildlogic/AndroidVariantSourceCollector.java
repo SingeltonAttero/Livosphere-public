@@ -3,7 +3,6 @@ package app.livosphere.buildlogic;
 import com.android.build.api.variant.AndroidComponentsExtension;
 import com.android.build.api.variant.SourceDirectories;
 import com.android.build.api.variant.Variant;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -24,6 +23,7 @@ public final class AndroidVariantSourceCollector {
     static final String EXTENSION_NAME = "livosphereAndroidVariantSourceCollector";
     private final Project root;
     private final Map<String, Map<String, VariantInputs>> variants = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, List<RegisteredGeneratedRoot>>> registeredGeneratedRoots = new ConcurrentHashMap<>();
     private final Set<String> observedProjects = ConcurrentHashMap.newKeySet();
 
     AndroidVariantSourceCollector(Project root) { this.root = root; }
@@ -52,11 +52,54 @@ public final class AndroidVariantSourceCollector {
 
     void configureAuditInputs(AuditSetApkTask task) { task.getAndroidSourceCollector().set(this); }
 
+    /**
+     * The set-contract generator has a deterministic output beneath this project's configured
+     * build directory.  Register it separately from AGP's generated-source Provider: reading
+     * that Provider for an excluded contribution asks Gradle to realize its producer.
+     */
+    void registerCanonicalGeneratedResourceRoot(Project project, String variant, String relativeOutput) {
+        registerGeneratedRoot(project, variant, "res", relativeOutput, false);
+    }
+
+    /**
+     * Opt-in contract for a non-canonical generated root that must be checked even when its
+     * contribution is excluded.  The relative path is resolved from the project's actual
+     * buildDirectory, so projects that relocate build output remain supported.
+     */
+    public void registerRequiredGeneratedRoot(Project project, String variant, String sourceType, String relativeOutput) {
+        if (!Set.of("java", "kotlin", "resources", "res", "assets").contains(sourceType))
+            throw new GradleException("Unsupported generated Android source type: " + sourceType);
+        if (relativeOutput.isBlank() || relativeOutput.startsWith("/") || relativeOutput.contains(".."))
+            throw new GradleException("Generated Android source output must be a buildDirectory-relative path");
+        registerGeneratedRoot(project, variant, sourceType, relativeOutput, true);
+    }
+
+    private void registerGeneratedRoot(Project project, String variant, String sourceType, String relativeOutput,
+            boolean required) {
+        String path = project.getLayout().getBuildDirectory().dir(relativeOutput).get().getAsFile().getAbsolutePath();
+        registeredGeneratedRoots.computeIfAbsent(project.getPath(), ignored -> new ConcurrentHashMap<>())
+                .computeIfAbsent(variant, ignored -> new ArrayList<>())
+                .add(new RegisteredGeneratedRoot(sourceType, path, required));
+    }
+
     SourceMetadata sourceMetadata(String project, String variant, boolean includeGenerated) {
         VariantInputs inputs = variants.getOrDefault(project, Map.of()).get(variant);
         if (inputs == null) throw new GradleException("Android variant source metadata missing for " + project + " " + variant);
+        List<RegisteredGeneratedRoot> registered = registeredGeneratedRoots
+                .getOrDefault(project, Map.of()).getOrDefault(variant, List.of());
+        if (!includeGenerated) {
+            try {
+                List<String> unsupported = inputs.unregisteredGeneratedRoots(registered);
+                if (!unsupported.isEmpty()) throw new GradleException("Unsupported generated Android source input for excluded contribution "
+                        + project + " " + variant + "; register the buildDirectory-relative root explicitly: " + unsupported);
+            } catch (Exception error) {
+                throw new GradleException("Unsupported generated Android source input for excluded contribution " + project + " "
+                        + variant + "; AGP metadata cannot be inspected without executing the excluded producer", error);
+            }
+        }
         try {
-            return new SourceMetadata(inputs.sourceDirectories(includeGenerated), inputs.namespace.get(), Map.copyOf(inputs.manifestPlaceholders.get()));
+            return new SourceMetadata(inputs.sourceDirectories(includeGenerated, registered), inputs.namespace.get(),
+                    Map.copyOf(inputs.manifestPlaceholders.get()));
         } catch (Exception error) {
             throw new GradleException("Registered Android source metadata unavailable for " + project + " " + variant
                     + "; excluded generators are not executed by APK audit", error);
@@ -64,6 +107,8 @@ public final class AndroidVariantSourceCollector {
     }
 
     record SourceMetadata(List<String> sourceDirectories, String namespace, Map<String, String> manifestPlaceholders) {}
+
+    private record RegisteredGeneratedRoot(String sourceType, String path, boolean required) {}
 
     private record VariantInputs(SourceInput java, SourceInput kotlin, SourceInput resources, SourceInput res,
             SourceInput assets, Provider<List<RegularFile>> manifests,
@@ -75,18 +120,50 @@ public final class AndroidVariantSourceCollector {
                     variant.getNamespace(), variant.getManifestPlaceholders());
         }
 
-        List<String> sourceDirectories(boolean includeGenerated) {
+        List<String> sourceDirectories(boolean includeGenerated, List<RegisteredGeneratedRoot> registered) {
             List<String> result = new ArrayList<>();
-            addDirectories(result, "java", java, includeGenerated); addDirectories(result, "kotlin", kotlin, includeGenerated);
-            addDirectories(result, "resources", resources, includeGenerated); addDirectories(result, "res", res, includeGenerated);
-            addDirectories(result, "assets", assets, includeGenerated);
+            addDirectories(result, "java", java, includeGenerated, registered); addDirectories(result, "kotlin", kotlin, includeGenerated, registered);
+            addDirectories(result, "resources", resources, includeGenerated, registered); addDirectories(result, "res", res, includeGenerated, registered);
+            addDirectories(result, "assets", assets, includeGenerated, registered);
+            if (!includeGenerated) for (RegisteredGeneratedRoot root : registered) if (root.required)
+                result.add("required-generated-" + root.sourceType + "|" + root.path);
             for (RegularFile manifest : manifests.get()) result.add("manifest|" + manifest.getAsFile().getAbsolutePath());
             return result;
         }
 
-        private static void addDirectories(List<String> result, String type, SourceInput directories, boolean includeGenerated) {
+        List<String> unregisteredGeneratedRoots(List<RegisteredGeneratedRoot> registered) {
+            List<String> result = new ArrayList<>();
+            collectUnknown(result, "java", java, registered); collectUnknown(result, "kotlin", kotlin, registered);
+            collectUnknown(result, "resources", resources, registered); collectUnknown(result, "res", res, registered);
+            collectUnknown(result, "assets", assets, registered);
+            return result;
+        }
+
+        private static void collectUnknown(List<String> result, String type, SourceInput directories,
+                List<RegisteredGeneratedRoot> registered) {
+            if (directories == null) return;
+            // A required root is intentionally read from its declared stable path below. Querying
+            // AGP's combined provider would realize its excluded producer before audit.
+            if (registered.stream().anyMatch(root -> root.sourceType.equals(type) && root.required)) return;
+            Set<String> staticPaths = directories.staticRoots.get().stream()
+                    .map(directory -> directory.getAsFile().getAbsolutePath()).collect(Collectors.toSet());
+            for (Directory directory : directories.all.get()) {
+                String path = directory.getAsFile().getAbsolutePath();
+                boolean registeredRoot = registered.stream().anyMatch(root -> root.sourceType.equals(type) && root.path.equals(path));
+                if (!staticPaths.contains(path) && !registeredRoot) result.add(type + "|" + path);
+            }
+        }
+
+        private static void addDirectories(List<String> result, String type, SourceInput directories, boolean includeGenerated,
+                List<RegisteredGeneratedRoot> registered) {
             if (directories != null) for (Directory directory : (includeGenerated ? directories.all : directories.staticRoots).get())
-                result.add(type + "|" + directory.getAsFile().getAbsolutePath());
+                result.add(entryType(type, directory.getAsFile().getAbsolutePath(), registered) + "|" + directory.getAsFile().getAbsolutePath());
+        }
+
+        private static String entryType(String type, String path, List<RegisteredGeneratedRoot> registered) {
+            for (RegisteredGeneratedRoot root : registered) if (!root.required && root.sourceType.equals(type) && root.path.equals(path))
+                return "canonical-generated-" + type;
+            return type;
         }
 
         private static SourceInput flat(SourceDirectories.Flat sources) {
