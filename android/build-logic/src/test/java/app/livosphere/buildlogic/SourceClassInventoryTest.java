@@ -16,6 +16,8 @@ public class SourceClassInventoryTest {
                 "@file:kotlin.jvm.JvmName (\"QualifiedFacade\")\npackage test.hidden\nfun qualifiedPayload() = 1");
         assertExcludedType("OrdinaryFacade", "test.hidden.OrdinaryFacadeKt", "kotlin",
                 "package test.hidden\nfun ordinaryPayload() = 1");
+        assertExcludedType("OrdinarySuspend", "test.hidden.OrdinarySuspendKt", "kotlin",
+                "package test.hidden\nsuspend fun hiddenPayload() = 1");
     }
 
     private static void assertExcludedType(String fileName, String type, String language, String source) throws Exception {

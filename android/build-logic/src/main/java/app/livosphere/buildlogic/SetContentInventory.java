@@ -121,9 +121,8 @@ final class SetContentInventory {
             while (names.find()) classes.add(namespace + "." + names.group(1));
             if (file.toString().endsWith(".kt")) {
                 var jvmName = Pattern.compile("@file:(?:[A-Za-z_][\\w.]*\\.)?JvmName\\s*\\(\\s*\\\"([A-Za-z_][\\w]*)\\\"\\s*\\)").matcher(text);
-                var topLevel = Pattern.compile("(?m)^\\s*(?:(?:public|private|internal|protected|const)\\s+)*(?:fun|val|var|typealias)\\b").matcher(text);
                 if (jvmName.find()) classes.add(namespace + "." + jvmName.group(1));
-                else if (topLevel.find()) classes.add(namespace + "." + file.getFileName().toString().replace(".kt", "Kt"));
+                else classes.add(namespace + "." + file.getFileName().toString().replace(".kt", "Kt"));
             }
         } catch (Exception error) { throw new GradleException("Cannot inventory classes " + file, error); }
     }
