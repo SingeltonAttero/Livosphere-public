@@ -72,14 +72,21 @@ final class SetContractEngine {
 
     static void generateRegistry(VariantContentSelection selection, Path outputDirectory) {
         selection.requireNonEmpty();
-        List<SetManifest> selected = selection.selected();
         recreate(outputDirectory);
         Path output = outputDirectory.resolve("app/livosphere/generated/GeneratedSetRegistry.kt");
-        String entries = selected.stream().sorted(Comparator.comparing(SetManifest::setId))
-                .map(SetContractEngine::descriptorKotlin)
-                .collect(Collectors.joining(",\n"));
+        write(output, registrySource(selection));
+    }
+
+    /**
+     * Canonical generated source used by both the generator and the APK audit.  Comparing this
+     * file after generation catches descriptor mutations that retain a set ID (for example a
+     * changed component, revision, asset or artifact project) before an APK is called PASS.
+     */
+    static String registrySource(VariantContentSelection selection) {
+        String entries = selection.selected().stream().sorted(Comparator.comparing(SetManifest::setId))
+                .map(SetContractEngine::descriptorKotlin).collect(Collectors.joining(",\n"));
         String descriptorDigest = registryDescriptorDigest(selection);
-        String kotlin = """
+        return """
                 package app.livosphere.generated
 
                 import app.livosphere.contract.*
@@ -92,7 +99,6 @@ final class SetContractEngine {
                     )
                 }
                 """.formatted(descriptorDigest, indent(entries, 8));
-        write(output, kotlin);
     }
 
     /** A canonical digest of every generated descriptor field, not merely set IDs. */

@@ -44,12 +44,13 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
                 .forEach(c -> allowed.contribution(m, c)));
         selection.excluded().forEach(m -> m.contributions().forEach(c -> excluded.contribution(m, c)));
         for (String module : runtime) inventoryModule(allowed, module, variant, getBuildType().get());
-        for (String module : excludedModules) inventoryModule(excluded, module, "debug", "debug");
+        // Excluded contributions can have release/fallback source sets too.  Inventory the
+        // variant actually being audited, rather than assuming their debug source tree.
+        for (String module : excludedModules) inventoryModule(excluded, module, variant, getBuildType().get());
         Path reports = getInventoryDirectory().get().getAsFile().toPath();
-        Files.createDirectories(reports);
-        try (var previous = Files.list(reports)) {
-            for (Path file : previous.filter(p -> p.getFileName().toString().endsWith("-audit.txt")).toList()) Files.delete(file);
-        }
+        clearReports(reports);
+        verifyGeneratedRegistry(selection);
+        verifyShellDoesNotOverrideSelection(selection, runtime, variant, getBuildType().get());
         Files.write(reports.resolve("inventory.txt"), List.of("variant=" + variant,
                 "selected=" + selection.selected().stream().map(SetManifest::setId).sorted().toList(),
                 "excluded=" + selection.excluded().stream().map(SetManifest::setId).sorted().toList(),
@@ -64,6 +65,45 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
         }
         require(!apks.isEmpty(), "APK missing for content audit");
         for (Path apk : apks) auditApk(apk, aapt2, dexdump, selection, allowed, excluded, reports);
+    }
+
+    /** A failed prerequisite must never leave a stale PASS report for this variant. */
+    private static void clearReports(Path reports) throws Exception {
+        if (Files.exists(reports)) try (var files = Files.list(reports)) {
+            for (Path file : files.filter(Files::isRegularFile).toList()) Files.delete(file);
+        }
+        Files.createDirectories(reports);
+    }
+
+    private void verifyGeneratedRegistry(VariantContentSelection selection) throws Exception {
+        Path registry = getRegistryDirectory().get().getAsFile().toPath()
+                .resolve("app/livosphere/generated/GeneratedSetRegistry.kt");
+        require(Files.isRegularFile(registry), "Generated registry source missing for APK audit: " + registry);
+        require(Files.readString(registry).equals(SetContractEngine.registrySource(selection)),
+                "Generated registry descriptor differs from authoritative variant selection");
+    }
+
+    /** A shell/app overlay may not replace an approved set resource under the same identifier. */
+    private void verifyShellDoesNotOverrideSelection(VariantContentSelection selection, Set<String> runtime,
+            String variant, String buildType) {
+        Set<String> contributionProjects = selection.projects();
+        for (String module : runtime) {
+            if (contributionProjects.contains(module)) continue;
+            String directory = getModuleDirectories().get().get(module);
+            if (directory == null) continue;
+            SetContentInventory inventory = new SetContentInventory();
+            inventory.module(Path.of(directory), variant, buildType);
+            for (String resource : inventory.resources) {
+                if (resource.startsWith("values/")) continue;
+                for (SetManifest selected : selection.selected()) {
+                    String prefix = "ls_" + selected.setId().replace('-', '_') + "_";
+                    if (resource.substring(resource.indexOf('/') + 1).startsWith(prefix)) {
+                        throw new GradleException("Selected resource overridden outside contribution closure: " + resource
+                                + " from " + module);
+                    }
+                }
+            }
+        }
     }
 
     private void inventoryModule(SetContentInventory inventory, String module, String variant, String buildType) {
@@ -85,14 +125,20 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
         missing.removeIf(name -> !name.substring(name.indexOf('/') + 1).startsWith("ls_"));
         require(missing.isEmpty(), "Missing selected resources in APK: " + missing);
         for (String name : excluded.resources) require(!actualResources.contains(name), "Excluded resource in APK: " + name);
+        for (SetManifest forbidden : selection.excluded()) {
+            String namespace = "ls_" + forbidden.setId().replace('-', '_') + "_";
+            for (String name : actualResources) require(!name.substring(name.indexOf('/') + 1).startsWith(namespace),
+                    "Excluded resource namespace in APK: " + name);
+        }
         for (String name : actualResources) if (name.substring(name.indexOf('/') + 1).startsWith("ls_"))
             require(allowed.resources.contains(name), "Undeclared set resource in APK: " + name);
         for (String reference : allowed.references) require(reference.startsWith("android:") || actualResources.contains(reference),
                 "Resource XML reference outside allowed closure/framework: " + reference);
-        for (String component : excluded.components) require(!manifest.contains("\"" + component + "\""), "Excluded manifest component in APK: " + component);
+        Set<String> manifestComponents = manifestComponents(manifest);
+        for (String component : excluded.components) require(!manifestComponents.contains(component), "Excluded manifest component in APK: " + component);
         for (SetManifest selected : selection.selected()) {
             String service = selected.contributionFor("wallpaper").serviceClassName();
-            require(manifest.contains("\"" + service + "\""), "Selected wallpaper service missing in APK manifest: " + service);
+            require(manifestComponents.contains(service), "Selected wallpaper service missing in APK manifest: " + service);
         }
         Set<String> types = new TreeSet<>();
         Set<String> registryStrings = new TreeSet<>();
@@ -141,6 +187,23 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
             }
         }
         require(process.waitFor() == 0, "dexdump failed for " + dex);
+    }
+
+    /** Extract only actual Android component nodes; a name in meta-data is not a component. */
+    private static Set<String> manifestComponents(String dump) {
+        Set<String> result = new TreeSet<>();
+        Set<String> componentTags = Set.of("service", "provider", "receiver", "activity", "activity-alias");
+        String current = null;
+        Pattern element = Pattern.compile("^\\s*E: ([\\w-]+)");
+        Pattern name = Pattern.compile("android:name.*?\\\"([^\\\"]+)\\\"");
+        for (String line : dump.lines().toList()) {
+            var elementMatch = element.matcher(line);
+            if (elementMatch.find()) current = componentTags.contains(elementMatch.group(1)) ? elementMatch.group(1) : null;
+            if (current == null) continue;
+            var nameMatch = name.matcher(line);
+            if (nameMatch.find()) result.add(nameMatch.group(1));
+        }
+        return result;
     }
 
     private Path sdkTool(String name) throws Exception {

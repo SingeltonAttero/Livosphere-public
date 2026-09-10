@@ -98,6 +98,13 @@ public class VariantContentPackagingTest {
         Path preview = releaseSource.resolve("res/drawable-nodpi/ls_debug_sentinel_preview_wallpaper.png");
         Files.createDirectories(preview.getParent()); Files.copy(root.resolve("sets/debug-sentinel/source-assets/preview/drawable-nodpi/ls_debug_sentinel_preview_wallpaper.png"), preview);
         assertAuditFailure(root, "Excluded resource in APK: drawable/ls_debug_sentinel_preview_wallpaper"); Files.delete(preview);
+        // A shell overlay with an approved identifier must not replace the selected asset.
+        Path selectedOverlay = releaseSource.resolve("res/drawable-nodpi/ls_public_sentinel_preview_wallpaper.png");
+        Files.copy(root.resolve("sets/debug-sentinel/source-assets/preview/drawable-nodpi/ls_debug_sentinel_preview_wallpaper.png"), selectedOverlay);
+        assertAuditFailure(root, "Selected resource overridden outside contribution closure: drawable/ls_public_sentinel_preview_wallpaper"); Files.delete(selectedOverlay);
+        // The whole excluded namespace is rejected, even when the name never occurred in its source inventory.
+        Path unknownExcluded = write(releaseSource.resolve("res/values/unknown-excluded.xml"), "<resources><string name=\"ls_debug_sentinel_unlisted\">LEAK</string></resources>");
+        assertAuditFailure(root, "Excluded resource namespace in APK: string/ls_debug_sentinel_unlisted"); Files.delete(unknownExcluded);
         Path provider = write(releaseSource.resolve("AndroidManifest.xml"), "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"><application><provider android:name=\"test.debug_sentinel.HiddenProvider\" android:authorities=\"test.sentinel.leak\" android:exported=\"false\"/></application></manifest>");
         assertAuditFailure(root, "Excluded manifest component in APK: test.debug_sentinel.HiddenProvider"); Files.delete(provider);
         Path payload = write(releaseSource.resolve("java/test/hidden/Payload.java"), "package test.hidden; public class Payload { public static String data() { return \"LEAK\"; } }");
@@ -118,8 +125,14 @@ public class VariantContentPackagingTest {
                     }
                 }
                 """);
-        assertAuditFailure(root, "Selected entry missing from registry DEX: public-sentinel");
+        assertAuditFailure(root, "Generated registry descriptor differs from authoritative variant selection");
         Files.writeString(appBuild, normalBuild);
+
+        // A saved component name in meta-data cannot impersonate the required service node.
+        Path publicManifest = root.resolve("sets/public-sentinel/wallpaper/src/main/AndroidManifest.xml");
+        write(publicManifest, "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"><application><meta-data android:name=\"test.public_sentinel.WallpaperService\" android:value=\"history only\"/></application></manifest>");
+        assertAuditFailure(root, "Selected wallpaper service missing in APK manifest: test.public_sentinel.WallpaperService");
+        write(publicManifest, "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"><application><service android:name=\"test.public_sentinel.WallpaperService\" android:exported=\"true\" android:permission=\"android.permission.BIND_WALLPAPER\"/></application></manifest>");
 
         // Public -> bridge -> excluded contribution fails the real resolved runtime graph before packaging.
         Files.writeString(root.resolve("bridge/build.gradle"), "\ndependencies { api project(':sets:debug-sentinel:preview') }\n", java.nio.file.StandardOpenOption.APPEND);
@@ -150,6 +163,32 @@ public class VariantContentPackagingTest {
         assertNull(failed.task(":app:packageRelease"));
         assertFalse(Files.exists(root.resolve("app/build/outputs/apk/release/app-release-unsigned.apk")));
     }
+
+    @Test public void customBenchmarkVariantUsesTheSamePublicClosureAndEmptyGuard() throws Exception {
+        Path root = packagingProject();
+        Path build = root.resolve("app/build.gradle");
+        Files.writeString(build, Files.readString(build) + "\nandroid { buildTypes { benchmark { initWith release; matchingFallbacks = ['release'] } } }\n");
+        BuildResult benchmark = run(root, ":app:assembleBenchmark").build();
+        assertEquals(TaskOutcome.SUCCESS, benchmark.task(":app:validateBenchmarkSetRegistry").getOutcome());
+        assertEquals(TaskOutcome.SUCCESS, benchmark.task(":app:generateBenchmarkSetRegistry").getOutcome());
+        assertEquals(TaskOutcome.SUCCESS, benchmark.task(":app:auditBenchmarkSetApk").getOutcome());
+        String registry = Files.readString(root.resolve("app/build/generated/kotlin/generateBenchmarkSetRegistry/app/livosphere/generated/GeneratedSetRegistry.kt"));
+        assertTrue(registry.contains("SetId(\"public-sentinel\")"));
+        assertFalse(registry.contains("debug-sentinel"));
+
+        Path empty = packagingProject();
+        Files.writeString(empty.resolve("gradle.properties"), "livosphere.setManifests=sets/debug-sentinel/manifest/set.properties\norg.gradle.jvmargs=-Xmx1g\n");
+        for (String surface : List.of("preview", "wallpaper", "clock-widget")) {
+            Path module = empty.resolve("sets/public-sentinel/" + surface + "/build.gradle");
+            Files.writeString(module, "plugins { id 'com.android.library' }; android { namespace 'test.unselected." + surface.replace('-', '_') + "'; compileSdk 37; defaultConfig { minSdk 29 } }\n");
+        }
+        Path emptyBuild = empty.resolve("app/build.gradle");
+        Files.writeString(emptyBuild, Files.readString(emptyBuild) + "\nandroid { buildTypes { benchmark { initWith release; matchingFallbacks = ['release'] } } }\n");
+        BuildResult rejected = run(empty, ":app:assembleBenchmark").buildAndFail();
+        assertTrue(rejected.getOutput(), rejected.getOutput().contains("empty public content closure"));
+        assertNull(rejected.task(":app:packageBenchmark"));
+    }
+
 
     @Test public void xmlInventoryRejectsExternalEntitiesAndUnknownReference() throws Exception {
         Path root = temporary.newFolder().toPath();

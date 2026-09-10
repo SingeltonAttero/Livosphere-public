@@ -50,6 +50,7 @@ final class SetContentInventory {
         }
     }
 
+
     void resource(Path file, String resourcePath) {
         String directory = resourcePath.substring(0, resourcePath.indexOf('/')).split("-", 2)[0];
         String name = resourcePath.substring(resourcePath.lastIndexOf('/') + 1).replaceFirst("\\.9\\.png$", ".png").replaceFirst("\\.[^.]+$", "");
