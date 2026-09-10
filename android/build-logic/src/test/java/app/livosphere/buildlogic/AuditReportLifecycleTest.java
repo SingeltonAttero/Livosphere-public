@@ -16,10 +16,12 @@ public class AuditReportLifecycleTest {
         try {
             Path root = fixture.packagingProject();
             assertPass(root);
-            Files.writeString(root.resolve("gradle.properties"),
-                    "livosphere.setManifests=sets/debug-sentinel/manifest/set.properties\norg.gradle.jvmargs=-Xmx1g\n");
+            Path manifest = root.resolve("sets/public-sentinel/manifest/set.properties");
+            Files.writeString(manifest, Files.readString(manifest)
+                    .replace("distribution=public", "distribution=debug-only"));
             BuildResult failed = VariantContentPackagingTest.run(root, ":app:assembleRelease").buildAndFail();
             save(failed, "eligibility-failure.txt");
+            assertTrue(failed.getOutput(), failed.getOutput().contains("empty public content closure"));
             assertNoPass(root);
         } finally {
             fixture.temporary.delete();
@@ -56,6 +58,8 @@ public class AuditReportLifecycleTest {
             Files.writeString(invalid, "<FrameLayout>");
             BuildResult failed = VariantContentPackagingTest.run(root, ":app:assembleRelease").buildAndFail();
             save(failed, "invalid-xml-failure.txt");
+            assertTrue(failed.getOutput(), failed.getOutput().contains("invalid.xml"));
+            assertTrue(failed.getOutput(), failed.getOutput().contains("Failed to parse XML file"));
             assertNoPass(root);
         } finally {
             fixture.temporary.delete();
@@ -76,6 +80,7 @@ public class AuditReportLifecycleTest {
                     java.nio.file.StandardOpenOption.APPEND);
             BuildResult failed = VariantContentPackagingTest.run(root, ":app:assembleRelease").buildAndFail();
             save(failed, "graph-failure.txt");
+            assertTrue(failed.getOutput(), failed.getOutput().contains("Excluded set debug-sentinel for variant release"));
             assertNoPass(root);
         } finally {
             fixture.temporary.delete();
