@@ -26,6 +26,25 @@ public class AuditReportLifecycleTest {
         }
     }
 
+    @Test public void passIsWithdrawnWhenApprovalInputBecomesInvalidDuringConfiguration() throws Exception {
+        VariantContentPackagingTest fixture = new VariantContentPackagingTest();
+        fixture.temporary.create();
+        try {
+            Path root = fixture.packagingProject();
+            assertPass(root);
+            Path manifest = root.resolve("sets/public-sentinel/manifest/set.properties");
+            Files.writeString(manifest, Files.readString(manifest).replaceFirst(
+                    "approval\\.image\\.sha256=[0-9a-f]+", "approval.image.sha256=" + "0".repeat(64)));
+            BuildResult failed = VariantContentPackagingTest.run(root, ":app:assembleRelease").buildAndFail();
+            save(failed, "invalid-approval-configuration-failure.txt");
+            assertTrue(failed.getOutput(), failed.getOutput().contains("approval.image.sha256"));
+            assertTrue(failed.getOutput(), failed.getOutput().contains("checksum mismatch"));
+            assertNoPass(root);
+        } finally {
+            fixture.temporary.delete();
+        }
+    }
+
     @Test public void passIsWithdrawnAfterInvalidXmlInventoryFailure() throws Exception {
         VariantContentPackagingTest fixture = new VariantContentPackagingTest();
         fixture.temporary.create();

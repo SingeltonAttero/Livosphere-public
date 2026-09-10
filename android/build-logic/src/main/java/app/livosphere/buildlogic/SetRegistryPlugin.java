@@ -12,6 +12,10 @@ import org.gradle.api.tasks.TaskProvider;
 public final class SetRegistryPlugin implements Plugin<Project> {
     @Override
     public void apply(Project project) {
+        // manifestPaths() parses and validates inputs immediately. Invalidate every existing
+        // mutable verdict directory first, so a failure in the first variant cannot preserve
+        // a PASS from a later variant. Immutable evidence lives outside this directory.
+        invalidateCurrentVariantReports(project);
         List<String> manifests = SetPluginSupport.manifestPaths(project);
         TaskProvider<Task> validateAll = project.getTasks().register("validateSetRegistry");
         TaskProvider<Task> generateAll = project.getTasks().register("generateSetRegistry");
@@ -82,5 +86,20 @@ public final class SetRegistryPlugin implements Plugin<Project> {
                         .configureEach(t -> t.finalizedBy(audit));
             });
         });
+    }
+
+    private static void invalidateCurrentVariantReports(Project project) {
+        try {
+            java.nio.file.Path reports = project.getLayout().getBuildDirectory()
+                    .dir("reports/set-content").get().getAsFile().toPath();
+            if (!java.nio.file.Files.isDirectory(reports)) return;
+            try (var variants = java.nio.file.Files.list(reports)) {
+                for (java.nio.file.Path variant : variants.filter(java.nio.file.Files::isDirectory).toList()) {
+                    AuditSetApkTask.clearReports(variant);
+                }
+            }
+        } catch (Exception e) {
+            throw new GradleException("Unable to invalidate set content audit reports", e);
+        }
     }
 }
