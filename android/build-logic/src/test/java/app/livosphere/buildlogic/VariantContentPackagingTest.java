@@ -215,6 +215,34 @@ public class VariantContentPackagingTest {
                 .contains("Excluded local binary in benchmark runtime graph") && binaryRejected.getOutput().contains("release-private.jar"));
     }
 
+    @Test public void jvmRuntimeProjectHasExplicitMainMetadataAndDoesNotNeedAndroidVariant() throws Exception {
+        Path root = packagingProject();
+        addJvmShared(root);
+        for (String module : List.of("app", "sets/public-sentinel/wallpaper", "sets/debug-sentinel/wallpaper"))
+            append(root.resolve(module + "/build.gradle"), "dependencies { implementation project(':shared-jvm') }\n");
+        BuildResult release = run(root, ":app:assembleRelease").build();
+        assertEquals(release.getOutput(), TaskOutcome.SUCCESS, release.task(":app:auditReleaseSetApk").getOutcome());
+        assertTrue(report(root, "release", "app-release-unsigned.apk-dex-types.txt").contains("test.shared_jvm.SharedJvmPayload"));
+    }
+
+    @Test public void benchmarkAuditUsesExcludedReleaseSourcesWithoutAProjectDependencyLeak() throws Exception {
+        Path root = packagingProject();
+        addBenchmark(root);
+        Path excluded = root.resolve("sets/debug-sentinel/wallpaper/src/release");
+        write(excluded.resolve("res/values/release-private.xml"),
+                "<resources><string name=\"release_private_payload\">PRIVATE</string></resources>");
+        write(excluded.resolve("java/test/debug_sentinel/ReleasePrivatePayload.java"),
+                "package test.debug_sentinel; public final class ReleasePrivatePayload {}\n");
+        Path app = root.resolve("app/src/benchmark");
+        write(app.resolve("res/values/release-private.xml"),
+                "<resources><string name=\"release_private_payload\">PRIVATE</string></resources>");
+        write(app.resolve("java/test/debug_sentinel/ReleasePrivatePayload.java"),
+                "package test.debug_sentinel; public final class ReleasePrivatePayload {}\n");
+        BuildResult rejected = run(root, ":app:assembleBenchmark").buildAndFail();
+        assertEquals(rejected.getOutput(), TaskOutcome.FAILED, rejected.task(":app:auditBenchmarkSetApk").getOutcome());
+        assertTrue(rejected.getOutput(), rejected.getOutput().contains("Excluded resource in APK: string/release_private_payload"));
+    }
+
     @Test public void rejectsPrivateLocalBinariesFromContributionsButAllowsNeutralShellOwnership() throws Exception {
         Path direct = packagingProject();
         archive(direct.resolve("local/private.jar"));
@@ -395,6 +423,13 @@ public class VariantContentPackagingTest {
         write(root.resolve("release-payload/src/main/AndroidManifest.xml"), "<manifest/>\n");
         write(root.resolve("release-payload/src/release/java/test/release_payload/PrivateReleasePayload.java"),
                 "package test.release_payload; public final class PrivateReleasePayload {}\n");
+    }
+    private static void addJvmShared(Path root) throws Exception {
+        append(root.resolve("settings.gradle"), "include ':shared-jvm'\n");
+        write(root.resolve("shared-jvm/build.gradle"), "plugins { id 'java-library' }\n");
+        write(root.resolve("shared-jvm/src/main/java/test/shared_jvm/SharedJvmPayload.java"),
+                "package test.shared_jvm; public final class SharedJvmPayload { public static String value() { return \"shared\"; } }\n");
+        write(root.resolve("shared-jvm/src/main/resources/shared-jvm.txt"), "shared\n");
     }
     private static void archive(Path file) throws Exception {
         Files.createDirectories(file.getParent());

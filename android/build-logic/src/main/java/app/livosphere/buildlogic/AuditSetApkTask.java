@@ -25,6 +25,7 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
     public abstract DirectoryProperty getRegistryDirectory();
     @Internal public abstract DirectoryProperty getSdkDirectory();
     @Internal public abstract MapProperty<String, String> getModuleDirectories();
+    @Input public abstract MapProperty<String, java.util.List<String>> getJvmSourceDirectories();
     @InputFiles @PathSensitive(PathSensitivity.RELATIVE)
     public abstract ConfigurableFileCollection getModuleSources();
     @OutputDirectory public abstract DirectoryProperty getInventoryDirectory();
@@ -101,7 +102,12 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
     private void inventoryModule(SetContentInventory inventory, String module, java.util.Map<String, String> projectVariants) {
         String variant = projectVariants.get(module);
         String directory = getModuleDirectories().get().get(module);
-        if (directory != null && variant != null) inventory.module(Path.of(directory), variant);
+        if (directory == null || variant == null) return;
+        if (variant.equals("jvm")) {
+            java.util.List<String> sources = getJvmSourceDirectories().get().get(module);
+            require(sources != null, "JVM main source metadata missing for " + module);
+            inventory.jvmModule(sources.stream().map(Path::of).toList());
+        } else inventory.module(Path.of(directory), variant);
     }
 
     /** A failed prerequisite must never leave a stale PASS report for this variant. */

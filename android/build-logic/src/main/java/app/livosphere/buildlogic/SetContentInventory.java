@@ -50,6 +50,19 @@ final class SetContentInventory {
         }
     }
 
+    /** JVM project inputs are supplied from Gradle's actual main SourceSet. */
+    void jvmModule(java.util.List<Path> sources) {
+        for (Path source : sources) {
+            if (!Files.isDirectory(source)) continue;
+            try (var files = Files.walk(source)) {
+                files.filter(Files::isRegularFile).forEach(file -> {
+                    if (file.toString().endsWith(".kt") || file.toString().endsWith(".java")) sourceClass(file);
+                    else assetPaths.add("jvm/" + source.relativize(file).toString().replace('\\', '/'));
+                });
+            } catch (Exception error) { throw new GradleException("Cannot inventory JVM source " + source, error); }
+        }
+    }
+
 
     void resource(Path file, String resourcePath) {
         String directory = resourcePath.substring(0, resourcePath.indexOf('/')).split("-", 2)[0];

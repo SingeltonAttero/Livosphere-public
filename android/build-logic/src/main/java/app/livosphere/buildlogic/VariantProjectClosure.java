@@ -114,7 +114,7 @@ record VariantProjectClosure(Set<String> runtimeComponents, Set<String> runtimeP
             String identity = identity(selected);
             if (selected instanceof ProjectComponentIdentifier) {
                 BuildTypeAttr buildType = resolved.getResolvedVariant().getAttributes().getAttribute(BuildTypeAttr.ATTRIBUTE);
-                if (buildType != null) putVariant(variants, identity, buildType.getName());
+                putVariant(variants, identity, buildType == null ? "jvm" : buildType.getName());
             }
             if (components.add(identity)) collect(resolved.getSelected(), components, variants);
         }
@@ -133,7 +133,7 @@ record VariantProjectClosure(Set<String> runtimeComponents, Set<String> runtimeP
     private static String requireVariant(Map<String, String> variants, String path) {
         String variant = variants.get(path);
         if (variant == null || variant.equals("runtime"))
-            throw new GradleException("Selected Android runtime variant missing for " + path);
+            throw new GradleException("Selected runtime variant missing for " + path);
         return variant;
     }
 

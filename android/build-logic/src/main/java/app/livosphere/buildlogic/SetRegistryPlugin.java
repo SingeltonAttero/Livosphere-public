@@ -7,6 +7,8 @@ import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.plugins.JavaPluginExtension;
+import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
 
 public final class SetRegistryPlugin implements Plugin<Project> {
@@ -85,6 +87,7 @@ public final class SetRegistryPlugin implements Plugin<Project> {
                     project.getRootProject().getAllprojects().stream().filter(p -> p.getBuildFile().isFile()).forEach(p -> {
                         task.getModuleDirectories().put(p.getPath(), p.getProjectDir().getAbsolutePath());
                         task.getModuleSources().from(p.fileTree("src"));
+                        p.getPluginManager().withPlugin("java", plugin -> configureJvmSources(p, task));
                     });
                     task.dependsOn(validate);
                 });
@@ -122,5 +125,14 @@ public final class SetRegistryPlugin implements Plugin<Project> {
         } catch (java.io.IOException e) {
             throw new GradleException("Unable to read generated registry descriptor", e);
         }
+    }
+
+    private static void configureJvmSources(Project project, AuditSetApkTask task) {
+        JavaPluginExtension javaExtension = project.getExtensions().getByType(JavaPluginExtension.class);
+        task.getJvmSourceDirectories().put(project.getPath(), project.provider(() -> {
+            SourceSet main = javaExtension.getSourceSets().getByName(SourceSet.MAIN_SOURCE_SET_NAME);
+            return java.util.stream.Stream.concat(main.getAllJava().getSrcDirs().stream(), main.getResources().getSrcDirs().stream())
+                    .map(java.io.File::getAbsolutePath).distinct().toList();
+        }));
     }
 }
