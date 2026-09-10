@@ -117,11 +117,13 @@ final class SetContentInventory {
             var pkg = Pattern.compile("(?m)^\\s*package\\s+([\\w.]+)").matcher(text);
             if (!pkg.find()) return;
             String namespace = pkg.group(1);
-            var names = Pattern.compile("\\b(?:class|interface|object|record|enum|annotation\\s+class|data\\s+class|sealed\\s+class|value\\s+class)\\s+([A-Za-z_][\\w]*)").matcher(text);
+            var names = Pattern.compile("\\b(?:class|interface|object|record|enum\\s+class|enum|annotation\\s+class|data\\s+class|sealed\\s+class|value\\s+class)\\s+([A-Za-z_][\\w]*)").matcher(text);
             while (names.find()) classes.add(namespace + "." + names.group(1));
             if (file.toString().endsWith(".kt")) {
-                var jvmName = Pattern.compile("@file:JvmName\\(\\\"([A-Za-z_][\\w]*)\\\"\\)").matcher(text);
-                classes.add(namespace + "." + (jvmName.find() ? jvmName.group(1) : file.getFileName().toString().replace(".kt", "Kt")));
+                var jvmName = Pattern.compile("@file:(?:[A-Za-z_][\\w.]*\\.)?JvmName\\s*\\(\\s*\\\"([A-Za-z_][\\w]*)\\\"\\s*\\)").matcher(text);
+                var topLevel = Pattern.compile("(?m)^\\s*(?:(?:public|private|internal|protected|const)\\s+)*(?:fun|val|var|typealias)\\b").matcher(text);
+                if (jvmName.find()) classes.add(namespace + "." + jvmName.group(1));
+                else if (topLevel.find()) classes.add(namespace + "." + file.getFileName().toString().replace(".kt", "Kt"));
             }
         } catch (Exception error) { throw new GradleException("Cannot inventory classes " + file, error); }
     }
