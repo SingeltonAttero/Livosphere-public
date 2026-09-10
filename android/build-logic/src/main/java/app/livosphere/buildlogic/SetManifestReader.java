@@ -48,6 +48,10 @@ final class SetManifestReader {
     private SetManifestReader() {}
 
     static SetManifest read(Path manifestPath) {
+        return read(manifestPath, BuildProfile.LEGACY);
+    }
+
+    static SetManifest read(Path manifestPath, BuildProfile profile) {
         Path normalizedManifest = manifestPath.toAbsolutePath().normalize();
         Map<String, String> values = parseStrictProperties(normalizedManifest);
         Set<String> consumed = new HashSet<>();
@@ -202,11 +206,13 @@ final class SetManifestReader {
                 validateResourceName(normalizedManifest, setId, surface, resourcePath, assetPrefix + "resourcePath");
                 rejectGeneratedCollision(normalizedManifest, setId, surface, resourcePath);
 
-                Path assetFile = sourceFile(sourceAssetsRoot, relativePath, normalizedManifest, assetPrefix + "path");
-                require(Files.isRegularFile(assetFile), normalizedManifest, assetPrefix + "path",
-                        "asset отсутствует: " + relativePath);
-                require(sha256(assetFile).equals(sha256), normalizedManifest, assetPrefix + "sha256",
-                        "checksum mismatch для " + relativePath);
+                if (profile.requiresPhysicalAssets(surface)) {
+                    Path assetFile = sourceFile(sourceAssetsRoot, relativePath, normalizedManifest, assetPrefix + "path");
+                    require(Files.isRegularFile(assetFile), normalizedManifest, assetPrefix + "path",
+                            "asset отсутствует: " + relativePath);
+                    require(sha256(assetFile).equals(sha256), normalizedManifest, assetPrefix + "sha256",
+                            "checksum mismatch для " + relativePath);
+                }
                 assets.add(new SetManifest.Asset(assetId, relativePath, resourcePath, sha256, revision, provenance));
             }
 
@@ -246,15 +252,19 @@ final class SetManifestReader {
         require(consumed.equals(values.keySet()), normalizedManifest, "schema",
                 "неизвестные или необъявленные поля: " + difference(values.keySet(), consumed));
 
-        verifySourceAssets(normalizedManifest, sourceAssetsRoot, provenanceFile, checksumsFile, contributions);
+        verifySourceAssets(normalizedManifest, sourceAssetsRoot, provenanceFile, checksumsFile, contributions, profile);
         return new SetManifest(normalizedManifest, sourceAssetsRoot, schemaVersion, setId, setRevision,
                 sourceAssetsRevision, contentStatus, distribution, Map.copyOf(approvals), List.copyOf(contributions));
     }
 
     static List<SetManifest> readAll(List<Path> manifestPaths) {
+        return readAll(manifestPaths, BuildProfile.LEGACY);
+    }
+
+    static List<SetManifest> readAll(List<Path> manifestPaths, BuildProfile profile) {
         require(!manifestPaths.isEmpty(), Path.of("."), "livosphere.setManifests",
                 "не указан ни один manifest");
-        List<SetManifest> manifests = manifestPaths.stream().map(SetManifestReader::read)
+        List<SetManifest> manifests = manifestPaths.stream().map(path -> read(path, profile))
                 .sorted((left, right) -> left.setId().compareTo(right.setId()))
                 .toList();
         assertUnique(manifests, SetManifest::setId, "set ID");
@@ -321,8 +331,15 @@ final class SetManifestReader {
             Path sourceRoot,
             String provenanceFile,
             String checksumsFile,
-            List<SetManifest.Contribution> contributions) {
+            List<SetManifest.Contribution> contributions,
+            BuildProfile profile) {
+        Set<String> ignored = contributions.stream()
+                .filter(contribution -> !profile.requiresPhysicalAssets(contribution.surface()))
+                .flatMap(contribution -> contribution.assets().stream())
+                .map(SetManifest.Asset::relativePath)
+                .collect(Collectors.toCollection(TreeSet::new));
         Set<String> declared = contributions.stream()
+                .filter(contribution -> profile.requiresPhysicalAssets(contribution.surface()))
                 .flatMap(contribution -> contribution.assets().stream())
                 .map(SetManifest.Asset::relativePath)
                 .collect(Collectors.toCollection(TreeSet::new));
@@ -331,7 +348,7 @@ final class SetManifestReader {
             actual = paths.filter(Files::isRegularFile)
                     .map(sourceRoot::relativize)
                     .map(path -> path.toString().replace('\\', '/'))
-                    .filter(path -> !path.equals(provenanceFile) && !path.equals(checksumsFile))
+                    .filter(path -> !path.equals(provenanceFile) && !path.equals(checksumsFile) && !ignored.contains(path))
                     .collect(Collectors.toCollection(TreeSet::new));
         } catch (IOException error) {
             throw failure(manifest, "source-assets", "не удалось перечислить assets", error);

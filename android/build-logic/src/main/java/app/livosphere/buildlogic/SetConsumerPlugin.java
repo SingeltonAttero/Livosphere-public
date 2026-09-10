@@ -16,6 +16,7 @@ public final class SetConsumerPlugin implements Plugin<Project> {
     public void apply(Project project) {
         SetContractExtension extension = project.getExtensions().create("setContract", SetContractExtension.class, project.getObjects());
         List<String> manifests = SetPluginSupport.manifestPaths(project);
+        BuildProfile profile = BuildProfile.from(project);
         TaskProvider<Task> validateAll = project.getTasks().register("validateSetContract");
         TaskProvider<Task> generateAll = project.getTasks().register("generateSetResources");
         project.afterEvaluate(ignored -> {
@@ -24,7 +25,7 @@ public final class SetConsumerPlugin implements Plugin<Project> {
             if (setId == null || setId.isBlank()) throw new GradleException(project.getPath() + ": setContract.setId обязателен");
             if (surface == null || !SURFACES.contains(surface)) throw new GradleException(project.getPath() + ": invalid setContract.surface");
             SetManifest manifest = SetManifestReader.readAll(manifests.stream().map(project.getRootProject()::file)
-                    .map(java.io.File::toPath).toList()).stream().filter(m -> m.setId().equals(setId)).findFirst()
+                    .map(java.io.File::toPath).toList(), profile).stream().filter(m -> m.setId().equals(setId)).findFirst()
                     .orElseThrow(() -> new GradleException(project.getPath() + ": setId отсутствует: " + setId));
             if (!manifest.contributionFor(surface).artifactProject().equals(project.getPath()))
                 throw new GradleException(project.getPath() + ": manifest связывает surface с другим project");

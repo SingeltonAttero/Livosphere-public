@@ -48,6 +48,7 @@ final class SetPluginSupport {
     }
 
     static void configureInputs(Project project, AbstractSetTask task, List<String> manifestPaths) {
+        task.getBuildProfile().set(project.getProviders().gradleProperty(BuildProfile.PROPERTY).orElse("phone"));
         task.getAndroidRoot().set(project.getRootProject().getLayout().getProjectDirectory());
         task.getManifestPaths().set(manifestPaths);
         for (String relative : manifestPaths) {

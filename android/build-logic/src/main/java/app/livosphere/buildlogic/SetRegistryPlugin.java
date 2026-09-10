@@ -15,6 +15,7 @@ public final class SetRegistryPlugin implements Plugin<Project> {
     @Override
     public void apply(Project project) {
         List<String> manifests = SetPluginSupport.manifestPaths(project);
+        BuildProfile profile = BuildProfile.from(project);
         boolean legacyAuditEnabled = project.getProviders()
                 .gradleProperty("livosphere.enableLegacySetApkAudit")
                 .map(Boolean::parseBoolean)
@@ -29,7 +30,7 @@ public final class SetRegistryPlugin implements Plugin<Project> {
                 String suffix = SetPluginSupport.taskSuffix(name);
                 String buildType = variant.getBuildType();
                 VariantContentSelection selection = SetContractEngine.select(manifests.stream()
-                        .map(project.getRootProject()::file).map(java.io.File::toPath).toList(), buildType);
+                        .map(project.getRootProject()::file).map(java.io.File::toPath).toList(), buildType, profile);
                 selection.projects().stream().sorted().forEach(path -> {
                     Project dependency = project.getRootProject().findProject(path);
                     if (dependency == null) throw new GradleException("artifactProject отсутствует: " + path);

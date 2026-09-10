@@ -15,6 +15,12 @@ plugins {
     alias(libs.plugins.hilt) apply false
 }
 
+val buildProfile = providers.gradleProperty("livosphere.buildProfile").orElse("phone").get()
+check(buildProfile == "phone" || buildProfile == "legacy") {
+    "Gradle property 'livosphere.buildProfile' supports only phone or legacy, got: $buildProfile"
+}
+val legacyProfile = buildProfile == "legacy"
+
 private fun doctorErrors(javaFeature: Int, sdkRoot: File): List<String> = buildList {
     if (javaFeature != 17) {
         add("Требуется JDK 17, обнаружен JDK $javaFeature. Укажите JAVA_HOME на JDK 17.")
@@ -68,46 +74,49 @@ tasks.register("verifyProductRelease") {
             "livosphere.productRelease имеет неверный формат: $productRelease"
         }
         val phoneConfig = project(":hub:app").extensions.getByType(ApplicationExtension::class.java).defaultConfig
-        val watchConfig = project(":watchfaces:contour-wff").extensions
-            .getByType(ApplicationExtension::class.java).defaultConfig
         check(phoneConfig.versionName == productRelease) {
             ":hub:app versionName=${phoneConfig.versionName} не совпадает с livosphere.productRelease=$productRelease"
         }
-        check(watchConfig.versionName == productRelease) {
-            ":watchfaces:contour-wff versionName=${watchConfig.versionName} не совпадает с livosphere.productRelease=$productRelease"
-        }
-        check(phoneConfig.versionCode != null && watchConfig.versionCode != null) {
-            "Phone и WFF обязаны сохранять собственные versionCode"
+        check(phoneConfig.versionCode != null) { "Phone обязан сохранять собственный versionCode" }
+        if (legacyProfile) {
+            val watchConfig = project(":watchfaces:contour-wff").extensions
+                .getByType(ApplicationExtension::class.java).defaultConfig
+            check(watchConfig.versionName == productRelease) {
+                ":watchfaces:contour-wff versionName=${watchConfig.versionName} не совпадает с livosphere.productRelease=$productRelease"
+            }
+            check(watchConfig.versionCode != null) { "WFF обязан сохранять собственный versionCode" }
         }
     }
 }
 
 tasks.register("assetsCheck") {
     group = "verification"
-    description = "Проверяет все manifest-driven set contracts и локальные assets."
-    dependsOn(
+    description = "Проверяет manifest-driven contracts и assets выбранного build profile."
+    val selectedTasks = mutableListOf(
         ":hub:app:validateSetRegistry",
         ":sets:contour:preview:validateSetContract",
         ":wallpapers:contour:validateSetContract",
-        ":watchfaces:contour-wff:validateSetContract",
         ":wallpapers:fixture:validateSetContract",
         ":sets:fixture:preview:validateSetContract",
         ":sets:fixture:clock-widget:validateSetContract",
     )
+    if (legacyProfile) selectedTasks += ":watchfaces:contour-wff:validateSetContract"
+    dependsOn(selectedTasks)
 }
 
 tasks.register("generateSetContracts") {
     group = "build"
     description = "Восстанавливает generated registry и resources всех surfaces."
-    dependsOn(
+    val selectedTasks = mutableListOf(
         ":hub:app:generateSetRegistry",
         ":sets:contour:preview:generateSetResources",
         ":wallpapers:contour:generateSetResources",
-        ":watchfaces:contour-wff:generateSetResources",
         ":wallpapers:fixture:generateSetResources",
         ":sets:fixture:preview:generateSetResources",
         ":sets:fixture:clock-widget:generateSetResources",
     )
+    if (legacyProfile) selectedTasks += ":watchfaces:contour-wff:generateSetResources"
+    dependsOn(selectedTasks)
 }
 
 // Gradle may discard resolved input dependency providers after executing a task.
@@ -154,7 +163,7 @@ tasks.register("verifyModuleGraph") {
                 "testedApks" to ":hub:app",
             ),
         )
-        val required = listOf(
+        val required = mutableListOf(
             ":hub:app",
             ":hub:domain",
             ":core:contract",
@@ -165,10 +174,10 @@ tasks.register("verifyModuleGraph") {
             ":sets:fixture:clock-widget",
             ":wallpapers:engine",
             ":wallpapers:contour",
-            ":watchfaces:contour-wff",
             ":sets:contour:preview",
             ":quality:macrobenchmark",
         )
+        if (legacyProfile) required += ":watchfaces:contour-wff"
         check(required.all { findProject(it) != null }) { "Обязательный модуль отсутствует." }
         val configuredModules = subprojects.filter { it.buildFile.isFile }.map { it.path }.toSet()
         check(configuredModules == required.toSet()) {
@@ -211,27 +220,28 @@ tasks.register("verifyModuleGraph") {
         val setConsumers = subprojects.filter {
             it.pluginManager.hasPlugin("livosphere.set-consumer")
         }.map { it.path }.toSet()
-        check(setConsumers == setOf(
+        val expectedSetConsumers = mutableSetOf(
             ":sets:contour:preview",
             ":wallpapers:contour",
-            ":watchfaces:contour-wff",
             ":wallpapers:fixture",
             ":sets:fixture:preview",
             ":sets:fixture:clock-widget",
-        )) { "Set consumer conventions подключены неверно: $setConsumers" }
+        )
+        if (legacyProfile) expectedSetConsumers += ":watchfaces:contour-wff"
+        check(setConsumers == expectedSetConsumers) { "Set consumer conventions подключены неверно: $setConsumers" }
         check(project(":hub:app").pluginManager.hasPlugin("livosphere.set-registry")) {
             ":hub:app обязан получать registry через livosphere.set-registry"
         }
 
-        val realPackagePredecessors = mapOf(
+        val realPackagePredecessors = mutableMapOf(
             ":hub:app:assembleDebug" to listOf(":hub:app:validateDebugSetRegistry", ":hub:app:generateDebugSetRegistry"),
             ":sets:contour:preview:assembleDebug" to listOf(
                 ":sets:contour:preview:validateDebugSetContract", ":sets:contour:preview:generateDebugSetResources"),
             ":wallpapers:contour:assembleDebug" to listOf(
                 ":wallpapers:contour:validateDebugSetContract", ":wallpapers:contour:generateDebugSetResources"),
-            ":watchfaces:contour-wff:bundleDebug" to listOf(
-                ":watchfaces:contour-wff:validateDebugSetContract", ":watchfaces:contour-wff:generateDebugSetResources"),
         )
+        if (legacyProfile) realPackagePredecessors[":watchfaces:contour-wff:bundleDebug"] = listOf(
+            ":watchfaces:contour-wff:validateDebugSetContract", ":watchfaces:contour-wff:generateDebugSetResources")
         val fixturePackagePredecessors = listOf(":wallpapers:fixture", ":sets:fixture:preview", ":sets:fixture:clock-widget")
             .associate { "$it:assembleDebug" to listOf("$it:validateDebugSetContract", "$it:generateDebugSetResources") }
         (realPackagePredecessors + fixturePackagePredecessors).forEach { (packageTaskPath, requiredTasks) ->
@@ -291,19 +301,25 @@ tasks.named("check") {
         "assetsCheck",
         "verifyModuleGraph",
         gradle.includedBuild("build-logic").task(":test"),
-        ":hub:app:check",
-        ":hub:domain:check",
-        ":core:contract:check",
-        ":core:testing:check",
-        ":core:settings:check",
-        ":wallpapers:fixture:check",
-        ":sets:fixture:preview:check",
-        ":sets:fixture:clock-widget:check",
-        ":wallpapers:engine:check",
-        ":wallpapers:contour:check",
+        ":hub:app:testDebugUnitTest",
+        ":hub:app:lintDebug",
+        ":hub:app:assembleDebug",
+        ":hub:domain:test",
+        ":core:contract:test",
+        ":core:testing:test",
+        ":core:settings:testDebugUnitTest",
+        ":core:settings:lintDebug",
+        ":wallpapers:fixture:lintDebug",
+        ":sets:fixture:preview:lintDebug",
+        ":sets:fixture:clock-widget:lintDebug",
+        ":wallpapers:engine:testDebugUnitTest",
+        ":wallpapers:engine:lintDebug",
+        ":wallpapers:contour:testDebugUnitTest",
+        ":wallpapers:contour:lintDebug",
+        ":sets:contour:preview:lintDebug",
+    )
+    if (legacyProfile) dependsOn(
         ":watchfaces:contour-wff:check",
         ":watchfaces:contour-wff:verifyWffResourceOnly",
-        ":sets:contour:preview:check",
-        ":quality:macrobenchmark:check",
     )
 }

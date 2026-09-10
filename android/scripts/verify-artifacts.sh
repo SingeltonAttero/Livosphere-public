@@ -3,6 +3,11 @@ set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../.." && pwd)
+profile=${1:-phone}
+case "$profile" in
+    phone|legacy) ;;
+    *) echo "Usage: $0 [phone|legacy]" >&2; exit 64 ;;
+esac
 
 phone_apk="$repo_root/android/hub/app/build/outputs/apk/debug/app-debug.apk"
 watch_aab="$repo_root/android/watchfaces/contour-wff/build/outputs/bundle/debug/contour-wff-debug.aab"
@@ -31,17 +36,32 @@ test -s "$phone_apk" || {
     exit 1
 }
 
-test -s "$watch_aab" || {
-    echo "WFF AAB не найден: $watch_aab" >&2
-    exit 1
-}
-
 unzip -tqq "$phone_apk"
-unzip -tqq "$watch_aab"
 
 "$aapt2_bin" dump resources "$phone_apk" > "$tmp_dir/phone-resources.txt"
 "$aapt2_bin" dump badging "$phone_apk" > "$tmp_dir/phone-badging.txt"
 grep -Fq "versionName='$product_release'" "$tmp_dir/phone-badging.txt"
+
+test -f "$phone_manifest" || {
+    echo "Merged manifest телефона не найден: $phone_manifest" >&2
+    exit 1
+}
+service_block=$(sed -n '/ContourWallpaperService/,/<\/service>/p' "$phone_manifest")
+printf '%s\n' "$service_block" | grep -Fq 'android:exported="true"'
+printf '%s\n' "$service_block" | grep -Fq 'android:permission="android.permission.BIND_WALLPAPER"'
+grep -Fq 'android:name="app.livosphere.LivosphereApplication"' "$phone_manifest"
+
+if test "$profile" = phone; then
+    echo "Phone build artifact verified:"
+    echo "  ${phone_apk#"$repo_root/"}"
+    exit 0
+fi
+
+test -s "$watch_aab" || {
+    echo "WFF AAB не найден: $watch_aab" >&2
+    exit 1
+}
+unzip -tqq "$watch_aab"
 
 manifest_value() {
     awk -F= -v key="$1" '$1 == key { print substr($0, index($0, "=") + 1) }' "$set_manifest"
@@ -140,19 +160,11 @@ if unzip -Z1 "$watch_aab" | grep -Eq '(^|/)classes([0-9]*)?\.dex$'; then
     exit 1
 fi
 
-test -f "$phone_manifest" || {
-    echo "Merged manifest телефона не найден: $phone_manifest" >&2
-    exit 1
-}
 test -f "$watch_manifest" || {
     echo "Merged manifest WFF не найден: $watch_manifest" >&2
     exit 1
 }
 
-service_block=$(sed -n '/ContourWallpaperService/,/<\/service>/p' "$phone_manifest")
-printf '%s\n' "$service_block" | grep -Fq 'android:exported="true"'
-printf '%s\n' "$service_block" | grep -Fq 'android:permission="android.permission.BIND_WALLPAPER"'
-grep -Fq 'android:name="app.livosphere.LivosphereApplication"' "$phone_manifest"
 grep -Fq 'android:hasCode="false"' "$watch_manifest"
 grep -Fq 'android:name="com.google.wear.watchface.format.version"' "$watch_manifest"
 

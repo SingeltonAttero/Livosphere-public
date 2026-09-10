@@ -63,17 +63,18 @@ fun Test.configureBuildLogicFixtureEnvironment(evidenceDirectory: String) {
 
 // The default test lane is intentionally pure JVM: it never starts nested Gradle builds.
 tasks.test {
-    description = "Runs fast variant-selection unit tests without GradleRunner or APK inspection."
+    description = "Runs fast phone-profile and variant-selection unit tests without GradleRunner or APK inspection."
+    filter.includeTestsMatching("app.livosphere.buildlogic.PhoneProfileUnitTest")
     filter.includeTestsMatching("app.livosphere.buildlogic.VariantSelectionUnitTest")
     configureBuildLogicFixtureEnvironment("reports/unit-selection")
 }
 
 tasks.register<Test>("integrationTest") {
     group = "verification"
-    description = "Runs the two selected real-build theme wiring scenarios."
+    description = "Runs the two selected phone/legacy profile wiring scenarios."
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
-    filter.includeTestsMatching("app.livosphere.buildlogic.ThemeBuildIntegrationTest")
+    filter.includeTestsMatching("app.livosphere.buildlogic.PhoneProfileIntegrationTest")
     shouldRunAfter(tasks.test)
     configureBuildLogicFixtureEnvironment("reports/theme-build-integration")
 }
@@ -84,6 +85,8 @@ tasks.register<Test>("legacyAuditTest") {
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
     filter.excludeTestsMatching("app.livosphere.buildlogic.VariantSelectionUnitTest")
+    filter.excludeTestsMatching("app.livosphere.buildlogic.PhoneProfileUnitTest")
+    filter.excludeTestsMatching("app.livosphere.buildlogic.PhoneProfileIntegrationTest")
     filter.excludeTestsMatching("app.livosphere.buildlogic.ThemeBuildIntegrationTest")
     configureBuildLogicFixtureEnvironment("reports/legacy-variant-packaging")
 }

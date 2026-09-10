@@ -19,8 +19,16 @@ final class SetContractEngine {
         return SetManifestReader.readAll(manifestPaths);
     }
 
+    static List<SetManifest> validate(List<Path> manifestPaths, BuildProfile profile) {
+        return SetManifestReader.readAll(manifestPaths, profile);
+    }
+
     static VariantContentSelection select(List<Path> manifestPaths, String buildType) {
         return VariantContentSelection.select(validate(manifestPaths), buildType);
+    }
+
+    static VariantContentSelection select(List<Path> manifestPaths, String buildType, BuildProfile profile) {
+        return VariantContentSelection.select(validate(manifestPaths, profile), buildType);
     }
 
     static void generateResources(List<Path> manifestPaths, String setId, String surface, Path outputDirectory) {

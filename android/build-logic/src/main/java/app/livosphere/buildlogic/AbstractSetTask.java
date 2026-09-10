@@ -14,13 +14,20 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 
 public abstract class AbstractSetTask extends DefaultTask {
-    public AbstractSetTask() { getBuildType().convention("debug"); }
+    public AbstractSetTask() {
+        getBuildType().convention("debug");
+        getBuildProfile().convention("phone");
+    }
 
     @Input
     public abstract Property<String> getBuildType();
 
+    @Input
+    public abstract Property<String> getBuildProfile();
+
     protected final VariantContentSelection selection() {
-        return SetContractEngine.select(resolvedManifestPaths(), getBuildType().get());
+        return SetContractEngine.select(resolvedManifestPaths(), getBuildType().get(),
+                BuildProfile.parse(getBuildProfile().get()));
     }
 
     @Input

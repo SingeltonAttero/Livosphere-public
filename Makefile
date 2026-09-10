@@ -2,6 +2,11 @@ SHELL := /bin/sh
 
 ANDROID_DIR := android
 GRADLE = cd $(ANDROID_DIR) && $(if $(strip $(LIVOSPHERE_JAVA_HOME)),JAVA_HOME="$(LIVOSPHERE_JAVA_HOME)",) ./gradlew --console=plain --no-daemon --max-workers=2 $(if $(strip $(LIVOSPHERE_JAVA_HOME)),"-Dorg.gradle.java.home=$(LIVOSPHERE_JAVA_HOME)",)
+PHONE_GRADLE = $(GRADLE) -Plivosphere.buildProfile=phone
+LEGACY_GRADLE = $(GRADLE) -Plivosphere.buildProfile=legacy
+DOCTOR_SCRIPT ?= ./android/scripts/doctor.sh
+VERIFY_ARTIFACTS_SCRIPT ?= ./android/scripts/verify-artifacts.sh
+WFF_PREFLIGHT_SCRIPT ?= ./android/scripts/run-wff-sp02-preflight.sh
 
 ifeq ($(shell uname -s),Darwin)
 HOMEBREW_JAVA_17 := $(shell brew --prefix openjdk@17 2>/dev/null)/libexec/openjdk.jdk/Contents/Home
@@ -17,33 +22,33 @@ export JAVA_HOME := $(LIVOSPHERE_JAVA_HOME)
 endif
 export ANDROID_SDK_ROOT
 
-.PHONY: doctor assets-check phone watchfaces check device-check offline-smoke verify validate-wff benchmark benchmark-sp06 protocol-sp07 wff-sp02-preflight protocol-sp02 evidence-validator-check release-pipeline-test contour-wff-assets-test candidate signed-candidate release
+.PHONY: doctor assets-check phone watchfaces check device-check offline-smoke verify validate-wff benchmark benchmark-sp06 protocol-sp07 wff-sp02-preflight protocol-sp02 evidence-validator-check release-pipeline-test contour-wff-assets-test candidate signed-candidate release legacy-release
 
 doctor:
-	./android/scripts/doctor.sh
-	$(GRADLE) doctor
+	$(DOCTOR_SCRIPT)
+	$(PHONE_GRADLE) doctor
 
 assets-check:
-	$(GRADLE) assetsCheck
+	$(PHONE_GRADLE) assetsCheck
 
 phone: doctor assets-check
-	$(GRADLE) :hub:app:assembleDebug
+	$(PHONE_GRADLE) :hub:app:assembleDebug
 
-watchfaces: doctor assets-check
-	$(GRADLE) :watchfaces:contour-wff:bundleDebug
+watchfaces: doctor
+	$(LEGACY_GRADLE) assetsCheck :watchfaces:contour-wff:bundleDebug
 
-check: doctor evidence-validator-check release-pipeline-test contour-wff-assets-test
-	$(GRADLE) check
+check: doctor
+	$(PHONE_GRADLE) check
 
 device-check: doctor
-	$(GRADLE) :hub:app:connectedDebugAndroidTest
+	$(PHONE_GRADLE) :hub:app:connectedDebugAndroidTest
 
 offline-smoke:
-	./android/scripts/doctor.sh
-	$(GRADLE) --offline doctor :hub:app:assembleDebug :watchfaces:contour-wff:bundleDebug check
+	$(DOCTOR_SCRIPT)
+	$(PHONE_GRADLE) --offline doctor :hub:app:assembleDebug check
 
-verify: phone watchfaces check offline-smoke
-	./android/scripts/verify-artifacts.sh
+verify: phone check offline-smoke
+	$(VERIFY_ARTIFACTS_SCRIPT) phone
 
 validate-wff: wff-sp02-preflight
 
@@ -64,6 +69,10 @@ signed-candidate:
 	./android/scripts/build-release-candidate.sh signed-candidate
 
 release:
+	@echo "Livosphere phone release: NOT_READY — новый pipeline запланирован на Epic 14." >&2
+	@exit 64
+
+legacy-release:
 	LIVOSPHERE_RELEASE_RUN_DIR="$${LIVOSPHERE_RELEASE_RUN_DIR:-}" \
 	LIVOSPHERE_RELEASE_READINESS_INDEX="$${LIVOSPHERE_RELEASE_READINESS_INDEX:-}" \
 	./android/scripts/promote-release.sh
@@ -76,7 +85,7 @@ protocol-sp07:
 	./android/scripts/validate-epic-3-evidence.sh _bmad-output/implementation-artifacts/evidence/story-3-8
 
 wff-sp02-preflight:
-	./android/scripts/run-wff-sp02-preflight.sh
+	$(WFF_PREFLIGHT_SCRIPT)
 
 protocol-sp02:
 	./android/scripts/validate-sp02-evidence.sh _bmad-output/implementation-artifacts/evidence/story-4-1
@@ -88,7 +97,7 @@ evidence-validator-check:
 	./android/scripts/test-run-wff-sp02-preflight.sh
 
 release-pipeline-test: doctor
-	$(GRADLE) :hub:app:assembleDebug :hub:app:bundleDebug :watchfaces:contour-wff:assembleDebug :watchfaces:contour-wff:bundleDebug
+	$(LEGACY_GRADLE) :hub:app:assembleDebug :hub:app:bundleDebug :watchfaces:contour-wff:assembleDebug :watchfaces:contour-wff:bundleDebug
 	./android/scripts/test-release-pipeline.sh
 
 contour-wff-assets-test:
