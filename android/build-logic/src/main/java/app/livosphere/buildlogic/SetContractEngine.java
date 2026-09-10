@@ -5,8 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -85,32 +83,17 @@ final class SetContractEngine {
     static String registrySource(VariantContentSelection selection) {
         String entries = selection.selected().stream().sorted(Comparator.comparing(SetManifest::setId))
                 .map(SetContractEngine::descriptorKotlin).collect(Collectors.joining(",\n"));
-        String descriptorDigest = registryDescriptorDigest(selection);
         return """
                 package app.livosphere.generated
 
                 import app.livosphere.contract.*
 
                 object GeneratedSetRegistry : SetRegistry {
-                    // Kept in DEX so the APK audit binds every descriptor field to this exact selection.
-                    private const val descriptorDigest = "%s"
                     override val sets: List<SetDescriptor> = listOf(
                 %s
                     )
                 }
-                """.formatted(descriptorDigest, indent(entries, 8));
-    }
-
-    /** A canonical digest of every generated descriptor field, not merely set IDs. */
-    static String registryDescriptorDigest(VariantContentSelection selection) {
-        String canonical = selection.selected().stream().sorted(Comparator.comparing(SetManifest::setId))
-                .map(SetContractEngine::descriptorKotlin).collect(Collectors.joining("\n"));
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(canonical.getBytes(StandardCharsets.UTF_8)));
-        } catch (Exception error) {
-            throw new GradleException("Cannot hash generated set registry descriptor", error);
-        }
+                """.formatted(indent(entries, 8));
     }
 
     private static String descriptorKotlin(SetManifest manifest) {
