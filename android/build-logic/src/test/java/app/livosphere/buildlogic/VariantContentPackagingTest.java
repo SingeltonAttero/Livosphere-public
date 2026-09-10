@@ -225,6 +225,43 @@ public class VariantContentPackagingTest {
         assertTrue(report(root, "release", "app-release-unsigned.apk-dex-types.txt").contains("test.shared_jvm.SharedJvmPayload"));
     }
 
+    @Test public void rootCollectorUsesActualCustomGeneratedRootsAndRejectsMissingExcludedRoots() throws Exception {
+        Path selected = packagingProject();
+        addGeneratedAuditSource(selected, "sets/public-sentinel/wallpaper", "generateSelectedAuditSource",
+                "test.public_sentinel.GeneratedSelectedAuditSource");
+        BuildResult selectedBuild = run(selected, ":app:assembleRelease").build();
+        assertEquals(selectedBuild.getOutput(), TaskOutcome.SUCCESS, selectedBuild.task(":app:auditReleaseSetApk").getOutcome());
+        assertEquals(TaskOutcome.SUCCESS, selectedBuild.task(":sets:public-sentinel:wallpaper:generateSelectedAuditSource").getOutcome());
+        assertTrue(report(selected, "release", "inventory.txt").contains("test.public_sentinel.GeneratedSelectedAuditSource"));
+
+        Path excluded = packagingProject();
+        addGeneratedResource(excluded, "app", "generateExcludedAuditSource", "ls_debug_sentinel_generated_payload");
+        BuildResult rejected = run(excluded, ":app:assembleRelease").buildAndFail();
+        assertEquals(rejected.getOutput(), TaskOutcome.FAILED, rejected.task(":app:auditReleaseSetApk").getOutcome());
+        assertTrue(rejected.getOutput(), rejected.getOutput().contains("Excluded resource namespace in APK: string/ls_debug_sentinel_generated_payload"));
+        assertEquals(TaskOutcome.SUCCESS, rejected.task(":app:generateExcludedAuditSource").getOutcome());
+    }
+
+    @Test public void collectorNormalizesPlaceholderRelativeComponentsWithFinalVariantNamespace() throws Exception {
+        Path root = packagingProject();
+        Path publicWallpaper = root.resolve("sets/public-sentinel/wallpaper");
+        append(publicWallpaper.resolve("build.gradle"), """
+                def selectedNamespace = providers.gradleProperty('selectedNamespace').getOrElse('test.public_sentinel')
+                android { namespace selectedNamespace; defaultConfig { manifestPlaceholders = [wallpaperService: '.WallpaperService'] } }
+                """);
+        write(publicWallpaper.resolve("src/main/AndroidManifest.xml"), "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"><application><service android:name=\"${wallpaperService}\" android:exported=\"true\" android:permission=\"android.permission.BIND_WALLPAPER\"/></application></manifest>");
+        Path debugWallpaper = root.resolve("sets/debug-sentinel/wallpaper");
+        append(debugWallpaper.resolve("build.gradle"), """
+                def excludedNamespace = providers.gradleProperty('excludedNamespace').getOrElse('test.debug_sentinel')
+                android { namespace excludedNamespace; defaultConfig { manifestPlaceholders = [hiddenProvider: '.HiddenProvider'] } }
+                """);
+        write(debugWallpaper.resolve("src/main/AndroidManifest.xml"), "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"><application><provider android:name=\"${hiddenProvider}\" android:authorities=\"test.sentinel.private\" android:exported=\"false\"/></application></manifest>");
+        write(root.resolve("app/src/release/AndroidManifest.xml"), "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\"><application><provider android:name=\"test.debug_sentinel.HiddenProvider\" android:authorities=\"test.sentinel.leak\" android:exported=\"false\"/></application></manifest>");
+        BuildResult rejected = run(root, ":app:assembleRelease", "-PselectedNamespace=test.public_sentinel", "-PexcludedNamespace=test.debug_sentinel").buildAndFail();
+        assertEquals(rejected.getOutput(), TaskOutcome.FAILED, rejected.task(":app:auditReleaseSetApk").getOutcome());
+        assertTrue(rejected.getOutput(), rejected.getOutput().contains("Excluded manifest component in APK: test.debug_sentinel.HiddenProvider"));
+    }
+
     @Test public void benchmarkAuditUsesExcludedReleaseSourcesWithoutAProjectDependencyLeak() throws Exception {
         Path root = packagingProject();
         addBenchmark(root);
@@ -351,7 +388,7 @@ public class VariantContentPackagingTest {
                 + "dependencyResolutionManagement { repositories { google(); mavenCentral() } }\nrootProject.name='temporary-packaging-sentinel'\n"
                 + "include " + modules.stream().map(m -> "'" + m + "'").collect(java.util.stream.Collectors.joining(", ")) + "\n");
         write(root.resolve("gradle.properties"), "livosphere.setManifests=sets/public-sentinel/manifest/set.properties,sets/debug-sentinel/manifest/set.properties\norg.gradle.jvmargs=-Xmx1g\n");
-        write(root.resolve("build.gradle"), "");
+        write(root.resolve("build.gradle"), "plugins { id 'livosphere.variant-source-collector' }\n");
         write(root.resolve("local.properties"), "sdk.dir=" + System.getenv("ANDROID_SDK_ROOT") + "\n");
         write(root.resolve("app/build.gradle"), "plugins { id 'com.android.application'; id 'livosphere.set-registry' }\n"
                 + "android { namespace 'test.livosphere.packaging'; compileSdk 37; defaultConfig { applicationId 'test.livosphere.packaging'; minSdk 29; targetSdk 36; versionCode 1; versionName 'test-only' } }\n");
@@ -440,6 +477,48 @@ public class VariantContentPackagingTest {
                 "package test.shared_jvm; public final class SharedJvmPayload { public static String value() { return \"shared\"; } }\n");
         write(root.resolve("shared-jvm/src/main/resources/shared-jvm.txt"), "shared\n");
     }
+    private static void addGeneratedAuditSource(Path root, String module, String taskName, String type) throws Exception {
+        Path build = root.resolve(module + "/build.gradle");
+        int lastDot = type.lastIndexOf('.');
+        String packageName = type.substring(0, lastDot); String className = type.substring(lastDot + 1);
+        append(build, """
+                import org.gradle.api.DefaultTask
+                import org.gradle.api.file.DirectoryProperty
+                import org.gradle.api.tasks.OutputDirectory
+                import org.gradle.api.tasks.TaskAction
+                abstract class GeneratedAuditSource extends DefaultTask {
+                    @OutputDirectory abstract DirectoryProperty getOutputDirectory()
+                    @TaskAction void writeSource() {
+                        def file = outputDirectory.file('%s.java').get().asFile
+                        file.parentFile.mkdirs(); file.text = 'package %s; public final class %s {}\\n'
+                    }
+                }
+                def %s = tasks.register('%s', GeneratedAuditSource) { outputDirectory.set(layout.buildDirectory.dir('generated/%s')) }
+                androidComponents { onVariants(selector().withName('release')) { variant ->
+                    variant.sources.java.addGeneratedSourceDirectory(%s, { it.outputDirectory })
+                } }
+                """.formatted(type.replace('.', '/'), packageName, className, taskName, taskName, taskName, taskName));
+    }
+    private static void addGeneratedResource(Path root, String module, String taskName, String resourceName) throws Exception {
+        Path build = root.resolve(module + "/build.gradle");
+        append(build, """
+                import org.gradle.api.DefaultTask
+                import org.gradle.api.file.DirectoryProperty
+                import org.gradle.api.tasks.OutputDirectory
+                import org.gradle.api.tasks.TaskAction
+                abstract class GeneratedAuditResource extends DefaultTask {
+                    @OutputDirectory abstract DirectoryProperty getOutputDirectory()
+                    @TaskAction void writeResource() {
+                        def file = outputDirectory.file('values/generated.xml').get().asFile
+                        file.parentFile.mkdirs(); file.text = '<resources><string name=\"%s\">LEAK</string></resources>'
+                    }
+                }
+                def %s = tasks.register('%s', GeneratedAuditResource) { outputDirectory.set(layout.buildDirectory.dir('generated/%s')) }
+                androidComponents { onVariants(selector().withName('release')) { variant ->
+                    variant.sources.res.addGeneratedSourceDirectory(%s, { it.outputDirectory })
+                } }
+                """.formatted(resourceName, taskName, taskName, taskName, taskName));
+    }
     private static void archive(Path file) throws Exception {
         Files.createDirectories(file.getParent());
         try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(file))) {
@@ -449,10 +528,12 @@ public class VariantContentPackagingTest {
     private static String report(Path root, String variant, String file) throws Exception { return Files.readString(root.resolve("app/build/reports/set-content/" + variant + "/" + file)); }
     private static Path write(Path file, String content) throws Exception { Files.createDirectories(file.getParent()); Files.writeString(file, content); return file; }
     private static void replace(Path file, String from, String to) throws Exception { Files.writeString(file, Files.readString(file).replace(from, to)); }
-    static GradleRunner run(Path root, String task) {
+    static GradleRunner run(Path root, String... tasks) {
         GradleRunner runner = GradleRunner.create().withProjectDir(root.toFile()).withPluginClasspath().withTestKitDir(Path.of(System.getProperty("livosphere.testKitHome")).toFile());
         List<File> classpath = new ArrayList<>(runner.getPluginClasspath());
         Arrays.stream(System.getProperty("livosphere.testKitPluginClasspath").split(Pattern.quote(File.pathSeparator))).map(File::new).forEach(classpath::add);
-        return runner.withPluginClasspath(classpath).withArguments("--offline", "--console=plain", "--max-workers=2", task);
+        List<String> arguments = new ArrayList<>(List.of("--offline", "--console=plain", "--max-workers=2"));
+        arguments.addAll(List.of(tasks));
+        return runner.withPluginClasspath(classpath).withArguments(arguments);
     }
 }

@@ -4,6 +4,7 @@ import java.util.Properties
 
 plugins {
     base
+    id("livosphere.variant-source-collector")
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.android.test) apply false

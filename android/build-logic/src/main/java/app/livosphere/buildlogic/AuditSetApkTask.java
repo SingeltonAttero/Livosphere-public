@@ -12,9 +12,9 @@ import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.zip.ZipFile;
 import org.gradle.api.GradleException;
-import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.provider.MapProperty;
+import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.*;
 
 /** Verifies actual compiled APK contents. Reports are external and bound to the immutable APK digest. */
@@ -26,8 +26,7 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
     @Internal public abstract DirectoryProperty getSdkDirectory();
     @Internal public abstract MapProperty<String, String> getModuleDirectories();
     @Input public abstract MapProperty<String, java.util.List<String>> getJvmSourceDirectories();
-    @InputFiles @PathSensitive(PathSensitivity.RELATIVE)
-    public abstract ConfigurableFileCollection getModuleSources();
+    @Internal public abstract Property<AndroidVariantSourceCollector> getAndroidSourceCollector();
     @OutputDirectory public abstract DirectoryProperty getInventoryDirectory();
 
     @TaskAction
@@ -47,10 +46,10 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
         selection.selected().forEach(m -> m.contributions().stream().filter(c -> !c.surface().equals("watchface"))
                 .forEach(c -> allowed.contribution(m, c)));
         selection.excluded().forEach(m -> m.contributions().forEach(c -> excluded.contribution(m, c)));
-        for (String module : runtimeProjects) inventoryModule(allowed, module, graph.projectVariants());
+        for (String module : runtimeProjects) inventoryModule(allowed, module, graph.projectVariants(), true);
         // Excluded contributions can have release/fallback source sets too.  Inventory the
         // variant actually being audited, rather than assuming their debug source tree.
-        for (String module : excludedModules) inventoryModule(excluded, module, graph.projectVariants());
+        for (String module : excludedModules) inventoryModule(excluded, module, graph.projectVariants(), false);
         verifyGeneratedRegistry(selection);
         verifyShellDoesNotOverrideSelection(selection, runtimeProjects, graph.projectVariants());
         Files.write(reports.resolve("inventory.txt"), List.of("variant=" + variant,
@@ -58,6 +57,7 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
                 "excluded=" + selection.excluded().stream().map(SetManifest::setId).sorted().toList(),
                 "runtimeComponents=" + graph.runtimeComponents(), "runtimeProjects=" + runtimeProjects,
                 "excludedProjects=" + excludedModules,
+                "allowedClasses=" + allowed.classes,
                 "allowedResources=" + allowed.resources, "excludedResources=" + excluded.resources,
                 "excludedClasses=" + excluded.classes, "excludedComponents=" + excluded.components));
         Path aapt2 = sdkTool("aapt2");
@@ -85,7 +85,7 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
         for (String module : runtime) {
             if (contributionProjects.contains(module)) continue;
             SetContentInventory inventory = new SetContentInventory();
-            inventoryModule(inventory, module, projectVariants);
+            inventoryModule(inventory, module, projectVariants, true);
             for (String resource : inventory.resources) {
                 if (resource.startsWith("values/")) continue;
                 for (SetManifest selected : selection.selected()) {
@@ -99,15 +99,20 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
         }
     }
 
-    private void inventoryModule(SetContentInventory inventory, String module, java.util.Map<String, String> projectVariants) {
+    private void inventoryModule(SetContentInventory inventory, String module, java.util.Map<String, String> projectVariants,
+            boolean includeGenerated) {
         String variant = projectVariants.get(module);
-        String directory = getModuleDirectories().get().get(module);
-        if (directory == null || variant == null) return;
+        if (variant == null) return;
         if (variant.equals("jvm")) {
             java.util.List<String> sources = getJvmSourceDirectories().get().get(module);
             require(sources != null, "JVM main source metadata missing for " + module);
             inventory.jvmModule(sources.stream().map(Path::of).toList());
-        } else inventory.module(Path.of(directory), variant);
+            return;
+        }
+        AndroidVariantSourceCollector.SourceMetadata metadata = getAndroidSourceCollector().get()
+                .sourceMetadata(module, variant, includeGenerated);
+        inventory.androidModule(module, variant, metadata.sourceDirectories(), metadata.namespace(),
+                metadata.manifestPlaceholders());
     }
 
     /** A failed prerequisite must never leave a stale PASS report for this variant. */

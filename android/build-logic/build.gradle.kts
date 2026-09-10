@@ -35,6 +35,10 @@ gradlePlugin {
             id = "livosphere.set-registry"
             implementationClass = "app.livosphere.buildlogic.SetRegistryPlugin"
         }
+        register("variantSourceCollector") {
+            id = "livosphere.variant-source-collector"
+            implementationClass = "app.livosphere.buildlogic.AndroidVariantSourceCollectorPlugin"
+        }
     }
 }
 

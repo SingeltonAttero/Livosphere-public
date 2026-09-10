@@ -84,9 +84,13 @@ public final class SetRegistryPlugin implements Plugin<Project> {
                     task.getSdkDirectory().set(components.getSdkComponents().getSdkDirectory());
                     task.getRegistryDirectory().set(generate.flatMap(GenerateSetRegistryTask::getOutputDirectory));
                     task.getInventoryDirectory().set(project.getLayout().getBuildDirectory().dir("reports/set-content/" + name));
+                    AndroidVariantSourceCollector collector = project.getRootProject().getExtensions()
+                            .findByType(AndroidVariantSourceCollector.class);
+                    if (collector == null) throw new GradleException(
+                            "Root plugin livosphere.variant-source-collector is required before Android variants");
+                    collector.configureAuditInputs(task);
                     project.getRootProject().getAllprojects().stream().filter(p -> p.getBuildFile().isFile()).forEach(p -> {
                         task.getModuleDirectories().put(p.getPath(), p.getProjectDir().getAbsolutePath());
-                        task.getModuleSources().from(p.fileTree("src"));
                         p.getPluginManager().withPlugin("java", plugin -> configureJvmSources(p, task));
                     });
                     task.dependsOn(validate);

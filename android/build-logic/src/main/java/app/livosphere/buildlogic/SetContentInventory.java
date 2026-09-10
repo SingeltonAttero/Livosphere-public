@@ -33,20 +33,30 @@ final class SetContentInventory {
         }
     }
 
-    void module(Path root, String variant) {
-        String namespace = namespace(root);
-        for (String sourceSet : new java.util.LinkedHashSet<>(java.util.List.of("main", variant))) {
-            Path source = root.resolve("src/" + sourceSet);
-            if (!Files.isDirectory(source)) continue;
+    /** Uses the final AGP variant source model, including custom and generated roots. */
+    void androidModule(String module, String variant, java.util.List<String> sourceRoots, String namespace,
+            java.util.Map<String, String> placeholders) {
+        for (String entry : sourceRoots) {
+            int separator = entry.indexOf('|');
+            if (separator <= 0) throw new GradleException("Unsupported Android source metadata for " + module + " " + variant);
+            String type = entry.substring(0, separator);
+            Path source = Path.of(entry.substring(separator + 1));
+            // AGP's getAll also reports conventional but empty src/<variant> directories.
+            // A missing conventional root is not an omitted generated input.
+            if (!Files.exists(source)) continue;
+            if (type.equals("manifest")) { manifest(source, namespace, placeholders); continue; }
+            if (!Files.isDirectory(source)) throw new GradleException("Unsupported Android source input for "
+                    + module + " " + variant + ": " + source);
             try (var files = Files.walk(source)) {
                 files.filter(Files::isRegularFile).forEach(file -> {
                     String relative = source.relativize(file).toString().replace('\\', '/');
-                    if (relative.startsWith("res/")) resource(file, relative.substring(4));
-                    else if (relative.startsWith("assets/")) assetPaths.add(relative);
-                    else if (relative.endsWith(".kt") || relative.endsWith(".java")) sourceClass(file);
-                    else if (relative.equals("AndroidManifest.xml")) manifest(file, namespace);
+                    if (type.equals("res")) resource(file, relative);
+                    else if (type.equals("assets")) assetPaths.add("assets/" + relative);
+                    else if (type.equals("java") || type.equals("kotlin")) {
+                        if (relative.endsWith(".kt") || relative.endsWith(".java")) sourceClass(file);
+                    }
                 });
-            } catch (Exception error) { throw new GradleException("Cannot inventory module " + root, error); }
+            } catch (Exception error) { throw new GradleException("Cannot inventory module " + module, error); }
         }
     }
 
@@ -127,7 +137,7 @@ final class SetContentInventory {
         } catch (Exception error) { throw new GradleException("Cannot inventory classes " + file, error); }
     }
 
-    void manifest(Path file, String defaultPackage) {
+    void manifest(Path file, String defaultPackage, java.util.Map<String, String> placeholders) {
         Element root = xml(file);
         String pkg = root.getAttribute("package");
         if (pkg.isEmpty()) pkg = defaultPackage;
@@ -135,6 +145,7 @@ final class SetContentInventory {
             var entries = root.getElementsByTagName(tag);
             for (int i = 0; i < entries.getLength(); i++) {
                 String name = ((Element) entries.item(i)).getAttributeNS("http://schemas.android.com/apk/res/android", "name");
+                name = substitutePlaceholders(name, placeholders);
                 if (name.startsWith(".") && !pkg.isEmpty()) name = pkg + name;
                 else if (!name.isEmpty() && name.indexOf('.') < 0 && !pkg.isEmpty()) name = pkg + "." + name;
                 if (!name.isEmpty()) components.add(name);
@@ -143,16 +154,16 @@ final class SetContentInventory {
         collectReferences(root, false);
     }
 
-    private static String namespace(Path root) {
-        for (String build : java.util.List.of("build.gradle.kts", "build.gradle")) {
-            Path file = root.resolve(build);
-            if (!Files.isRegularFile(file)) continue;
-            try {
-                var match = Pattern.compile("(?m)\\bnamespace\\s*(?:=)?\\s*['\\\"]([A-Za-z_][\\w.]*)['\\\"]").matcher(Files.readString(file));
-                if (match.find()) return match.group(1);
-            } catch (Exception error) { throw new GradleException("Cannot resolve Android namespace " + file, error); }
+    private static String substitutePlaceholders(String value, java.util.Map<String, String> placeholders) {
+        var match = Pattern.compile("\\$\\{([A-Za-z_][\\w.]*)}").matcher(value);
+        StringBuffer result = new StringBuffer();
+        while (match.find()) {
+            String replacement = placeholders.get(match.group(1));
+            if (replacement == null) throw new GradleException("Unresolved manifest placeholder: " + match.group(1));
+            match.appendReplacement(result, java.util.regex.Matcher.quoteReplacement(replacement));
         }
-        return "";
+        match.appendTail(result);
+        return result.toString();
     }
 
     static Element xml(Path file) {
