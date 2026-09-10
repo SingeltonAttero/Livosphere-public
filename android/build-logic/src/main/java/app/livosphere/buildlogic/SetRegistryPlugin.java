@@ -135,7 +135,7 @@ public final class SetRegistryPlugin implements Plugin<Project> {
         JavaPluginExtension javaExtension = project.getExtensions().getByType(JavaPluginExtension.class);
         task.getJvmSourceDirectories().put(project.getPath(), project.provider(() -> {
             SourceSet main = javaExtension.getSourceSets().getByName(SourceSet.MAIN_SOURCE_SET_NAME);
-            return java.util.stream.Stream.concat(main.getAllJava().getSrcDirs().stream(), main.getResources().getSrcDirs().stream())
+            return java.util.stream.Stream.concat(main.getAllSource().getSrcDirs().stream(), main.getResources().getSrcDirs().stream())
                     .map(java.io.File::getAbsolutePath).distinct().toList();
         }));
     }
