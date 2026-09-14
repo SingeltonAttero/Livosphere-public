@@ -33,6 +33,7 @@ include(
     ":core:testing",
     ":wallpapers:engine",
     ":wallpapers:contour",
+    ":widgets:runtime",
     ":sets:contour:preview",
     ":quality:macrobenchmark",
 )
@@ -47,6 +48,7 @@ project(":core:contract").projectDir = file("core/contract")
 project(":core:testing").projectDir = file("core/testing")
 project(":wallpapers:engine").projectDir = file("wallpapers/engine")
 project(":wallpapers:contour").projectDir = file("wallpapers/contour")
+project(":widgets:runtime").projectDir = file("widgets/runtime")
 project(":sets:contour:preview").projectDir = file("sets/contour/preview")
 project(":quality:macrobenchmark").projectDir = file("quality/macrobenchmark")
 

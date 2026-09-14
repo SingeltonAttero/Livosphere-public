@@ -48,13 +48,96 @@ class SurfaceSettingsRepository(private val store: DataStore<StoredSurfaceSettin
                     is SettingsOutcome.Failure -> fail(previous.reason)
                     null -> 1L
                 }
-                val updated = WidgetPreferences(widgetId, size, clockTarget, revision)
+                val generation = previous?.value?.generation ?: 0L
+                val updated = WidgetPreferences(widgetId, size, clockTarget, revision, generation)
                 current.copy(widgets = current.widgets + (appWidgetId.toString() to updated.encode())) to updated
             }
         }
         override suspend fun delete(appWidgetId: Int): SettingsOutcome<Unit> {
             SettingsOwner.Widget(appWidgetId)
             return transaction { current -> current.copy(widgets = current.widgets - appWidgetId.toString()) to Unit }
+        }
+        override suspend fun remap(mapping: Map<Int, Int>): SettingsOutcome<Map<Int, WidgetPreferences>> {
+            require(mapping.isNotEmpty() && mapping.keys.all { it > 0 } && mapping.values.all { it > 0 })
+            require(mapping.keys.size == mapping.values.toSet().size)
+            return transaction { current ->
+                val decoded = mapping.mapValues { (oldId, newId) ->
+                    val owner = SettingsOwner.Widget(oldId)
+                    val raw = current.widgets[oldId.toString()]
+                        ?: fail(SurfaceSettingsFailure.NeedsConfiguration(SettingsOwner.Widget(newId), null))
+                    when (val value = decode(owner) { raw.widget() }) {
+                        is SettingsOutcome.Success -> value.value
+                        is SettingsOutcome.Failure -> fail(value.reason)
+                    }
+                }
+                val unaffected = current.widgets - mapping.keys.map(Int::toString).toSet()
+                if (mapping.values.any { it.toString() in unaffected }) fail(SurfaceSettingsFailure.Write)
+                val remapped = decoded.map { (oldId, value) ->
+                    val newId = mapping.getValue(oldId)
+                    newId to value.copy(generation = nextRevision(value.generation))
+                }.toMap()
+                current.copy(widgets = unaffected + remapped.mapKeys { it.key.toString() }.mapValues { it.value.encode() }) to remapped
+            }
+        }
+    }
+
+    fun pendingPins(available: (String) -> Boolean): PendingPinRepository = object : PendingPinRepository {
+        override fun observe(token: String): Flow<SettingsOutcome<PendingWidgetPin?>> {
+            requirePinToken(token)
+            return observeRecord { current ->
+                val raw = current.pendingPins[token] ?: return@observeRecord SettingsOutcome.Success(null)
+                decode(SettingsOwner.PendingPin(token)) { raw.pendingPin() }
+            }
+        }
+
+        override suspend fun create(pin: PendingWidgetPin): SettingsOutcome<PendingWidgetPin> = transaction { current ->
+            if (!available(pin.widgetId)) fail(SurfaceSettingsFailure.NeedsConfiguration(SettingsOwner.Browsing, pin.widgetId))
+            if (pin.status != PendingPinStatus.PENDING || pin.token in current.pendingPins) fail(SurfaceSettingsFailure.Write)
+            current.copy(pendingPins = current.pendingPins + (pin.token to pin.encode())) to pin
+        }
+
+        override suspend fun consume(token: String, providerClassName: String, appWidgetId: Int, nowEpochMillis: Long): SettingsOutcome<PendingPinConsumeResult> {
+            requirePinToken(token); require(appWidgetId > 0 && nowEpochMillis >= 0)
+            return transaction { current ->
+                val raw = current.pendingPins[token] ?: fail(SurfaceSettingsFailure.NeedsConfiguration(SettingsOwner.Widget(appWidgetId), null))
+                val pin = when (val value = decode(SettingsOwner.PendingPin(token)) { raw.pendingPin() }) {
+                    is SettingsOutcome.Success -> value.value
+                    is SettingsOutcome.Failure -> fail(value.reason)
+                }
+                if (pin.providerClassName != providerClassName || nowEpochMillis - pin.createdAtEpochMillis > PIN_VALID_MILLIS)
+                    fail(SurfaceSettingsFailure.NeedsConfiguration(SettingsOwner.Widget(appWidgetId), pin.widgetId))
+                if (pin.status != PendingPinStatus.PENDING) {
+                    if (pin.status == PendingPinStatus.CONSUMED && pin.boundAppWidgetId == appWidgetId)
+                        return@transaction current to PendingPinConsumeResult.Replay(appWidgetId)
+                    fail(SurfaceSettingsFailure.NeedsConfiguration(SettingsOwner.Widget(appWidgetId), pin.widgetId))
+                }
+                if (appWidgetId.toString() in current.widgets) fail(SurfaceSettingsFailure.Write)
+                val preferences = WidgetPreferences(pin.widgetId, pin.size, pin.clockTarget, configurationRevision = 1, generation = 1)
+                val consumed = pin.copy(status = PendingPinStatus.CONSUMED, boundAppWidgetId = appWidgetId, resolvedAtEpochMillis = nowEpochMillis)
+                current.copy(
+                    widgets = current.widgets + (appWidgetId.toString() to preferences.encode()),
+                    pendingPins = current.pendingPins + (token to consumed.encode()),
+                ) to PendingPinConsumeResult.Consumed(preferences)
+            }
+        }
+
+        override suspend fun cleanup(nowEpochMillis: Long): SettingsOutcome<Unit> {
+            require(nowEpochMillis >= 0)
+            return transaction { current ->
+                val retained = current.pendingPins.mapNotNull { (token, raw) ->
+                    val pin = when (val value = decode(SettingsOwner.PendingPin(token)) { raw.pendingPin() }) {
+                        is SettingsOutcome.Success -> value.value
+                        is SettingsOutcome.Failure -> fail(value.reason)
+                    }
+                    when {
+                        pin.status == PendingPinStatus.PENDING && nowEpochMillis - pin.createdAtEpochMillis > PIN_VALID_MILLIS ->
+                            token to pin.copy(status = PendingPinStatus.EXPIRED, boundAppWidgetId = null, resolvedAtEpochMillis = nowEpochMillis)
+                        pin.status != PendingPinStatus.PENDING && nowEpochMillis - requireNotNull(pin.resolvedAtEpochMillis) > PIN_TOMBSTONE_MILLIS -> null
+                        else -> token to pin
+                    }
+                }.toMap()
+                current.copy(pendingPins = retained.mapValues { it.value.encode() }) to Unit
+            }
         }
     }
 
@@ -136,6 +219,10 @@ class SurfaceSettingsRepository(private val store: DataStore<StoredSurfaceSettin
 }
 
 data class SurfaceSettingsMetadata(val schemaVersion: Int, val wallpaperIds: Set<String>, val appWidgetIds: Set<String>)
+
+const val PIN_VALID_MILLIS = 24L * 60 * 60 * 1000
+const val PIN_TOMBSTONE_MILLIS = 7L * 24 * 60 * 60 * 1000
+private fun requirePinToken(token: String) { require(Regex("[A-Za-z0-9_-]{16,128}").matches(token)) }
 
 private fun requireCurrent(value: StoredSurfaceSettings) {
     if (value.schemaVersion != SURFACE_SETTINGS_SCHEMA) throw UnsupportedSettingsVersion(value.schemaVersion)

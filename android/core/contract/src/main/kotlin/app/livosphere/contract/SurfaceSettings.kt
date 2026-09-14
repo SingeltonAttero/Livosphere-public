@@ -24,12 +24,42 @@ data class WidgetPreferences(
     val size: WidgetSize,
     val clockTarget: ClockTarget?,
     val configurationRevision: Long = 0,
-) { init { requireSettingsId(widgetId); require(configurationRevision >= 0) } }
+    val generation: Long = 0,
+) { init { requireSettingsId(widgetId); require(configurationRevision >= 0); require(generation >= 0) } }
+
+enum class PendingPinStatus { PENDING, CONSUMED, EXPIRED }
+data class PendingWidgetPin(
+    val token: String,
+    val widgetId: String,
+    val size: WidgetSize,
+    val clockTarget: ClockTarget?,
+    val providerClassName: String,
+    val createdAtEpochMillis: Long,
+    val status: PendingPinStatus = PendingPinStatus.PENDING,
+    val boundAppWidgetId: Int? = null,
+    val resolvedAtEpochMillis: Long? = null,
+) {
+    init {
+        require(Regex("[A-Za-z0-9_-]{16,128}").matches(token))
+        requireSettingsId(widgetId)
+        require(providerClassName.startsWith("app.livosphere.") && providerClassName.none(Char::isWhitespace))
+        require(createdAtEpochMillis >= 0)
+        require(boundAppWidgetId == null || boundAppWidgetId > 0)
+        require(resolvedAtEpochMillis == null || resolvedAtEpochMillis >= createdAtEpochMillis)
+        require((status == PendingPinStatus.PENDING) == (boundAppWidgetId == null && resolvedAtEpochMillis == null))
+    }
+}
+
+sealed interface PendingPinConsumeResult {
+    data class Consumed(val preferences: WidgetPreferences) : PendingPinConsumeResult
+    data class Replay(val appWidgetId: Int) : PendingPinConsumeResult
+}
 
 sealed interface SettingsOwner {
     data object Browsing : SettingsOwner
     data class Wallpaper(val wallpaperId: String) : SettingsOwner { init { requireSettingsId(wallpaperId) } }
     data class Widget(val appWidgetId: Int) : SettingsOwner { init { require(appWidgetId > 0) } }
+    data class PendingPin(val token: String) : SettingsOwner { init { require(Regex("[A-Za-z0-9_-]{16,128}").matches(token)) } }
 }
 
 sealed interface SurfaceSettingsFailure {
@@ -54,6 +84,18 @@ interface WidgetSettingsRepository {
     fun observe(appWidgetId: Int): Flow<SettingsOutcome<WidgetPreferences>>
     suspend fun configure(appWidgetId: Int, widgetId: String, size: WidgetSize, clockTarget: ClockTarget?): SettingsOutcome<WidgetPreferences>
     suspend fun delete(appWidgetId: Int): SettingsOutcome<Unit>
+    suspend fun remap(mapping: Map<Int, Int>): SettingsOutcome<Map<Int, WidgetPreferences>>
+}
+interface PendingPinRepository {
+    fun observe(token: String): Flow<SettingsOutcome<PendingWidgetPin?>>
+    suspend fun create(pin: PendingWidgetPin): SettingsOutcome<PendingWidgetPin>
+    suspend fun consume(
+        token: String,
+        providerClassName: String,
+        appWidgetId: Int,
+        nowEpochMillis: Long,
+    ): SettingsOutcome<PendingPinConsumeResult>
+    suspend fun cleanup(nowEpochMillis: Long): SettingsOutcome<Unit>
 }
 
 internal fun requireSettingsId(value: String) { require(Regex("[a-z0-9]+(?:-[a-z0-9]+)*").matches(value)) }

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/clock_probe_analog_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/clock_probe_background"
+    android:padding="8dp">
+
+    <AnalogClock
+        android:id="@+id/clock_probe_analog"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:dial="@drawable/clock_probe_analog_dial"
+        android:hand_hour="@drawable/clock_probe_analog_hour"
+        android:hand_minute="@drawable/clock_probe_analog_minute" />
+</FrameLayout>

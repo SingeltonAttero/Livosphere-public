@@ -19,7 +19,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.*
 
 const val SURFACE_SETTINGS_FILE = "phone-surface-settings.json"
-const val SURFACE_SETTINGS_SCHEMA = 1
+const val SURFACE_SETTINGS_SCHEMA = 2
 const val LEGACY_CONTOUR_WALLPAPER_ID = "contour-wallpaper"
 const val LEGACY_WALLPAPER_SETTINGS_FILE = "contour-wallpaper-settings"
 private val Context.legacyWallpaperSettings by preferencesDataStore(name = LEGACY_WALLPAPER_SETTINGS_FILE)
@@ -31,6 +31,7 @@ data class StoredSurfaceSettings(
     val browsing: JsonElement? = null,
     val wallpapers: Map<String, JsonElement> = emptyMap(),
     val widgets: Map<String, JsonElement> = emptyMap(),
+    val pendingPins: Map<String, JsonElement> = emptyMap(),
 )
 
 internal class UnsupportedSettingsVersion(val version: Int) : IOException("Unsupported settings version")
@@ -44,8 +45,12 @@ object SurfaceSettingsSerializer : Serializer<StoredSurfaceSettings> {
         val marker = root.getValue("schemaVersion").jsonPrimitive
         require(!marker.isString && Regex("-?(0|[1-9][0-9]*)").matches(marker.content))
         val version = marker.int
-        if (version != SURFACE_SETTINGS_SCHEMA) throw UnsupportedSettingsVersion(version)
-        require(root.keys == setOf("schemaVersion", "browsing", "wallpapers", "widgets"))
+        if (version !in 1..SURFACE_SETTINGS_SCHEMA) throw UnsupportedSettingsVersion(version)
+        val expected = buildSet {
+            addAll(setOf("schemaVersion", "browsing", "wallpapers", "widgets"))
+            if (version >= 2) add("pendingPins")
+        }
+        require(root.keys == expected)
         json.decodeFromString<StoredSurfaceSettings>(text)
     } catch (error: UnsupportedSettingsVersion) { throw error }
     catch (error: java.nio.charset.CharacterCodingException) { throw CorruptionException("Invalid surface settings encoding", error) }
@@ -87,6 +92,12 @@ class LegacyWallpaperMigration(private val source: suspend () -> Preferences?) :
     override suspend fun cleanUp() = Unit
 }
 
+class SurfaceSettingsV2Migration : DataMigration<StoredSurfaceSettings> {
+    override suspend fun shouldMigrate(currentData: StoredSurfaceSettings) = currentData.schemaVersion == 1
+    override suspend fun migrate(currentData: StoredSurfaceSettings) = currentData.copy(schemaVersion = 2)
+    override suspend fun cleanUp() = Unit
+}
+
 private fun Any?.asLegacyJson(default: JsonElement): JsonElement = when (this) {
     null -> default
     is Boolean -> JsonPrimitive(this)
@@ -105,7 +116,7 @@ object ApplicationSurfaceSettings {
             val app = context.applicationContext
             SurfaceSettingsRepository(DataStoreFactory.create(
                 serializer = SurfaceSettingsSerializer,
-                migrations = listOf(LegacyWallpaperMigration { legacySnapshot(app) }),
+                migrations = listOf(LegacyWallpaperMigration { legacySnapshot(app) }, SurfaceSettingsV2Migration()),
                 produceFile = { app.dataStoreFile(SURFACE_SETTINGS_FILE) },
             )).also { instance = it }
         }
@@ -126,7 +137,7 @@ internal fun BrowsingPreferences.encode() = buildJsonObject {
     put("setId", setId); put("surface", surface.name); put("revision", revision)
 }
 internal fun WidgetPreferences.encode() = buildJsonObject {
-    put("widgetId", widgetId); put("size", size.name); put("configurationRevision", configurationRevision)
+    put("widgetId", widgetId); put("size", size.name); put("configurationRevision", configurationRevision); put("generation", generation)
     put("clockTarget", clockTarget?.let { target -> buildJsonObject {
         put("packageName", target.packageName); put("className", target.className); put("action", target.action)
     } } ?: JsonNull)
@@ -144,7 +155,32 @@ internal fun JsonElement.widget(): WidgetPreferences = jsonObject.let { obj ->
         ClockTarget(it.getValue("packageName").strictString(), it.getValue("className").strictString(), it.getValue("action").strictString())
     }
     WidgetPreferences(obj.getValue("widgetId").strictString(), WidgetSize.valueOf(obj.getValue("size").strictString()),
-        target, obj.getValue("configurationRevision").strictLong())
+        target, obj.getValue("configurationRevision").strictLong(), obj["generation"]?.strictLong() ?: 0)
+}
+internal fun PendingWidgetPin.encode() = buildJsonObject {
+    put("token", token); put("widgetId", widgetId); put("size", size.name); put("providerClassName", providerClassName)
+    put("createdAtEpochMillis", createdAtEpochMillis); put("status", status.name)
+    put("boundAppWidgetId", boundAppWidgetId?.let(::JsonPrimitive) ?: JsonNull)
+    put("resolvedAtEpochMillis", resolvedAtEpochMillis?.let(::JsonPrimitive) ?: JsonNull)
+    put("clockTarget", clockTarget?.let { target -> buildJsonObject {
+        put("packageName", target.packageName); put("className", target.className); put("action", target.action)
+    } } ?: JsonNull)
+}
+internal fun JsonElement.pendingPin(): PendingWidgetPin = jsonObject.let { obj ->
+    val target = obj.getValue("clockTarget").takeUnless { it == JsonNull }?.jsonObject?.let {
+        ClockTarget(it.getValue("packageName").strictString(), it.getValue("className").strictString(), it.getValue("action").strictString())
+    }
+    PendingWidgetPin(
+        token = obj.getValue("token").strictString(),
+        widgetId = obj.getValue("widgetId").strictString(),
+        size = WidgetSize.valueOf(obj.getValue("size").strictString()),
+        clockTarget = target,
+        providerClassName = obj.getValue("providerClassName").strictString(),
+        createdAtEpochMillis = obj.getValue("createdAtEpochMillis").strictLong(),
+        status = PendingPinStatus.valueOf(obj.getValue("status").strictString()),
+        boundAppWidgetId = obj.getValue("boundAppWidgetId").takeUnless { it == JsonNull }?.strictLong()?.toInt(),
+        resolvedAtEpochMillis = obj.getValue("resolvedAtEpochMillis").takeUnless { it == JsonNull }?.strictLong(),
+    )
 }
 private fun JsonElement.strictString() = jsonPrimitive.also { require(it.isString) }.content
 private fun JsonElement.strictLong() = jsonPrimitive.also { require(!it.isString) }.long

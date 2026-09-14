@@ -17,7 +17,7 @@ class StrictSurfaceSettingsTest {
     private fun store(file: File) = DataStoreFactory.create(
         serializer = SurfaceSettingsSerializer,
         scope = CoroutineScope(SupervisorJob().also(jobs::add) + Dispatchers.IO),
-        migrations = listOf(LegacyWallpaperMigration { null }),
+        migrations = listOf(LegacyWallpaperMigration { null }, SurfaceSettingsV2Migration()),
     ) { file }
     private suspend fun close() { jobs.forEach { it.cancelAndJoin() }; jobs.clear() }
     private suspend fun test(block: suspend () -> Unit) { try { block() } finally { close() } }
@@ -50,7 +50,7 @@ class StrictSurfaceSettingsTest {
         val raw = envelope.replace("\"wallpapers\":{}", "\"wallpap\\u0065rs\":{}")
         val file = File(temporary.root, "valid.json").apply { writeText(raw) }
         val repository = SurfaceSettingsRepository(store(file))
-        assertEquals(1, repository.metadata.first().value().schemaVersion)
+        assertEquals(2, repository.metadata.first().value().schemaVersion)
         val target = ClockTarget("example.clock", "Alarm\\\"{}[]", "clock:action")
         assertEquals(target, repository.widgets { true }.configure(101, "clock-a", WidgetSize.S, target).value().clockTarget)
         close()

@@ -147,6 +147,7 @@ tasks.register("verifyModuleGraph") {
                 "debugImplementation" to ":wallpapers:fixture",
                 "implementation" to ":core:settings",
                 "implementation" to ":wallpapers:engine",
+                "implementation" to ":widgets:runtime",
                 "debugImplementation" to ":sets:fixture:preview",
                 "debugImplementation" to ":sets:fixture:clock-widget",
                 "debugImplementation" to ":sets:contour:preview",
@@ -156,6 +157,7 @@ tasks.register("verifyModuleGraph") {
             ":hub:domain" to setOf("api" to ":core:contract"),
             ":core:settings" to setOf("api" to ":core:contract"),
             ":wallpapers:engine" to setOf("api" to ":core:contract"),
+            ":widgets:runtime" to setOf("api" to ":core:contract", "implementation" to ":core:settings"),
             ":wallpapers:contour" to setOf("implementation" to ":wallpapers:engine", "implementation" to ":core:settings"),
             ":wallpapers:fixture" to setOf("implementation" to ":wallpapers:engine", "implementation" to ":core:settings"),
             ":quality:macrobenchmark" to setOf(
@@ -174,6 +176,7 @@ tasks.register("verifyModuleGraph") {
             ":sets:fixture:clock-widget",
             ":wallpapers:engine",
             ":wallpapers:contour",
+            ":widgets:runtime",
             ":sets:contour:preview",
             ":quality:macrobenchmark",
         )

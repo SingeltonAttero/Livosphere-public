@@ -68,6 +68,7 @@ import app.livosphere.hub.theme.ThemeScreen
 import app.livosphere.hub.onboarding.OnboardingDialog
 import app.livosphere.hub.onboarding.Outcome
 import kotlinx.coroutines.flow.collectLatest
+import app.livosphere.widgets.runtime.ClockWidgetRuntime
 
 @Composable
 fun HubApp(
@@ -158,10 +159,11 @@ fun HubApp(
                     popTransitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
                     entryProvider = entryProvider {
                         entry<ThemeKey> {
+                            val selectedSet = app.livosphere.generated.GeneratedSetRegistry.sets.singleOrNull {
+                                it.wallpaper.componentId.value == state.phone.target?.wallpaperId
+                            } ?: app.livosphere.generated.GeneratedSetRegistry.sets.firstOrNull()
                             ThemeScreen(
-                                setId = app.livosphere.generated.GeneratedSetRegistry.sets.singleOrNull {
-                                    it.wallpaper.componentId.value == state.phone.target?.wallpaperId
-                                }?.setId?.value,
+                                setId = selectedSet?.setId?.value,
                                 selectedSurface = state.selectedSurface,
                                 hasSeenThemePreview = state.hasSeenThemePreview,
                                 onSurfaceSelected = { surface ->
@@ -171,7 +173,16 @@ fun HubApp(
                                     viewModel.onAction(HubAction.ThemePreviewSeen)
                                 },
                                 phoneState = state.phone,
-                                onTry = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn)) },
+                                onTry = {
+                                    if (state.selectedSurface == HubSurface.WALLPAPER) {
+                                        viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn))
+                                    } else {
+                                        (selectedSet?.clockWidget ?: app.livosphere.generated.GeneratedSetRegistry.sets
+                                            .firstNotNullOfOrNull { it.clockWidget })?.componentId?.value?.let { widgetId ->
+                                            context.startActivity(ClockWidgetRuntime.prePinIntent(context, widgetId))
+                                        }
+                                    }
+                                },
                                 onPhoneRefresh = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.Refresh)) },
                                 onPhoneHelp = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.ToggleHelp)) },
                                 // A pending or failed preference read is static until a

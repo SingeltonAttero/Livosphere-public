@@ -546,7 +546,9 @@ private fun TryOnAction(surface: HubSurface, phoneState: PhoneWallpaperState?, o
             }
             Button(
                 onClick = onTry,
-                enabled = phone?.path?.route != null && !phone.busy && !phone.refreshing,
+                enabled = if (surface == HubSurface.WALLPAPER) {
+                    phone?.path?.route != null && !phone.busy && !phone.refreshing
+                } else true,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = maxOf(52.dp, with(density) { labelHeight.toDp() } + 16.dp))

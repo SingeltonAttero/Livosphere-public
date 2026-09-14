@@ -30,7 +30,7 @@ class WallpaperSettingsIsolationTest {
     private val jobs = mutableListOf<Job>()
     private fun scope(): CoroutineScope = CoroutineScope(SupervisorJob().also(jobs::add) + Dispatchers.IO)
     private fun destination(file: File, source: suspend () -> Preferences? = { null }, serializer: Serializer<StoredSurfaceSettings> = SurfaceSettingsSerializer): DataStore<StoredSurfaceSettings> =
-        DataStoreFactory.create(serializer = serializer, scope = scope(), migrations = listOf(LegacyWallpaperMigration(source))) { file }
+        DataStoreFactory.create(serializer = serializer, scope = scope(), migrations = listOf(LegacyWallpaperMigration(source), SurfaceSettingsV2Migration())) { file }
     private suspend fun closeAll() { jobs.forEach { it.cancelAndJoin() }; jobs.clear() }
     private suspend fun <T> test(body: suspend () -> T): T = try { body() } finally { closeAll() }
     private fun legacy(file: File) = PreferenceDataStoreFactory.create(scope = scope()) { file }
@@ -54,7 +54,7 @@ class WallpaperSettingsIsolationTest {
         assertFalse(port.observe(a).first().value().interactionsEnabled)
         assertEquals(WallpaperMotionMode.REDUCED, port.observe(b).first().value().motionMode)
         assertTrue(port.observe(b).first().value().interactionsEnabled)
-        assertEquals(1, store.data.first().schemaVersion)
+        assertEquals(2, store.data.first().schemaVersion)
         assertArrayEquals(sourceBytes, sourceFile.readBytes())
         port.setMotion(a, WallpaperMotionMode.NORMAL).value()
         closeAll()
@@ -67,7 +67,7 @@ class WallpaperSettingsIsolationTest {
 
     @Test fun missingSourceIsNewInstallButExistingCorruptSourceBlocksDestinationAndRetainsBytes() = runBlocking { test {
         val fresh = destination(File(temporary.root, "fresh.json"))
-        assertEquals(1, fresh.data.first().schemaVersion)
+        assertEquals(2, fresh.data.first().schemaVersion)
         assertTrue(fresh.data.first().wallpapers.isEmpty())
         val sourceFile = File(temporary.root, "corrupt.preferences_pb").apply { writeBytes(byteArrayOf(0, 1, 2, 3, 4)) }
         val bytes = sourceFile.readBytes()
@@ -96,7 +96,7 @@ class WallpaperSettingsIsolationTest {
         assertFalse(file.exists())
         failWrite = false
         assertEquals(WallpaperMotionMode.OFF, port.observe(a).first().value().motionMode)
-        assertEquals(2, calls); assertEquals(1, store.data.first().schemaVersion)
+        assertEquals(2, calls); assertEquals(2, store.data.first().schemaVersion)
         assertEquals(WallpaperMotionMode.OFF, port.observe(a).first().value().motionMode)
         assertEquals(2, calls)
     } }

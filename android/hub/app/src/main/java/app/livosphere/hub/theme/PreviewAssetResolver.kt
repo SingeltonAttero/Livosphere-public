@@ -7,6 +7,7 @@ import androidx.annotation.DrawableRes
 import app.livosphere.contract.SetDescriptor
 import app.livosphere.generated.GeneratedSetRegistry
 import app.livosphere.hub.HubSurface
+import app.livosphere.contract.WidgetSize
 
 internal data class PreviewAsset(@param:DrawableRes val drawableId: Int, val symbolicName: String)
 
@@ -28,7 +29,7 @@ internal object PreviewAssetResolver {
         descriptor ?: return null
         val roleRef = when (surface) {
             HubSurface.WALLPAPER -> descriptor.preview.wallpaperRef
-            HubSurface.WATCH_FACE -> null // Legacy Wear preview only; phone widgets have their own surface in Epic 9.
+            HubSurface.WATCH_FACE -> descriptor.preview.widgetRefs[WidgetSize.M]
         }
         val reference = if (roleRef != null) descriptor.preview.resources.singleOrNull { it.symbolicName == roleRef }
             else if (descriptor.schemaVersion == 1) descriptor.preview.resources.singleOrNull {

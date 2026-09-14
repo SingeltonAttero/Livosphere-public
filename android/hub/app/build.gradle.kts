@@ -65,6 +65,7 @@ dependencies {
     implementation(project(":core:settings"))
     // Shared engine is shell-owned runtime; art contributions remain variant-owned.
     implementation(project(":wallpapers:engine"))
+    implementation(project(":widgets:runtime"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)
