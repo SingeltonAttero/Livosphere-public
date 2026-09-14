@@ -115,6 +115,8 @@ internal fun ThemeScreen(
     onThemePreviewSeen: () -> Unit,
     previewPainter: (@Composable (HubSurface) -> Painter)? = null,
     phoneState: PhoneWallpaperState? = null,
+    widgetAvailable: Boolean = true,
+    widgetDisplayName: String? = null,
     onTry: () -> Unit = {},
     onPhoneRefresh: () -> Unit = {},
     onPhoneHelp: () -> Unit = {},
@@ -152,10 +154,11 @@ internal fun ThemeScreen(
                 playStartup = !hasSeenThemePreview,
                 onThemePreviewSeen = onThemePreviewSeen,
                 previewPainter = previewPainter,
+                widgetDisplayName = widgetDisplayName,
                 reduced = reduced,
             )
             }
-            TryOnAction(selectedSurface, phoneState, onTry)
+            TryOnAction(selectedSurface, phoneState, widgetAvailable, onTry)
             if (selectedSurface == HubSurface.WALLPAPER && phoneState != null &&
                 (phoneState.failure != null || phoneState.helpVisible ||
                     (phoneState.path.route == null && !phoneState.refreshing && !phoneState.busy))) {
@@ -349,6 +352,7 @@ private fun ArtworkStage(
     playStartup: Boolean,
     onThemePreviewSeen: () -> Unit,
     previewPainter: (@Composable (HubSurface) -> Painter)?,
+    widgetDisplayName: String?,
     reduced: Boolean,
 ) {
     val context = LocalContext.current
@@ -428,7 +432,10 @@ private fun ArtworkStage(
         surfaceSwitchRunning -> "switch"
         else -> "idle"
     }
-    val accessibleDescription = if (targetAsset == null || displayName == null) stringResource(R.string.theme_preview_unavailable)
+    val accessibleDescription = if (
+        selectedSurface == HubSurface.WATCH_FACE && targetAsset == null && widgetDisplayName != null
+    ) stringResource(R.string.preview_watchface_named, widgetDisplayName)
+        else if (targetAsset == null || displayName == null) stringResource(R.string.theme_preview_unavailable)
         else if (setId == "contour-draft") stringResource(selectedSurface.previewDescriptionResource)
         else stringResource(if (selectedSurface == HubSurface.WALLPAPER) R.string.preview_wallpaper_named else R.string.preview_watchface_named, displayName)
     Box(
@@ -465,7 +472,7 @@ private fun ArtworkStage(
                     scaleX = 1f + 0.015f * progress
                     scaleY = scaleX
                 }) {
-                    PreviewImage(PreviewAssetResolver.resolve(context, setId, surface), surface, previewPainter)
+                    PreviewImage(PreviewAssetResolver.resolve(context, setId, surface), surface, previewPainter, widgetDisplayName)
                 }
             }
             Box(Modifier.fillMaxSize().graphicsLayer {
@@ -476,7 +483,7 @@ private fun ArtworkStage(
                     if (selectedSurface.ordinal > (outgoing?.ordinal ?: selectedSurface.ordinal)) 1 else -1
                 translationX = with(density) { 10.dp.toPx() } * direction * (1f - progress)
             }) {
-                PreviewImage(targetAsset, selectedSurface, previewPainter)
+                PreviewImage(targetAsset, selectedSurface, previewPainter, widgetDisplayName)
             }
         }
     }
@@ -487,9 +494,15 @@ private fun PreviewImage(
     asset: PreviewAsset?,
     surface: HubSurface,
     previewPainter: (@Composable (HubSurface) -> Painter)?,
+    widgetDisplayName: String?,
 ) {
     if (asset == null) {
-        Text(stringResource(R.string.theme_preview_unavailable), modifier = Modifier.padding(24.dp),
+        if (surface == HubSurface.WATCH_FACE && widgetDisplayName != null) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("12:34", color = MaterialTheme.colorScheme.onSurface, fontSize = 44.sp, fontWeight = FontWeight.SemiBold)
+                Text(widgetDisplayName, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            }
+        } else Text(stringResource(R.string.theme_preview_unavailable), modifier = Modifier.padding(24.dp),
             color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center)
         return
     }
@@ -526,7 +539,7 @@ private fun PreviewImage(
 }
 
 @Composable
-private fun TryOnAction(surface: HubSurface, phoneState: PhoneWallpaperState?, onTry: () -> Unit) {
+private fun TryOnAction(surface: HubSurface, phoneState: PhoneWallpaperState?, widgetAvailable: Boolean, onTry: () -> Unit) {
     val phone = phoneState?.takeIf { surface == HubSurface.WALLPAPER }
     val explanation = if (phone != null) phonePathExplanation(phone) else stringResource(surface.actionExplanationResource)
     val label = if (phone?.path?.route == WallpaperRoute.CHOOSER) R.string.phone_chooser_action else surface.actionLabelResource
@@ -548,7 +561,7 @@ private fun TryOnAction(surface: HubSurface, phoneState: PhoneWallpaperState?, o
                 onClick = onTry,
                 enabled = if (surface == HubSurface.WALLPAPER) {
                     phone?.path?.route != null && !phone.busy && !phone.refreshing
-                } else true,
+                } else widgetAvailable,
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = maxOf(52.dp, with(density) { labelHeight.toDp() } + 16.dp))

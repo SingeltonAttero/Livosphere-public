@@ -3,7 +3,7 @@
     android:id="@+id/clock_widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/clock_probe_background"
+    android:background="@drawable/clock_contour_background"
     android:gravity="center"
     android:minWidth="48dp"
     android:minHeight="48dp"
@@ -19,19 +19,19 @@
         android:fontFamily="sans-serif-condensed"
         android:includeFontPadding="false"
         android:maxLines="1"
-        android:textColor="#FFFFFFFF"
-        android:textSize="34sp" />
+        android:textColor="#FFFFE7A8"
+        android:textSize="44sp" />
     <TextClock
         android:id="@+id/clock_widget_date"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="8dp"
         android:contentDescription="@string/clock_widget_date_description"
-        android:format12Hour="EEE, d MMM"
-        android:format24Hour="EEE, d MMM"
+        android:format12Hour="EEEE, d MMMM"
+        android:format24Hour="EEEE, d MMMM"
         android:fontFamily="sans-serif-condensed"
         android:includeFontPadding="false"
         android:maxLines="1"
         android:textColor="#FFEAE4F3"
-        android:textSize="14sp" />
+        android:textSize="16sp" />
 </LinearLayout>

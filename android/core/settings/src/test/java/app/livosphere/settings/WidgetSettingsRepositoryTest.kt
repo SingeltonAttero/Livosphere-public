@@ -58,4 +58,20 @@ class WidgetSettingsRepositoryTest {
         assertEquals("clock-a", widgets.observe(301).first().value().widgetId)
         close()
     }
+
+    @Test fun failedInitialUpdateRestoresExactPreviousRevision() = runBlocking {
+        val repository = repository(File(temporary.root, "rollback.json"))
+        val widgets = repository.widgets { true }
+        val previous = widgets.configure(101, "clock-a", WidgetSize.S, null).value()
+        val failed = widgets.configure(101, "clock-b", WidgetSize.L, null).value()
+        widgets.restoreAfterFailedUpdate(101, failed.configurationRevision, previous).value()
+        assertEquals(previous, widgets.observe(101).first().value())
+
+        val firstAttempt = widgets.configure(202, "clock-a", WidgetSize.M, null).value()
+        widgets.restoreAfterFailedUpdate(202, firstAttempt.configurationRevision, null).value()
+        assertTrue(widgets.observe(202).first() is SettingsOutcome.Failure)
+        val retry = widgets.configure(202, "clock-a", WidgetSize.M, null).value()
+        assertEquals(1L, retry.configurationRevision)
+        close()
+    }
 }

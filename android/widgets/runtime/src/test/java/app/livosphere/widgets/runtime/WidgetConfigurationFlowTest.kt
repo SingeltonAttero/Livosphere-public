@@ -22,4 +22,5 @@ class WidgetConfigurationFlowTest {
         assertTrue(WidgetConfigurationFlow.canReturnOk(WidgetConfigurationFlow.updated(committed, true)))
         assertFalse(WidgetConfigurationFlow.canReturnOk(WidgetConfigurationFlow.updated(committed, false)))
     }
+
 }

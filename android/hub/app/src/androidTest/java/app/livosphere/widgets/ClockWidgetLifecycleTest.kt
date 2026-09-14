@@ -55,6 +55,38 @@ class ClockWidgetLifecycleTest {
             assertFalse(coordinator.isCurrent(oldTicket, old))
             assertTrue(coordinator.isCurrent(coordinator.ticket(202, restored), restored))
             assertTrue(widgets.observe(101).first() is SettingsOutcome.Failure)
+
+            val firstCommitted = CompletableDeferred<Unit>()
+            val allowFirstPublication = CompletableDeferred<Unit>()
+            val secondStarted = CompletableDeferred<Unit>()
+            val secondEntered = CompletableDeferred<Unit>()
+            val order = mutableListOf<String>()
+            val first = launch(Dispatchers.Default) {
+                coordinator.serialize {
+                    widgets.configure(202, "clock-a", WidgetSize.M, null).value()
+                    order += "first-commit"
+                    firstCommitted.complete(Unit)
+                    allowFirstPublication.await()
+                    order += "first-publication"
+                }
+            }
+            firstCommitted.await()
+            val second = launch(Dispatchers.Default) {
+                secondStarted.complete(Unit)
+                coordinator.serialize {
+                    secondEntered.complete(Unit)
+                    widgets.configure(202, "clock-a", WidgetSize.L, null).value()
+                    order += "second-commit"
+                }
+            }
+            secondStarted.await()
+            repeat(10) { yield() }
+            assertFalse("a later commit must wait for the prior publication boundary", secondEntered.isCompleted)
+            allowFirstPublication.complete(Unit)
+            first.join()
+            second.join()
+            assertEquals(listOf("first-commit", "first-publication", "second-commit"), order)
+            assertEquals(WidgetSize.L, widgets.observe(202).first().value().size)
         } finally { job.cancelAndJoin() }
     }
 }

@@ -3,6 +3,7 @@ package app.livosphere.widgets
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.os.Bundle
+import android.content.res.Configuration
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -16,6 +17,8 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.xmlpull.v1.XmlPullParser
+import app.livosphere.contract.WidgetSize
+import app.livosphere.widgets.runtime.ClockLayoutAdapter
 
 @RunWith(AndroidJUnit4::class)
 class ClockWidgetLayoutTest {
@@ -23,26 +26,42 @@ class ClockWidgetLayoutTest {
 
     @Test fun smallShowsTimeAndMediumLargeKeepDateAcrossHostOptions() {
         val options = listOf(
-            Triple(R.layout.clock_widget_fixture_s, 110, 110),
-            Triple(R.layout.clock_widget_fixture_m, 250, 110),
-            Triple(R.layout.clock_widget_fixture_l, 250, 180),
+            Triple(WidgetSize.S, 110, 110),
+            Triple(WidgetSize.M, 250, 110),
+            Triple(WidgetSize.L, 252, 180),
         )
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            options.forEachIndexed { index, (layout, width, height) ->
+            options.forEach { (size, width, height) ->
                 scenario.onActivity { activity ->
                     val density = activity.resources.displayMetrics.density
+                    val largeFont = Configuration(activity.resources.configuration).apply { fontScale = 2f }
+                    val renderContext = activity.createConfigurationContext(largeFont)
                     val hostOptions = Bundle().apply {
                         putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, width)
                         putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, height)
                     }
-                    assertEquals(width, hostOptions.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH))
                     val parent = FrameLayout(activity)
                     activity.addContentView(parent, ViewGroup.LayoutParams(-1, -1))
-                    val view = android.widget.RemoteViews(activity.packageName, layout).apply(activity, parent)
+                    val catalog = RegistryWidgetCatalog()
+                    val layout = catalog.layoutResource(renderContext, "isolation-fixture-clock-widget", size)
+                    val remote = android.widget.RemoteViews(activity.packageName, layout)
+                    ClockLayoutAdapter.adapt(renderContext, remote, size, hostOptions, catalog)
+                    val view = remote.apply(renderContext, parent)
                     parent.addView(view, FrameLayout.LayoutParams((width * density).toInt(), (height * density).toInt()))
-                    assertTrue(view.findViewById<View>(R.id.clock_widget_time) is TextClock)
-                    if (index == 0) assertNull(view.findViewById<View?>(R.id.clock_widget_date))
-                    else assertTrue(view.findViewById<View>(R.id.clock_widget_date) is TextClock)
+                    val widthPx = (width * density).toInt()
+                    val heightPx = (height * density).toInt()
+                    view.measure(View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY))
+                    view.layout(0, 0, widthPx, heightPx)
+                    val time = view.findViewById<TextClock>(R.id.clock_widget_time)
+                    assertTrue(time.paint.measureText("23:59") <= widthPx - view.paddingLeft - view.paddingRight)
+                    val date = view.findViewById<TextClock?>(R.id.clock_widget_date)
+                    if (size == WidgetSize.S) assertNull(date) else {
+                        assertNotNull(date)
+                        assertTrue("200% compact date must fit " + width + "dp", date!!.paint.measureText("Wed, 30 Sep") <=
+                            widthPx - view.paddingLeft - view.paddingRight)
+                        assertTrue(date.measuredHeight <= heightPx)
+                    }
                 }
             }
         }
@@ -66,6 +85,16 @@ class ClockWidgetLayoutTest {
                 }
             }
         }
+        val catalog = RegistryWidgetCatalog()
+        assertEquals(
+            listOf("contour-debug-clock-widget", "isolation-fixture-clock-widget"),
+            catalog.items().map { it.widgetId },
+        )
+        assertEquals("contour-debug-clock-widget", catalog.itemForSet("contour-draft")?.widgetId)
+        assertNotEquals(
+            catalog.layoutResource(context, "contour-debug-clock-widget", WidgetSize.M),
+            catalog.layoutResource(context, "isolation-fixture-clock-widget", WidgetSize.M),
+        )
     }
 
     private companion object { const val NS = "http://schemas.android.com/apk/res/android" }

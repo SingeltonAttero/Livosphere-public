@@ -69,6 +69,7 @@ import app.livosphere.hub.onboarding.OnboardingDialog
 import app.livosphere.hub.onboarding.Outcome
 import kotlinx.coroutines.flow.collectLatest
 import app.livosphere.widgets.runtime.ClockWidgetRuntime
+import app.livosphere.widgets.RegistryWidgetCatalog
 
 @Composable
 fun HubApp(
@@ -91,6 +92,11 @@ fun HubApp(
     val navigator = remember(backStack) { HubNavigator(backStack) }
     val restoredSection = backStack.lastOrNull().toSection()
     val latestRestoredSection by rememberUpdatedState(restoredSection)
+
+    LaunchedEffect(context) {
+        val catalog = RegistryWidgetCatalog()
+        ClockWidgetRuntime.repository(context).pendingPins(catalog::contains).cleanup(System.currentTimeMillis())
+    }
 
     LifecycleResumeEffect(viewModel) {
         // The actual restored destination and foreground eligibility enter the reducer together.
@@ -162,6 +168,7 @@ fun HubApp(
                             val selectedSet = app.livosphere.generated.GeneratedSetRegistry.sets.singleOrNull {
                                 it.wallpaper.componentId.value == state.phone.target?.wallpaperId
                             } ?: app.livosphere.generated.GeneratedSetRegistry.sets.firstOrNull()
+                            val selectedClock = selectedSet?.setId?.value?.let(RegistryWidgetCatalog()::itemForSet)
                             ThemeScreen(
                                 setId = selectedSet?.setId?.value,
                                 selectedSurface = state.selectedSurface,
@@ -173,14 +180,14 @@ fun HubApp(
                                     viewModel.onAction(HubAction.ThemePreviewSeen)
                                 },
                                 phoneState = state.phone,
+                                widgetAvailable = selectedClock != null,
+                                widgetDisplayName = selectedClock?.displayName,
                                 onTry = {
                                     if (state.selectedSurface == HubSurface.WALLPAPER) {
                                         viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn))
                                     } else {
-                                        (selectedSet?.clockWidget ?: app.livosphere.generated.GeneratedSetRegistry.sets
-                                            .firstNotNullOfOrNull { it.clockWidget })?.componentId?.value?.let { widgetId ->
-                                            context.startActivity(ClockWidgetRuntime.prePinIntent(context, widgetId))
-                                        }
+                                        selectedClock?.widgetId?.let { widgetId -> context.startActivity(
+                                            ClockWidgetRuntime.prePinIntent(context, widgetId)) }
                                     }
                                 },
                                 onPhoneRefresh = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.Refresh)) },

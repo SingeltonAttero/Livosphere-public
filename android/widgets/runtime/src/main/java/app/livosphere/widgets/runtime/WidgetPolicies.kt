@@ -2,12 +2,18 @@ package app.livosphere.widgets.runtime
 
 import app.livosphere.contract.ClockTarget
 import app.livosphere.contract.WidgetPreferences
+import app.livosphere.contract.WidgetSize
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 data class RenderTicket(val appWidgetId: Int, val revision: Long, val generation: Long)
 
 /** Per-ID freshness guard used immediately before every RemoteViews publication. */
 class WidgetRenderCoordinator {
+    private val operationGate = Mutex()
     private val generations = mutableMapOf<Int, Long>()
+
+    suspend fun <T> serialize(block: suspend () -> T): T = operationGate.withLock { block() }
 
     @Synchronized
     fun ticket(appWidgetId: Int, preferences: WidgetPreferences): RenderTicket {
@@ -29,6 +35,23 @@ class WidgetRenderCoordinator {
     fun restore(oldId: Int, newId: Int, generation: Long) {
         delete(oldId)
         generations[newId] = maxOf(generations[newId] ?: 0, generation)
+    }
+}
+
+enum class ConfigurationCommitResult { UPDATED, ROLLED_BACK, REJECTED }
+
+data class ClockLayoutMetrics(val timeSp: Float, val dateSp: Float, val datePattern: String)
+object ClockGeometryPolicy {
+    fun metrics(size: WidgetSize, widthDp: Int, fontScale: Float): ClockLayoutMetrics {
+        val scale = fontScale.coerceAtLeast(1f)
+        val compact = widthDp in 1..270 || scale >= 1.5f
+        val timeBase = when (size) { WidgetSize.L -> 44f; else -> 34f }
+        val dateBase = when (size) { WidgetSize.L -> 16f; else -> 14f }
+        return ClockLayoutMetrics(
+            timeSp = (timeBase / scale).coerceAtLeast(18f),
+            dateSp = (dateBase / scale).coerceAtLeast(8f),
+            datePattern = if (compact) "EEE, d MMM" else "EEEE, d MMMM",
+        )
     }
 }
 

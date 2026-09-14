@@ -3,7 +3,7 @@
     android:id="@+id/clock_widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/clock_probe_background"
+    android:background="@drawable/clock_contour_background"
     android:gravity="center"
     android:minWidth="48dp"
     android:minHeight="48dp"
@@ -19,7 +19,7 @@
         android:fontFamily="sans-serif-condensed"
         android:includeFontPadding="false"
         android:maxLines="1"
-        android:textColor="#FFFFFFFF"
+        android:textColor="#FFFFE7A8"
         android:textSize="34sp" />
     <TextClock
         android:id="@+id/clock_widget_date"

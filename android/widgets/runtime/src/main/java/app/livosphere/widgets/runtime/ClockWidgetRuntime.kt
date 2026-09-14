@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.AlarmClock
 import android.widget.RemoteViews
+import android.util.TypedValue
 import app.livosphere.contract.*
 import app.livosphere.settings.ApplicationSurfaceSettings
 import app.livosphere.settings.PIN_VALID_MILLIS
@@ -20,19 +21,25 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import java.util.UUID
 
+data class WidgetCatalogItem(val widgetId: String, val setId: String, val displayName: String)
 interface WidgetCatalog {
+    fun items(): List<WidgetCatalogItem>
+    fun item(widgetId: String): WidgetCatalogItem? = items().singleOrNull { it.widgetId == widgetId }
+    fun itemForSet(setId: String): WidgetCatalogItem? = items().singleOrNull { it.setId == setId }
     fun contains(widgetId: String): Boolean
     fun layoutResource(context: Context, widgetId: String, size: WidgetSize): Int
     fun rootViewId(context: Context): Int
     fun needsConfigurationLayout(context: Context): Int
+    fun timeViewId(context: Context): Int
+    fun dateViewId(context: Context): Int
 }
 
 object ClockWidgetRuntime {
     const val DEFAULT_DEBUG_WIDGET_ID = "isolation-fixture-clock-widget"
     const val EXTRA_PIN_TOKEN = "app.livosphere.extra.PIN_TOKEN"
-    const val EXTRA_PRE_PIN = "app.livosphere.extra.PRE_PIN"
     const val EXTRA_WIDGET_ID = "app.livosphere.extra.WIDGET_ID"
     const val CONFIGURATION_ACTIVITY = "app.livosphere.widgets.ClockWidgetConfigurationActivity"
+    const val PRE_PIN_ACTIVITY = "app.livosphere.widgets.ClockWidgetPrePinActivity"
     const val ROUTER_ACTIVITY = "app.livosphere.widgets.ClockLaunchRouterActivity"
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val coordinator = WidgetRenderCoordinator()
@@ -44,28 +51,77 @@ object ClockWidgetRuntime {
 
     fun launch(block: suspend () -> Unit) = scope.launch { block() }
 
-    suspend fun update(context: Context, appWidgetId: Int): Boolean {
+    suspend fun update(context: Context, appWidgetId: Int): Boolean = coordinator.serialize {
+        updateLocked(context, appWidgetId)
+    }
+
+    private suspend fun updateLocked(context: Context, appWidgetId: Int): Boolean {
         val catalog = catalog()
         val port = repository(context).widgets(catalog::contains)
         val outcome = port.observe(appWidgetId).first()
         val manager = AppWidgetManager.getInstance(context)
         if (outcome !is SettingsOutcome.Success) {
-            manager.updateAppWidget(appWidgetId, needsConfigurationViews(context, appWidgetId, catalog))
+            publish(manager, appWidgetId, needsConfigurationViews(context, appWidgetId, catalog))
             return false
         }
         val preferences = outcome.value
         val ticket = coordinator.ticket(appWidgetId, preferences)
         val layout = catalog.layoutResource(context, preferences.widgetId, preferences.size)
         if (layout == 0) {
-            manager.updateAppWidget(appWidgetId, needsConfigurationViews(context, appWidgetId, catalog))
+            publish(manager, appWidgetId, needsConfigurationViews(context, appWidgetId, catalog))
             return false
         }
         val latest = (port.observe(appWidgetId).first() as? SettingsOutcome.Success)?.value
         if (!coordinator.isCurrent(ticket, latest)) return false
         val views = RemoteViews(context.packageName, layout)
+        val options = manager.getAppWidgetOptions(appWidgetId)
+        ClockLayoutAdapter.adapt(context, views, preferences.size, options, catalog)
         views.setOnClickPendingIntent(catalog.rootViewId(context), routerPendingIntent(context, appWidgetId))
-        manager.updateAppWidget(appWidgetId, views)
-        return true
+        return publish(manager, appWidgetId, views)
+    }
+
+    private fun publish(manager: AppWidgetManager, appWidgetId: Int, views: RemoteViews): Boolean =
+        try { manager.updateAppWidget(appWidgetId, views); true } catch (_: RuntimeException) { false }
+
+    suspend fun configureAndUpdate(
+        context: Context, appWidgetId: Int, widgetId: String, size: WidgetSize, target: ClockTarget?,
+    ): ConfigurationCommitResult = coordinator.serialize {
+        val port = repository(context).widgets(catalog()::contains)
+        val previous = (port.observe(appWidgetId).first() as? SettingsOutcome.Success)?.value
+        val committed = port.configure(appWidgetId, widgetId, size, target)
+        if (committed !is SettingsOutcome.Success) return@serialize ConfigurationCommitResult.REJECTED
+        if (updateLocked(context, appWidgetId)) return@serialize ConfigurationCommitResult.UPDATED
+        val rollback = port.restoreAfterFailedUpdate(appWidgetId, committed.value.configurationRevision, previous)
+        if (rollback is SettingsOutcome.Success) ConfigurationCommitResult.ROLLED_BACK else ConfigurationCommitResult.REJECTED
+    }
+
+    suspend fun delete(context: Context, appWidgetId: Int) = coordinator.serialize {
+        repository(context).widgets(catalog()::contains).delete(appWidgetId).also { deleted(appWidgetId) }
+    }
+
+    suspend fun restore(context: Context, mapping: Map<Int, Int>) = coordinator.serialize {
+        val port = repository(context).widgets(catalog()::contains)
+        when (val result = port.remap(mapping)) {
+            is SettingsOutcome.Success -> result.value.forEach { (newId, preferences) ->
+                val oldId = mapping.entries.single { it.value == newId }.key
+                restored(oldId, newId, preferences.generation)
+                if (updateLocked(context, newId) && Build.VERSION.SDK_INT >= 30) {
+                    AppWidgetManager.getInstance(context).updateAppWidgetOptions(
+                        newId, Bundle().apply { putBoolean(AppWidgetManager.OPTION_APPWIDGET_RESTORE_COMPLETED, true) },
+                    )
+                }
+            }
+            is SettingsOutcome.Failure -> mapping.values.forEach { updateLocked(context, it) }
+        }
+    }
+
+    suspend fun consumePinAndUpdate(
+        context: Context, token: String, providerClassName: String, appWidgetId: Int, nowEpochMillis: Long,
+    ) = coordinator.serialize {
+        val pins = repository(context).pendingPins(catalog()::contains)
+        val result = pins.consume(token, providerClassName, appWidgetId, nowEpochMillis)
+        if (result is SettingsOutcome.Success) updateLocked(context, appWidgetId)
+        result
     }
 
     fun providerFor(size: WidgetSize): Class<out AppWidgetProvider> = when (size) {
@@ -98,8 +154,7 @@ object ClockWidgetRuntime {
             .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
 
     fun prePinIntent(context: Context, widgetId: String): Intent =
-        Intent().setComponent(ComponentName(context, CONFIGURATION_ACTIVITY))
-            .putExtra(EXTRA_PRE_PIN, true).putExtra(EXTRA_WIDGET_ID, widgetId)
+        Intent().setComponent(ComponentName(context, PRE_PIN_ACTIVITY)).putExtra(EXTRA_WIDGET_ID, widgetId)
 
     private fun needsConfigurationViews(context: Context, appWidgetId: Int, catalog: WidgetCatalog): RemoteViews =
         RemoteViews(context.packageName, catalog.needsConfigurationLayout(context)).also {
@@ -111,6 +166,22 @@ object ClockWidgetRuntime {
 
     internal fun deleted(appWidgetId: Int) { coordinator.delete(appWidgetId) }
     internal fun restored(oldId: Int, newId: Int, generation: Long) { coordinator.restore(oldId, newId, generation) }
+}
+
+object ClockLayoutAdapter {
+    fun adapt(context: Context, views: RemoteViews, size: WidgetSize, options: Bundle, catalog: WidgetCatalog) {
+        val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, when (size) {
+            WidgetSize.S -> 110; else -> 250
+        })
+        val metrics = ClockGeometryPolicy.metrics(size, width, context.resources.configuration.fontScale)
+        views.setTextViewTextSize(catalog.timeViewId(context), TypedValue.COMPLEX_UNIT_SP, metrics.timeSp)
+        if (size != WidgetSize.S) {
+            val dateId = catalog.dateViewId(context)
+            views.setTextViewTextSize(dateId, TypedValue.COMPLEX_UNIT_SP, metrics.dateSp)
+            views.setCharSequence(dateId, "setFormat12Hour", metrics.datePattern)
+            views.setCharSequence(dateId, "setFormat24Hour", metrics.datePattern)
+        }
+    }
 }
 
 abstract class BaseClockWidgetProvider : AppWidgetProvider() {
@@ -128,8 +199,7 @@ abstract class BaseClockWidgetProvider : AppWidgetProvider() {
         val pending = goAsync()
         ClockWidgetRuntime.launch {
             try {
-                val port = ClockWidgetRuntime.repository(context).widgets(ClockWidgetRuntime.catalog()::contains)
-                appWidgetIds.forEach { id -> port.delete(id); ClockWidgetRuntime.deleted(id) }
+                appWidgetIds.forEach { id -> ClockWidgetRuntime.delete(context, id) }
             } finally { pending.finish() }
         }
     }
@@ -140,19 +210,7 @@ abstract class BaseClockWidgetProvider : AppWidgetProvider() {
             try {
                 if (oldWidgetIds.size != newWidgetIds.size || oldWidgetIds.isEmpty()) return@launch
                 val mapping = oldWidgetIds.indices.associate { oldWidgetIds[it] to newWidgetIds[it] }
-                val port = ClockWidgetRuntime.repository(context).widgets(ClockWidgetRuntime.catalog()::contains)
-                when (val result = port.remap(mapping)) {
-                    is SettingsOutcome.Success -> result.value.forEach { (newId, preferences) ->
-                        val oldId = mapping.entries.single { it.value == newId }.key
-                        ClockWidgetRuntime.restored(oldId, newId, preferences.generation)
-                        if (ClockWidgetRuntime.update(context, newId) && Build.VERSION.SDK_INT >= 30) {
-                            AppWidgetManager.getInstance(context).updateAppWidgetOptions(
-                                newId, Bundle().apply { putBoolean(AppWidgetManager.OPTION_APPWIDGET_RESTORE_COMPLETED, true) },
-                            )
-                        }
-                    }
-                    is SettingsOutcome.Failure -> newWidgetIds.forEach { ClockWidgetRuntime.update(context, it) }
-                }
+                ClockWidgetRuntime.restore(context, mapping)
             } finally { pending.finish() }
         }
     }
@@ -177,6 +235,7 @@ object WidgetPinLauncher {
         val token = UUID.randomUUID().toString().replace("-", "_")
         val pin = PendingWidgetPin(token, widgetId, size, target, provider.className, nowEpochMillis)
         val pins = ClockWidgetRuntime.repository(context).pendingPins(ClockWidgetRuntime.catalog()::contains)
+        pins.cleanup(nowEpochMillis)
         if (pins.create(pin) !is SettingsOutcome.Success) return PinRequestResult.FAILED
         val callbackIntent = Intent(context, WidgetPinCallbackReceiver::class.java)
             .setData(Uri.parse("livosphere://widget-pin/$token"))
@@ -196,15 +255,16 @@ class WidgetPinCallbackReceiver : BroadcastReceiver() {
                 val appWidgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
                 val provider = ClockWidgetRuntime.ownProvider(context, appWidgetId) ?: return@launch
                 val pins = ClockWidgetRuntime.repository(context).pendingPins(ClockWidgetRuntime.catalog()::contains)
+                val now = System.currentTimeMillis()
+                pins.cleanup(now)
                 val pin = (pins.observe(token).first() as? SettingsOutcome.Success)?.value ?: return@launch
                 val decision = WidgetPinFlow.callback(
                     pin.providerClassName, provider.className, appWidgetId,
-                    System.currentTimeMillis() - pin.createdAtEpochMillis > PIN_VALID_MILLIS,
+                    now - pin.createdAtEpochMillis > PIN_VALID_MILLIS,
                     pin.boundAppWidgetId,
                 )
                 if (decision == PinCallbackDecision.CONSUME || decision == PinCallbackDecision.REPLAY) {
-                    val result = pins.consume(token, provider.className, appWidgetId, System.currentTimeMillis())
-                    if (result is SettingsOutcome.Success) ClockWidgetRuntime.update(context, appWidgetId)
+                    ClockWidgetRuntime.consumePinAndUpdate(context, token, provider.className, appWidgetId, now)
                 }
             } finally { pending.finish() }
         }

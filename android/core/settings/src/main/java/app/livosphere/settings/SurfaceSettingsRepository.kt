@@ -79,6 +79,26 @@ class SurfaceSettingsRepository(private val store: DataStore<StoredSurfaceSettin
                 current.copy(widgets = unaffected + remapped.mapKeys { it.key.toString() }.mapValues { it.value.encode() }) to remapped
             }
         }
+        override suspend fun restoreAfterFailedUpdate(
+            appWidgetId: Int,
+            failedRevision: Long,
+            previous: WidgetPreferences?,
+        ): SettingsOutcome<Unit> {
+            val owner = SettingsOwner.Widget(appWidgetId)
+            require(failedRevision > 0)
+            previous?.let { require(it.configurationRevision < failedRevision) }
+            return transaction { current ->
+                val raw = current.widgets[appWidgetId.toString()] ?: fail(SurfaceSettingsFailure.NeedsConfiguration(owner, null))
+                val failed = when (val value = decode(owner) { raw.widget() }) {
+                    is SettingsOutcome.Success -> value.value
+                    is SettingsOutcome.Failure -> fail(value.reason)
+                }
+                if (failed.configurationRevision != failedRevision) fail(SurfaceSettingsFailure.Write)
+                val restored = if (previous == null) current.widgets - appWidgetId.toString()
+                    else current.widgets + (appWidgetId.toString() to previous.encode())
+                current.copy(widgets = restored) to Unit
+            }
+        }
     }
 
     fun pendingPins(available: (String) -> Boolean): PendingPinRepository = object : PendingPinRepository {

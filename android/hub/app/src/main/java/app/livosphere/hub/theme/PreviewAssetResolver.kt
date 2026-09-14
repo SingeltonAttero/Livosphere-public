@@ -32,7 +32,7 @@ internal object PreviewAssetResolver {
             HubSurface.WATCH_FACE -> descriptor.preview.widgetRefs[WidgetSize.M]
         }
         val reference = if (roleRef != null) descriptor.preview.resources.singleOrNull { it.symbolicName == roleRef }
-            else if (descriptor.schemaVersion == 1) descriptor.preview.resources.singleOrNull {
+            else if (descriptor.schemaVersion == 1 && surface == HubSurface.WALLPAPER) descriptor.preview.resources.singleOrNull {
                 it.symbolicName.startsWith(if (surface == HubSurface.WALLPAPER) "preview-wallpaper-" else "preview-watchface-")
             } else null
         reference ?: return null

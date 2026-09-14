@@ -8,7 +8,7 @@
     android:minWidth="48dp"
     android:minHeight="48dp"
     android:orientation="vertical"
-    android:padding="20dp">
+    android:padding="8dp">
     <TextClock
         android:id="@+id/clock_widget_time"
         android:layout_width="wrap_content"
@@ -16,6 +16,7 @@
         android:contentDescription="@string/clock_widget_time_description"
         android:format12Hour="h:mm"
         android:format24Hour="HH:mm"
+        android:fontFamily="sans-serif-condensed"
         android:includeFontPadding="false"
         android:maxLines="1"
         android:textColor="#FFFFFFFF"
@@ -28,6 +29,7 @@
         android:contentDescription="@string/clock_widget_date_description"
         android:format12Hour="EEEE, d MMMM"
         android:format24Hour="EEEE, d MMMM"
+        android:fontFamily="sans-serif-condensed"
         android:includeFontPadding="false"
         android:maxLines="1"
         android:textColor="#FFEAE4F3"

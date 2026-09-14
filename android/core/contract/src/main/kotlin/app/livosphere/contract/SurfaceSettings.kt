@@ -85,6 +85,11 @@ interface WidgetSettingsRepository {
     suspend fun configure(appWidgetId: Int, widgetId: String, size: WidgetSize, clockTarget: ClockTarget?): SettingsOutcome<WidgetPreferences>
     suspend fun delete(appWidgetId: Int): SettingsOutcome<Unit>
     suspend fun remap(mapping: Map<Int, Int>): SettingsOutcome<Map<Int, WidgetPreferences>>
+    suspend fun restoreAfterFailedUpdate(
+        appWidgetId: Int,
+        failedRevision: Long,
+        previous: WidgetPreferences?,
+    ): SettingsOutcome<Unit>
 }
 interface PendingPinRepository {
     fun observe(token: String): Flow<SettingsOutcome<PendingWidgetPin?>>
