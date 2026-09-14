@@ -21,6 +21,18 @@ class WidgetConfigurationFlowTest {
         assertFalse(WidgetConfigurationFlow.canReturnOk(committed))
         assertTrue(WidgetConfigurationFlow.canReturnOk(WidgetConfigurationFlow.updated(committed, true)))
         assertFalse(WidgetConfigurationFlow.canReturnOk(WidgetConfigurationFlow.updated(committed, false)))
+        assertEquals(
+            ConfigurationFailureState.PREVIOUS_PRESERVED,
+            WidgetConfigurationFlow.failureState(ConfigurationCommitResult.ROLLED_BACK),
+        )
+        assertEquals(
+            ConfigurationFailureState.STATE_UNKNOWN,
+            WidgetConfigurationFlow.failureState(ConfigurationCommitResult.ROLLBACK_FAILED),
+        )
+        assertEquals(
+            ConfigurationFailureState.WRITE_REJECTED,
+            WidgetConfigurationFlow.failureState(ConfigurationCommitResult.REJECTED),
+        )
     }
 
 }

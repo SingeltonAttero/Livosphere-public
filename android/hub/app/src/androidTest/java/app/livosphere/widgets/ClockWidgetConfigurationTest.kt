@@ -51,6 +51,18 @@ class ClockWidgetConfigurationTest {
         assertEquals(2, attempts)
         assertEquals(drafts[0], drafts[1])
 
+        ClockActivityHooks.configure = { _, _, _, _, _ -> ConfigurationCommitResult.ROLLBACK_FAILED }
+        ActivityScenario.launch<ClockWidgetConfigurationActivity>(
+            Intent(context, ClockWidgetConfigurationActivity::class.java)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 902),
+        ).use {
+            compose.onNodeWithText("Сохранить").performClick()
+            compose.onNodeWithText(
+                "Не удалось обновить часы и восстановить прежние настройки. Откройте настройку экземпляра снова и проверьте выбранные значения.",
+            ).assertIsDisplayed()
+            compose.onNodeWithText("Отмена").performClick()
+        }
+
         ClockActivityHooks.pin = { _, _, _, _ -> PinRequestResult.UNSUPPORTED }
         ActivityScenario.launch<ClockWidgetPrePinActivity>(
             ClockWidgetRuntime.prePinIntent(context, "contour-debug-clock-widget"),

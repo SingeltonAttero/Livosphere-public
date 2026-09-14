@@ -92,7 +92,8 @@ object ClockWidgetRuntime {
         if (committed !is SettingsOutcome.Success) return@serialize ConfigurationCommitResult.REJECTED
         if (updateLocked(context, appWidgetId)) return@serialize ConfigurationCommitResult.UPDATED
         val rollback = port.restoreAfterFailedUpdate(appWidgetId, committed.value.configurationRevision, previous)
-        if (rollback is SettingsOutcome.Success) ConfigurationCommitResult.ROLLED_BACK else ConfigurationCommitResult.REJECTED
+        if (rollback is SettingsOutcome.Success) ConfigurationCommitResult.ROLLED_BACK
+        else ConfigurationCommitResult.ROLLBACK_FAILED
     }
 
     suspend fun delete(context: Context, appWidgetId: Int) = coordinator.serialize {
@@ -117,11 +118,23 @@ object ClockWidgetRuntime {
 
     suspend fun consumePinAndUpdate(
         context: Context, token: String, providerClassName: String, appWidgetId: Int, nowEpochMillis: Long,
-    ) = coordinator.serialize {
+    ): PinPublicationResult = coordinator.serialize {
         val pins = repository(context).pendingPins(catalog()::contains)
-        val result = pins.consume(token, providerClassName, appWidgetId, nowEpochMillis)
-        if (result is SettingsOutcome.Success) updateLocked(context, appWidgetId)
-        result
+        when (val result = pins.consume(token, providerClassName, appWidgetId, nowEpochMillis)) {
+            is SettingsOutcome.Failure -> PinPublicationResult.REJECTED
+            is SettingsOutcome.Success -> WidgetPinFlow.publicationResult(
+                result.value,
+                updateLocked(context, appWidgetId),
+            )
+        }
+    }
+
+    /** Re-publishes latest durable revisions for existing own host IDs; it never consumes a pin again. */
+    suspend fun reconcileOwnWidgets(context: Context): Map<Int, Boolean> = coordinator.serialize {
+        val manager = AppWidgetManager.getInstance(context)
+        WidgetSize.entries.flatMap { size ->
+            manager.getAppWidgetIds(ComponentName(context, providerFor(size))).asIterable()
+        }.distinct().associateWith { appWidgetId -> updateLocked(context, appWidgetId) }
     }
 
     fun providerFor(size: WidgetSize): Class<out AppWidgetProvider> = when (size) {
@@ -264,7 +277,13 @@ class WidgetPinCallbackReceiver : BroadcastReceiver() {
                     pin.boundAppWidgetId,
                 )
                 if (decision == PinCallbackDecision.CONSUME || decision == PinCallbackDecision.REPLAY) {
-                    ClockWidgetRuntime.consumePinAndUpdate(context, token, provider.className, appWidgetId, now)
+                    when (ClockWidgetRuntime.consumePinAndUpdate(context, token, provider.className, appWidgetId, now)) {
+                        PinPublicationResult.COMMITTED_UPDATED, PinPublicationResult.REPLAY_UPDATED -> Unit
+                        // Durable latest prefs remain retryable by callback replay or hub reconciliation.
+                        PinPublicationResult.COMMITTED_RETRY_REQUIRED,
+                        PinPublicationResult.REPLAY_RETRY_REQUIRED,
+                        PinPublicationResult.REJECTED -> Unit
+                    }
                 }
             } finally { pending.finish() }
         }

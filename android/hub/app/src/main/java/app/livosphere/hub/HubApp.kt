@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -68,6 +69,7 @@ import app.livosphere.hub.theme.ThemeScreen
 import app.livosphere.hub.onboarding.OnboardingDialog
 import app.livosphere.hub.onboarding.Outcome
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import app.livosphere.widgets.runtime.ClockWidgetRuntime
 import app.livosphere.widgets.RegistryWidgetCatalog
 
@@ -93,12 +95,14 @@ fun HubApp(
     val restoredSection = backStack.lastOrNull().toSection()
     val latestRestoredSection by rememberUpdatedState(restoredSection)
 
-    LaunchedEffect(context) {
-        val catalog = RegistryWidgetCatalog()
-        ClockWidgetRuntime.repository(context).pendingPins(catalog::contains).cleanup(System.currentTimeMillis())
-    }
+    val widgetReconciliationScope = rememberCoroutineScope()
 
     LifecycleResumeEffect(viewModel) {
+        widgetReconciliationScope.launch {
+            val catalog = RegistryWidgetCatalog()
+            ClockWidgetRuntime.repository(context).pendingPins(catalog::contains).cleanup(System.currentTimeMillis())
+            ClockWidgetRuntime.reconcileOwnWidgets(context)
+        }
         // The actual restored destination and foreground eligibility enter the reducer together.
         viewModel.onAction(HubAction.ForegroundStarted(latestRestoredSection))
         onPauseOrDispose { viewModel.onAction(HubAction.ForegroundStopped) }

@@ -38,7 +38,9 @@ class WidgetRenderCoordinator {
     }
 }
 
-enum class ConfigurationCommitResult { UPDATED, ROLLED_BACK, REJECTED }
+enum class ConfigurationCommitResult { UPDATED, ROLLED_BACK, ROLLBACK_FAILED, REJECTED }
+
+enum class ConfigurationFailureState { PREVIOUS_PRESERVED, STATE_UNKNOWN, WRITE_REJECTED }
 
 data class ClockLayoutMetrics(val timeSp: Float, val dateSp: Float, val datePattern: String)
 object ClockGeometryPolicy {
@@ -88,6 +90,30 @@ object WidgetConfigurationFlow {
     fun committed(state: WidgetConfigurationState, value: WidgetPreferences) = state.copy(draft = value, saved = true)
     fun updated(state: WidgetConfigurationState, succeeded: Boolean) = state.copy(initialUpdateSucceeded = succeeded)
     fun canReturnOk(state: WidgetConfigurationState) = state.saved && state.initialUpdateSucceeded
+    fun failureState(result: ConfigurationCommitResult): ConfigurationFailureState? = when (result) {
+        ConfigurationCommitResult.UPDATED -> null
+        ConfigurationCommitResult.ROLLED_BACK -> ConfigurationFailureState.PREVIOUS_PRESERVED
+        ConfigurationCommitResult.ROLLBACK_FAILED -> ConfigurationFailureState.STATE_UNKNOWN
+        ConfigurationCommitResult.REJECTED -> ConfigurationFailureState.WRITE_REJECTED
+    }
+}
+
+enum class PinPublicationResult {
+    COMMITTED_UPDATED,
+    COMMITTED_RETRY_REQUIRED,
+    REPLAY_UPDATED,
+    REPLAY_RETRY_REQUIRED,
+    REJECTED,
+}
+
+fun WidgetPinFlow.publicationResult(
+    consumeResult: app.livosphere.contract.PendingPinConsumeResult,
+    updated: Boolean,
+): PinPublicationResult = when (consumeResult) {
+    is app.livosphere.contract.PendingPinConsumeResult.Consumed ->
+        if (updated) PinPublicationResult.COMMITTED_UPDATED else PinPublicationResult.COMMITTED_RETRY_REQUIRED
+    is app.livosphere.contract.PendingPinConsumeResult.Replay ->
+        if (updated) PinPublicationResult.REPLAY_UPDATED else PinPublicationResult.REPLAY_RETRY_REQUIRED
 }
 
 object ClockTargetPolicy {
