@@ -1,1 +1,2 @@
-<test-declaration native-widget-pass="false" scene="static-two-panel"/>
+<phase-environment phase="night" background="#10182F" ground="#17233D"
+    objectColor="#DCE8FF" geometry="moon-stars" content-status="draft-debug-only"/>

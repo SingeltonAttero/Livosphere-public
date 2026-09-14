@@ -4,6 +4,7 @@ import android.content.Context
 import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
 import androidx.test.platform.app.InstrumentationRegistry
+import app.livosphere.contract.DayPhase
 import app.livosphere.settings.*
 import app.livosphere.wallpapers.engine.*
 import app.livosphere.wallpapers.fixture.FixtureWallpaperService
@@ -37,7 +38,7 @@ class FixtureEngineCallbacksTest {
             init { attachBaseContext(context) }
             override fun createSettings() = settings
             override fun isSurfaceValid(holder: SurfaceHolder) = true
-            override fun createRenderer(holder: SurfaceHolder) = object : WallpaperRenderer {
+            override fun createRenderer(holder: SurfaceHolder, phase: () -> DayPhase) = object : WallpaperRenderer {
                 override fun render(timeMillis: Long, reducedMotion: Boolean): WallpaperFrameResult {
                     assertTrue(reducedMotion); frames.incrementAndGet(); return WallpaperFrameResult.DRAWN
                 }
