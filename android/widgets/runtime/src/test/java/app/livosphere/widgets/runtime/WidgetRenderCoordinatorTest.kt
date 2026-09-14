@@ -57,5 +57,8 @@ class WidgetRenderCoordinatorTest {
         assertTrue(metrics.dateSp <= 8f)
         assertTrue(metrics.timeSp <= 22f)
         assertEquals("EEEE, d MMMM", ClockGeometryPolicy.metrics(WidgetSize.L, 320, 1f).datePattern)
+
+        val small = ClockGeometryPolicy.metrics(WidgetSize.S, widthDp = 110, fontScale = 2f)
+        assertEquals(16f, small.timeSp)
     }
 }

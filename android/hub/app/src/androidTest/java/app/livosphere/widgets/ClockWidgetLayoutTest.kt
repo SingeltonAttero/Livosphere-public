@@ -54,12 +54,22 @@ class ClockWidgetLayoutTest {
                         View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY))
                     view.layout(0, 0, widthPx, heightPx)
                     val time = view.findViewById<TextClock>(R.id.clock_widget_time)
-                    assertTrue(time.paint.measureText("23:59") <= widthPx - view.paddingLeft - view.paddingRight)
+                    val contentWidth = widthPx - view.paddingLeft - view.paddingRight
+                    val timeWidth = time.paint.measureText("23:59")
+                    assertTrue(
+                        "time clipped: size=$size bounds=${width}x${height}dp fontScale=${largeFont.fontScale} " +
+                            "textSizePx=${time.textSize} textWidthPx=$timeWidth contentWidthPx=$contentWidth",
+                        timeWidth <= contentWidth,
+                    )
                     val date = view.findViewById<TextClock?>(R.id.clock_widget_date)
                     if (size == WidgetSize.S) assertNull(date) else {
                         assertNotNull(date)
-                        assertTrue("200% compact date must fit " + width + "dp", date!!.paint.measureText("Wed, 30 Sep") <=
-                            widthPx - view.paddingLeft - view.paddingRight)
+                        val dateWidth = date!!.paint.measureText("Wed, 30 Sep")
+                        assertTrue(
+                            "date clipped: size=$size bounds=${width}x${height}dp fontScale=${largeFont.fontScale} " +
+                                "textSizePx=${date.textSize} textWidthPx=$dateWidth contentWidthPx=$contentWidth",
+                            dateWidth <= contentWidth,
+                        )
                         assertTrue(date.measuredHeight <= heightPx)
                     }
                 }

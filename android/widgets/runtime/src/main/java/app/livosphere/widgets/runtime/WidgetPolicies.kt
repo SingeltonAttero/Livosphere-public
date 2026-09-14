@@ -45,10 +45,14 @@ object ClockGeometryPolicy {
     fun metrics(size: WidgetSize, widthDp: Int, fontScale: Float): ClockLayoutMetrics {
         val scale = fontScale.coerceAtLeast(1f)
         val compact = widthDp in 1..270 || scale >= 1.5f
-        val timeBase = when (size) { WidgetSize.L -> 44f; else -> 34f }
+        val timeBase = when {
+            size == WidgetSize.S && compact -> 32f
+            size == WidgetSize.L -> 44f
+            else -> 34f
+        }
         val dateBase = when (size) { WidgetSize.L -> 16f; else -> 14f }
         return ClockLayoutMetrics(
-            timeSp = (timeBase / scale).coerceAtLeast(18f),
+            timeSp = (timeBase / scale).coerceAtLeast(12f),
             dateSp = (dateBase / scale).coerceAtLeast(8f),
             datePattern = if (compact) "EEE, d MMM" else "EEEE, d MMMM",
         )

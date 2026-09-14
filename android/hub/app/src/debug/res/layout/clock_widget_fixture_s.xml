@@ -15,6 +15,7 @@
         android:layout_gravity="center"
         android:format12Hour="h:mm"
         android:format24Hour="HH:mm"
+        android:fontFamily="sans-serif-condensed"
         android:includeFontPadding="false"
         android:maxLines="1"
         android:textColor="#FFFFFFFF"
