@@ -41,7 +41,7 @@ class OwnedSettingsViewModelTest {
         var opens = 0
         var readsFail = false
         var writeFailure: Exception? = null
-        val values = MutableStateFlow(StoredSurfaceSettings(schemaVersion = 1))
+        val values = MutableStateFlow(StoredSurfaceSettings(schemaVersion = SURFACE_SETTINGS_SCHEMA))
         override val data = flow { opens++; if (readsFail) throw IOException("controlled read"); emitAll(values) }
         override suspend fun updateData(transform: suspend (StoredSurfaceSettings) -> StoredSurfaceSettings): StoredSurfaceSettings {
             writeFailure?.let { throw it }
