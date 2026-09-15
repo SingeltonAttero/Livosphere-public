@@ -125,6 +125,8 @@ open class FixtureWallpaperService : WallpaperService() {
         private val phaseClock = createPhaseClock()
         private val phasePolicy = PhasePolicy()
         private var holder: SurfaceHolder? = null
+        private var surfaceWidth = 0
+        private var surfaceHeight = 0
         @Volatile private var currentPhase = DayPhase.NIGHT
         @Volatile private var nextDeadline: Instant? = null
         @Volatile private var schedulerActive = false
@@ -210,10 +212,16 @@ open class FixtureWallpaperService : WallpaperService() {
                 loop.setSurfaceValid(false)
                 holder?.let(scenesByHolder::remove)
                 holder = surfaceHolder
+                surfaceWidth = width
+                surfaceHeight = height
                 scenesByHolder[surfaceHolder] = scene
                 val valid = width > 0 && height > 0 && isSurfaceValid(surfaceHolder)
                 surfaceActive = valid
-                if (valid && engineVisible) startPhaseScheduler()
+                if (valid && engineVisible) {
+                    scene.resume()
+                    refreshPlatformFacts(triggerCharging = false)
+                    startPhaseScheduler()
+                }
                 loop.setSurfaceValid(valid)
             }
         }
@@ -387,6 +395,14 @@ open class FixtureWallpaperService : WallpaperService() {
             override fun resumeForTest() = fence { done ->
                 scene.resume(); refreshPlatformFacts(false); loop.setVisible(engineVisible); done()
             }
+            override fun recreateSurfaceForTest() {
+                val currentHolder = checkNotNull(holder)
+                val width = surfaceWidth
+                val height = surfaceHeight
+                this@FixtureEngine.onSurfaceDestroyed(currentHolder)
+                this@FixtureEngine.onSurfaceChanged(currentHolder, 0, width, height)
+                fence { done -> done() }
+            }
         }
 
         private fun snapshotUnsafe(): FixtureRuntimeSnapshot {
@@ -462,6 +478,7 @@ internal interface FixtureEngineControl {
     fun dispatch(trigger: SceneTrigger, available: Boolean, magnitude: Float): TriggerDispatch
     fun stopForTest()
     fun resumeForTest()
+    fun recreateSurfaceForTest()
 }
 
 /** Debug-fixture-only seam. It targets the same serial route used by platform Engine callbacks. */
@@ -482,6 +499,7 @@ object FixtureRuntimeTestApi {
     ): TriggerDispatch = control(engineId).dispatch(trigger, available, magnitude)
     fun stop(engineId: Long) = control(engineId).stopForTest()
     fun resume(engineId: Long) = control(engineId).resumeForTest()
+    fun recreateSurface(engineId: Long) = control(engineId).recreateSurfaceForTest()
     private fun control(engineId: Long) = checkNotNull(controls[engineId]) { "Unknown fixture Engine: $engineId" }
 }
 

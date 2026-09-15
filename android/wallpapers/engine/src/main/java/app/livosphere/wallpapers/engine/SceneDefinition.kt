@@ -4,6 +4,7 @@ private val SCENE_ID = Regex("^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 enum class AuthoredEffectLevel { SUBTLE, BALANCED, FULL }
 enum class SceneTrigger { AMBIENT, TAP, OFFSET, CHARGING }
+enum class SceneEffectType { TRANSLATE, TRANSLATE_PULSE }
 enum class EffectStopRule { REPLACE }
 
 data class SceneObjectDefinition(
@@ -27,7 +28,8 @@ data class SceneEffectDefinition(
     val amplitudeX: Float,
     val amplitudeY: Float,
     val levels: Set<AuthoredEffectLevel>,
-    val stopRule: EffectStopRule = EffectStopRule.REPLACE,
+    val type: SceneEffectType,
+    val stopRule: EffectStopRule,
     val reducedSafe: Boolean = false,
 ) {
     init {
@@ -86,4 +88,15 @@ fun authoredEffectLevels(value: String): Set<AuthoredEffectLevel> = value.split(
         "full" -> AuthoredEffectLevel.FULL
         else -> throw IllegalArgumentException("Unknown authored effect level: ${it.trim()}")
     }
+}
+
+fun sceneEffectType(value: String): SceneEffectType = when (value) {
+    "translate" -> SceneEffectType.TRANSLATE
+    "translate-pulse" -> SceneEffectType.TRANSLATE_PULSE
+    else -> throw IllegalArgumentException("Unknown scene effect type: $value")
+}
+
+fun effectStopRule(value: String): EffectStopRule = when (value) {
+    "replace" -> EffectStopRule.REPLACE
+    else -> throw IllegalArgumentException("Unknown effect stop rule: $value")
 }

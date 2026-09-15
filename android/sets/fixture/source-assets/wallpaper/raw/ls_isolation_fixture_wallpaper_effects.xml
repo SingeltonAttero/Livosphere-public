@@ -1,14 +1,14 @@
 <effects declaredTriggers="ambient,tap,offset,charging" content-status="draft-debug-only">
-    <effect id="orb-drift" objectRef="orb" trigger="ambient" priority="1"
+    <effect id="orb-drift" objectRef="orb" type="translate" trigger="ambient" priority="1" stop="replace"
         durationMillis="4000" amplitudeX="0.035" amplitudeY="0" levels="subtle,balanced,full" reduced="true"/>
-    <effect id="tap-bounce" objectRef="orb" trigger="tap" priority="30"
+    <effect id="tap-bounce" objectRef="orb" type="translate" trigger="tap" priority="30" stop="replace"
         durationMillis="450" amplitudeX="0" amplitudeY="-0.12" levels="subtle,balanced,full" reduced="true"/>
-    <effect id="charging-glow" objectRef="beacon" trigger="charging" priority="40"
+    <effect id="charging-glow" objectRef="beacon" type="translate-pulse" trigger="charging" priority="40" stop="replace"
         durationMillis="900" amplitudeX="0" amplitudeY="-0.03" levels="subtle,balanced,full" reduced="true"/>
-    <effect id="satellite-bob" objectRef="satellite" trigger="ambient" priority="2"
+    <effect id="satellite-bob" objectRef="satellite" type="translate" trigger="ambient" priority="2" stop="replace"
         durationMillis="3000" amplitudeX="0" amplitudeY="0.045" levels="balanced,full" reduced="false"/>
-    <effect id="offset-shift" objectRef="satellite" trigger="offset" priority="20"
+    <effect id="offset-shift" objectRef="satellite" type="translate" trigger="offset" priority="20" stop="replace"
         durationMillis="600" amplitudeX="0.14" amplitudeY="0" levels="balanced,full" reduced="false"/>
-    <effect id="beacon-pulse" objectRef="beacon" trigger="ambient" priority="3"
+    <effect id="beacon-pulse" objectRef="beacon" type="translate" trigger="ambient" priority="3" stop="replace"
         durationMillis="2200" amplitudeX="0.025" amplitudeY="-0.025" levels="full" reduced="false"/>
 </effects>

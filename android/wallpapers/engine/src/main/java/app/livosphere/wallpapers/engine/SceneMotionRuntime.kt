@@ -42,7 +42,9 @@ class SceneMotionRuntime(private val definition: SceneDefinition) {
                 }
                 x += effect.amplitudeX * wave
                 y += effect.amplitudeY * wave
-                if (effect.trigger == SceneTrigger.CHARGING) size *= 1f + 0.20f * wave.coerceAtLeast(0f)
+                if (effect.type == SceneEffectType.TRANSLATE_PULSE) {
+                    size *= 1f + 0.20f * wave.coerceAtLeast(0f)
+                }
             }
             SceneObjectGeometry(objectDefinition.id, x, y, size)
         }

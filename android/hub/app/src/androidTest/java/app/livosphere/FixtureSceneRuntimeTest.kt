@@ -102,7 +102,17 @@ class FixtureSceneRuntimeTest {
             Thread.sleep(150)
             assertEquals(stoppedAt, FixtureRuntimeTestApi.snapshot(engineId).renderCount)
             shell("input keyevent KEYCODE_HOME")
-            awaitSnapshot(engineId) { it.visible && it.renderCount > stoppedAt }
+            val visibleAgain = awaitSnapshot(engineId) { it.visible && it.renderCount > stoppedAt }
+
+            FixtureRuntimeTestApi.recreateSurface(engineId)
+            val recreated = awaitSnapshot(engineId) {
+                it.visible && it.surfaceValid && it.schedulerActive && it.renderCount > visibleAgain.renderCount
+            }
+            assertEquals(engineId, recreated.engineId)
+            assertTrue(
+                "tap must resume after surface recreation without visibility callback",
+                FixtureRuntimeTestApi.dispatch(engineId, SceneTrigger.TAP) is TriggerDispatch.Applied,
+            )
         } finally {
             settings.setMotionMode(originalMotion)
             settings.setTouchReactionsEnabled(originalInteractions)

@@ -15,6 +15,8 @@ import app.livosphere.wallpapers.engine.ScenePowerFacts
 import app.livosphere.wallpapers.engine.SceneTrigger
 import app.livosphere.wallpapers.engine.TriggerDispatch
 import app.livosphere.wallpapers.engine.authoredEffectLevels
+import app.livosphere.wallpapers.engine.effectStopRule
+import app.livosphere.wallpapers.engine.sceneEffectType
 import app.livosphere.wallpapers.engine.sceneTrigger
 import org.xmlpull.v1.XmlPullParser
 
@@ -45,6 +47,8 @@ internal fun loadFixtureScene(resources: Resources): SceneDefinition {
                 amplitudeX = parser.required("amplitudeX").toFloat(),
                 amplitudeY = parser.required("amplitudeY").toFloat(),
                 levels = authoredEffectLevels(parser.required("levels")),
+                type = sceneEffectType(parser.required("type")),
+                stopRule = effectStopRule(parser.required("stop")),
                 reducedSafe = parser.required("reduced").toBooleanStrict(),
             )
         }

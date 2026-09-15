@@ -27,6 +27,8 @@ class SceneDefinitionTest {
     @Test fun rejectsUnknownEffectVocabularyAtDeclarationBoundary() {
         assertThrows(IllegalArgumentException::class.java) { sceneTrigger("shake-device") }
         assertThrows(IllegalArgumentException::class.java) { authoredEffectLevels("subtle,cinematic") }
+        assertThrows(IllegalArgumentException::class.java) { sceneEffectType("particle-system") }
+        assertThrows(IllegalArgumentException::class.java) { effectStopRule("queue") }
     }
 
     @Test fun rejectsMissingOrNonDistinctAuthoredLevels() {
@@ -49,12 +51,18 @@ internal fun testSceneDefinition(): SceneDefinition {
             SceneObjectDefinition("beacon", .52f, .66f, .08f),
         ),
         effects = listOf(
-            SceneEffectDefinition("orb-drift", "orb", SceneTrigger.AMBIENT, 1, 4_000, .035f, 0f, all, reducedSafe = true),
-            SceneEffectDefinition("tap-bounce", "orb", SceneTrigger.TAP, 30, 450, 0f, -.12f, all, reducedSafe = true),
-            SceneEffectDefinition("charging-glow", "beacon", SceneTrigger.CHARGING, 40, 900, 0f, -.03f, all, reducedSafe = true),
-            SceneEffectDefinition("satellite-bob", "satellite", SceneTrigger.AMBIENT, 2, 3_000, 0f, .045f, balancedFull),
-            SceneEffectDefinition("offset-shift", "satellite", SceneTrigger.OFFSET, 20, 600, .14f, 0f, balancedFull),
-            SceneEffectDefinition("beacon-pulse", "beacon", SceneTrigger.AMBIENT, 3, 2_200, .025f, -.025f, setOf(AuthoredEffectLevel.FULL)),
+            SceneEffectDefinition("orb-drift", "orb", SceneTrigger.AMBIENT, 1, 4_000, .035f, 0f, all,
+                SceneEffectType.TRANSLATE, EffectStopRule.REPLACE, reducedSafe = true),
+            SceneEffectDefinition("tap-bounce", "orb", SceneTrigger.TAP, 30, 450, 0f, -.12f, all,
+                SceneEffectType.TRANSLATE, EffectStopRule.REPLACE, reducedSafe = true),
+            SceneEffectDefinition("charging-glow", "beacon", SceneTrigger.CHARGING, 40, 900, 0f, -.03f, all,
+                SceneEffectType.TRANSLATE_PULSE, EffectStopRule.REPLACE, reducedSafe = true),
+            SceneEffectDefinition("satellite-bob", "satellite", SceneTrigger.AMBIENT, 2, 3_000, 0f, .045f, balancedFull,
+                SceneEffectType.TRANSLATE, EffectStopRule.REPLACE),
+            SceneEffectDefinition("offset-shift", "satellite", SceneTrigger.OFFSET, 20, 600, .14f, 0f, balancedFull,
+                SceneEffectType.TRANSLATE, EffectStopRule.REPLACE),
+            SceneEffectDefinition("beacon-pulse", "beacon", SceneTrigger.AMBIENT, 3, 2_200, .025f, -.025f,
+                setOf(AuthoredEffectLevel.FULL), SceneEffectType.TRANSLATE, EffectStopRule.REPLACE),
         ),
         declaredTriggers = SceneTrigger.entries.toSet(),
     )
