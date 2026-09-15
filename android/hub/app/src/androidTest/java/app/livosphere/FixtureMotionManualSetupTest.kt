@@ -8,6 +8,7 @@ import app.livosphere.wallpapers.fixture.FixtureWallpaperService
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 /** AndroidTest-only setup for native evidence; preserves and restores this fixture owner's value. */
@@ -16,9 +17,10 @@ class FixtureMotionManualSetupTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val arguments = InstrumentationRegistry.getArguments()
-        val requested = requireNotNull(arguments.getString(ARGUMENT)) {
-            "Pass -e $ARGUMENT off|normal|reduced|restore"
-        }
+        val requestedArgument = arguments.getString(ARGUMENT)
+        assumeTrue("Manual-only: pass -e $ARGUMENT off|normal|reduced|restore", requestedArgument != null)
+        val requested = checkNotNull(requestedArgument)
+        require(requested in REQUESTS) { "Pass -e $ARGUMENT off|normal|reduced|restore" }
         val repository = WallpaperSettingsRepository(context, FixtureWallpaperService.WALLPAPER_ID)
         val baseline = context.getSharedPreferences(BASELINE_STORE, 0)
         val old = checkNotNull(repository.motionMode.first())
@@ -43,5 +45,6 @@ class FixtureMotionManualSetupTest {
         const val ARGUMENT = "fixtureMotion"
         const val BASELINE_STORE = "fixture-motion-manual-evidence"
         const val BASELINE_KEY = "original"
+        val REQUESTS = setOf("off", "normal", "reduced", "restore")
     }
 }

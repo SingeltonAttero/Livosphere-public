@@ -23,7 +23,6 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FixturePhaseCallbacksTest {
@@ -52,6 +51,7 @@ class FixturePhaseCallbacksTest {
         val clock = MutableClock(Instant.parse("2026-09-14T17:59:00Z"))
         val queue = CallbackQueue()
         val zone = AtomicReference<ZoneId>(ZoneOffset.UTC)
+        val renderedStaticFrame = AtomicReference<Boolean?>()
         lateinit var timeReceiver: BroadcastReceiver
         val renders = Collections.synchronizedList(mutableListOf<DayPhase>())
         val fixture = OwnedSettingsFixture()
@@ -79,7 +79,7 @@ class FixturePhaseCallbacksTest {
             override fun unregisterTimeChangeReceiver(receiver: BroadcastReceiver) = Unit
             override fun createRenderer(holder: SurfaceHolder, phase: () -> DayPhase) = object : WallpaperRenderer {
                 override fun render(timeMillis: Long, reducedMotion: Boolean): WallpaperFrameResult {
-                    assertTrue(reducedMotion)
+                    renderedStaticFrame.set(reducedMotion)
                     return WallpaperFrameResult.DRAWN
                 }
                 override fun close() = Unit
@@ -95,7 +95,11 @@ class FixturePhaseCallbacksTest {
                     it.onVisibilityChanged(true)
                 }
             }
-            await { renders.lastOrNull() == DayPhase.DAY && queue.size() == 1 }
+            await {
+                renders.lastOrNull() == DayPhase.DAY && queue.size() == 1 &&
+                    renderedStaticFrame.get() != null
+            }
+            assertEquals(false, renderedStaticFrame.get())
             val beforeBoundary = renders.size
             clock.now = Instant.parse("2026-09-14T18:00:00Z")
             queue.fire()

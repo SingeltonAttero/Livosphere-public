@@ -65,8 +65,16 @@ class FixtureAutonomyTest {
             }
             FixtureRuntimeTestApi.setLevel(active.engineId, AuthoredEffectLevel.FULL)
             FixtureRuntimeTestApi.setLevel(preview.engineId, AuthoredEffectLevel.SUBTLE)
-            val activeAfter = awaitSnapshot(active.engineId) { it.requestedLevel == AuthoredEffectLevel.FULL }
-            val previewAfter = awaitSnapshot(preview.engineId) { it.requestedLevel == AuthoredEffectLevel.SUBTLE }
+            val activeAfter = awaitSnapshot(active.engineId) {
+                it.requestedLevel == AuthoredEffectLevel.FULL &&
+                    it.effectiveLevel == AuthoredEffectLevel.FULL &&
+                    it.interactionsEnabled && "tap-bounce" in it.allowedEffectIds
+            }
+            val previewAfter = awaitSnapshot(preview.engineId) {
+                it.requestedLevel == AuthoredEffectLevel.SUBTLE &&
+                    it.effectiveLevel == AuthoredEffectLevel.SUBTLE &&
+                    it.interactionsEnabled && "tap-bounce" in it.allowedEffectIds
+            }
             assertNotEquals(activeAfter.requestedLevel, previewAfter.requestedLevel)
             assertNotEquals(activeAfter.engineId, previewAfter.engineId)
 

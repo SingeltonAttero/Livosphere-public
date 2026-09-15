@@ -164,9 +164,12 @@ internal fun startFixturePreview(context: Context, enablePreview: Boolean = true
 private fun applyWallpaper(context: Context, component: ComponentName, componentText: String) {
     val (width, height) = startWallpaperPreview(context, component, enablePreview = false)
     clickSystemText("Set wallpaper")
-    Thread.sleep(500)
     if (Build.VERSION.SDK_INT >= 35) {
+        Thread.sleep(500)
         shell("input tap ${width / 2} ${(height * .47f).toInt()}")
+    } else {
+        clickSystemTextIfPresent("Home screen", timeoutMillis = 1_500)
+        Thread.sleep(500)
     }
     shell("input keyevent KEYCODE_HOME")
     awaitCondition { componentText in shell("dumpsys wallpaper") }
@@ -182,6 +185,19 @@ private fun clickSystemText(text: String) {
             ?: return@awaitCondition false
         node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
     }
+}
+
+private fun clickSystemTextIfPresent(text: String, timeoutMillis: Long): Boolean {
+    val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+    val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis)
+    while (System.nanoTime() < deadline) {
+        val node = automation.rootInActiveWindow
+            ?.findAccessibilityNodeInfosByText(text)
+            ?.firstOrNull { it.isClickable && it.text?.toString() == text }
+        if (node != null) return node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        Thread.sleep(25)
+    }
+    return false
 }
 
 private fun startWallpaperPreview(
