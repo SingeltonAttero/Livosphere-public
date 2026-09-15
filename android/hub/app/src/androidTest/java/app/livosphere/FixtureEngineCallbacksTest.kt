@@ -11,6 +11,7 @@ import app.livosphere.wallpapers.fixture.FixtureWallpaperService
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -26,6 +27,7 @@ class FixtureEngineCallbacksTest {
         val b = fixture.repository(FixtureWallpaperService.WALLPAPER_ID)
         val motionRead = CountDownLatch(1); val touchRead = CountDownLatch(1)
         val frames = AtomicInteger(); val released = AtomicInteger()
+        val renderedReducedMotion = AtomicReference<Boolean?>()
         val settings = object : WallpaperSettingsRepository(fixture.settings, b.wallpaperId) {
             override val motionMode = super.motionMode.onEach {
                 if (it == WallpaperMotionMode.REDUCED) motionRead.countDown()
@@ -40,7 +42,9 @@ class FixtureEngineCallbacksTest {
             override fun isSurfaceValid(holder: SurfaceHolder) = true
             override fun createRenderer(holder: SurfaceHolder, phase: () -> DayPhase) = object : WallpaperRenderer {
                 override fun render(timeMillis: Long, reducedMotion: Boolean): WallpaperFrameResult {
-                    assertTrue(reducedMotion); frames.incrementAndGet(); return WallpaperFrameResult.DRAWN
+                    renderedReducedMotion.set(reducedMotion)
+                    frames.incrementAndGet()
+                    return WallpaperFrameResult.DRAWN
                 }
                 override fun close() { released.incrementAndGet() }
             }
@@ -57,6 +61,7 @@ class FixtureEngineCallbacksTest {
             }
             assertTrue(motionRead.await(5, TimeUnit.SECONDS)); assertTrue(touchRead.await(5, TimeUnit.SECONDS))
             instrumentation.runOnMainSync { engine!!.onSurfaceRedrawNeeded(engine!!.surfaceHolder) }
+            assertEquals(false, renderedReducedMotion.get())
             assertEquals(1, frames.get()); assertEquals(1, released.get())
             instrumentation.runOnMainSync {
                 engine!!.onVisibilityChanged(true)
