@@ -1,1 +1,14 @@
-<test-declaration native-widget-pass="false" scene="static-two-panel"/>
+<effects declaredTriggers="ambient,tap,offset,charging" content-status="draft-debug-only">
+    <effect id="orb-drift" objectRef="orb" trigger="ambient" priority="1"
+        durationMillis="4000" amplitudeX="0.035" amplitudeY="0" levels="subtle,balanced,full" reduced="true"/>
+    <effect id="tap-bounce" objectRef="orb" trigger="tap" priority="30"
+        durationMillis="450" amplitudeX="0" amplitudeY="-0.12" levels="subtle,balanced,full" reduced="true"/>
+    <effect id="charging-glow" objectRef="beacon" trigger="charging" priority="40"
+        durationMillis="900" amplitudeX="0" amplitudeY="-0.03" levels="subtle,balanced,full" reduced="true"/>
+    <effect id="satellite-bob" objectRef="satellite" trigger="ambient" priority="2"
+        durationMillis="3000" amplitudeX="0" amplitudeY="0.045" levels="balanced,full" reduced="false"/>
+    <effect id="offset-shift" objectRef="satellite" trigger="offset" priority="20"
+        durationMillis="600" amplitudeX="0.14" amplitudeY="0" levels="balanced,full" reduced="false"/>
+    <effect id="beacon-pulse" objectRef="beacon" trigger="ambient" priority="3"
+        durationMillis="2200" amplitudeX="0.025" amplitudeY="-0.025" levels="full" reduced="false"/>
+</effects>
