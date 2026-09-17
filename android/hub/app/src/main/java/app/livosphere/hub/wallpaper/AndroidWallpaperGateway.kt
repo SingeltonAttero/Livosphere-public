@@ -6,7 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import app.livosphere.generated.GeneratedSetRegistry
+import app.livosphere.content.AuthoredContentCatalog
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -26,11 +26,11 @@ import kotlinx.coroutines.withContext
 /** Single explicit mapping from logical registry component to the packaged Android service. */
 object AndroidWallpaperTarget {
     fun resolve(context: Context, wallpaperId: String): WallpaperTarget? =
-        GeneratedSetRegistry.sets.singleOrNull { it.wallpaper.componentId.value == wallpaperId }?.wallpaper?.let {
+        AuthoredContentCatalog.sets.singleOrNull { it.wallpaper.componentId.value == wallpaperId }?.wallpaper?.let {
             WallpaperTarget(it.componentId.value, WallpaperComponent(context.packageName, it.serviceClassName), it.compatibility.minimumApi)
         }
     /** Only the initial presentation default; never used for a missing saved reference or a launch. */
-    fun initialBrowsingTarget(context: Context): WallpaperTarget? = GeneratedSetRegistry.sets.firstOrNull()?.let {
+    fun initialBrowsingTarget(context: Context): WallpaperTarget? = AuthoredContentCatalog.sets.firstOrNull()?.let {
         resolve(context, it.wallpaper.componentId.value)
     }
     fun component(target: WallpaperTarget): ComponentName = ComponentName(target.component.packageName, target.component.className)

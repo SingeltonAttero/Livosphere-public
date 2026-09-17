@@ -125,3 +125,16 @@ object ClockTargetPolicy {
     private val PACKAGE = Regex("[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z][A-Za-z0-9_]*)+")
     private val CLASS = Regex("[A-Za-z][A-Za-z0-9_$]*(?:\\.[A-Za-z][A-Za-z0-9_$]*)+")
 }
+
+/** Stable clock hierarchy inside host geometry; text never grows beyond its allocated face. */
+object WidgetPresentationPolicy {
+    fun metrics(size: WidgetSize, widthDp: Int, fontScale: Float, analog: Boolean): ClockLayoutMetrics {
+        val width = widthDp.coerceAtLeast(80)
+        val scale = fontScale.coerceAtLeast(1f)
+        val base = when (size) { WidgetSize.S -> 29f; WidgetSize.M -> 51f; WidgetSize.L -> 65f }
+        val time = minOf(base, (width - 24) / 3.2f) / scale
+        val compact = width < 240 || analog
+        return ClockLayoutMetrics(time, (if (size == WidgetSize.L && !analog) 14f else 12f) / scale,
+            if (analog) "d MMM" else if (compact) "EEE, d MMM" else "EEE, d MMMM")
+    }
+}

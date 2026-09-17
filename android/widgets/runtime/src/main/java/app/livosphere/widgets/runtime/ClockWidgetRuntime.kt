@@ -26,6 +26,7 @@ interface WidgetCatalog {
     fun items(): List<WidgetCatalogItem>
     fun item(widgetId: String): WidgetCatalogItem? = items().singleOrNull { it.widgetId == widgetId }
     fun itemForSet(setId: String): WidgetCatalogItem? = items().singleOrNull { it.setId == setId }
+    fun isAnalog(widgetId: String): Boolean = false
     fun contains(widgetId: String): Boolean
     fun layoutResource(context: Context, widgetId: String, size: WidgetSize): Int
     fun rootViewId(context: Context): Int
@@ -35,7 +36,6 @@ interface WidgetCatalog {
 }
 
 object ClockWidgetRuntime {
-    const val DEFAULT_DEBUG_WIDGET_ID = "isolation-fixture-clock-widget"
     const val EXTRA_PIN_TOKEN = "app.livosphere.extra.PIN_TOKEN"
     const val EXTRA_WIDGET_ID = "app.livosphere.extra.WIDGET_ID"
     const val CONFIGURATION_ACTIVITY = "app.livosphere.widgets.ClockWidgetConfigurationActivity"
@@ -75,7 +75,7 @@ object ClockWidgetRuntime {
         if (!coordinator.isCurrent(ticket, latest)) return false
         val views = RemoteViews(context.packageName, layout)
         val options = manager.getAppWidgetOptions(appWidgetId)
-        ClockLayoutAdapter.adapt(context, views, preferences.size, options, catalog)
+        ClockLayoutAdapter.adapt(context, views, preferences.size, options, catalog, preferences.widgetId)
         views.setOnClickPendingIntent(catalog.rootViewId(context), routerPendingIntent(context, appWidgetId))
         return publish(manager, appWidgetId, views)
     }
@@ -182,12 +182,13 @@ object ClockWidgetRuntime {
 }
 
 object ClockLayoutAdapter {
-    fun adapt(context: Context, views: RemoteViews, size: WidgetSize, options: Bundle, catalog: WidgetCatalog) {
+    fun adapt(context: Context, views: RemoteViews, size: WidgetSize, options: Bundle, catalog: WidgetCatalog, widgetId: String = "") {
         val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, when (size) {
             WidgetSize.S -> 110; else -> 250
         })
-        val metrics = ClockGeometryPolicy.metrics(size, width, context.resources.configuration.fontScale)
-        views.setTextViewTextSize(catalog.timeViewId(context), TypedValue.COMPLEX_UNIT_SP, metrics.timeSp)
+        val analog = catalog.isAnalog(widgetId)
+        val metrics = WidgetPresentationPolicy.metrics(size, width, context.resources.configuration.fontScale, analog)
+        if (!analog) views.setTextViewTextSize(catalog.timeViewId(context), TypedValue.COMPLEX_UNIT_SP, metrics.timeSp)
         if (size != WidgetSize.S) {
             val dateId = catalog.dateViewId(context)
             views.setTextViewTextSize(dateId, TypedValue.COMPLEX_UNIT_SP, metrics.dateSp)

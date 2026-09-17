@@ -5,7 +5,7 @@ import android.content.ComponentName
 import app.livosphere.R
 import androidx.annotation.DrawableRes
 import app.livosphere.contract.SetDescriptor
-import app.livosphere.generated.GeneratedSetRegistry
+import app.livosphere.content.AuthoredContentCatalog
 import app.livosphere.hub.HubSurface
 import app.livosphere.contract.WidgetSize
 
@@ -13,9 +13,9 @@ internal data class PreviewAsset(@param:DrawableRes val drawableId: Int, val sym
 
 internal object PreviewAssetResolver {
     /** Default only for a new presentation session; explicit missing IDs remain unavailable. */
-    val initialBrowsingSetId get() = GeneratedSetRegistry.sets.firstOrNull()?.setId?.value
+    val initialBrowsingSetId get() = AuthoredContentCatalog.sets.firstOrNull()?.setId?.value
 
-    fun descriptor(setId: String?): SetDescriptor? = GeneratedSetRegistry.sets.singleOrNull { it.setId.value == setId }
+    fun descriptor(setId: String?): SetDescriptor? = AuthoredContentCatalog.sets.singleOrNull { it.setId.value == setId }
 
     fun displayName(context: Context, descriptor: SetDescriptor): String = try {
         context.packageManager.getServiceInfo(ComponentName(context.packageName, descriptor.wallpaper.serviceClassName), 0)

@@ -43,7 +43,7 @@ class ClockWidgetLayoutTest {
                     val parent = FrameLayout(activity)
                     activity.addContentView(parent, ViewGroup.LayoutParams(-1, -1))
                     val catalog = RegistryWidgetCatalog()
-                    val layout = catalog.layoutResource(renderContext, "isolation-fixture-clock-widget", size)
+                    val layout = catalog.layoutResource(renderContext, "harbor-clock", size)
                     val remote = android.widget.RemoteViews(activity.packageName, layout)
                     ClockLayoutAdapter.adapt(renderContext, remote, size, hostOptions, catalog)
                     val view = remote.apply(renderContext, parent)
@@ -97,13 +97,13 @@ class ClockWidgetLayoutTest {
         }
         val catalog = RegistryWidgetCatalog()
         assertEquals(
-            listOf("contour-debug-clock-widget", "isolation-fixture-clock-widget"),
-            catalog.items().map { it.widgetId },
+            setOf("sakura-clock", "harbor-clock", "sunset-clock"),
+            catalog.items().map { it.widgetId }.toSet(),
         )
-        assertEquals("contour-debug-clock-widget", catalog.itemForSet("contour-draft")?.widgetId)
+        assertEquals("sakura-clock", catalog.itemForSet("night-sakura")?.widgetId)
         assertNotEquals(
-            catalog.layoutResource(context, "contour-debug-clock-widget", WidgetSize.M),
-            catalog.layoutResource(context, "isolation-fixture-clock-widget", WidgetSize.M),
+            catalog.layoutResource(context, "sakura-clock", WidgetSize.M),
+            catalog.layoutResource(context, "harbor-clock", WidgetSize.M),
         )
     }
 

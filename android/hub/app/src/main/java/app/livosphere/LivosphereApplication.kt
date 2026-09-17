@@ -9,6 +9,6 @@ import dagger.hilt.android.HiltAndroidApp
 class LivosphereApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        ClockWidgetRuntime.install(RegistryWidgetCatalog())
+        ClockWidgetRuntime.install(RegistryWidgetCatalog(this))
     }
 }

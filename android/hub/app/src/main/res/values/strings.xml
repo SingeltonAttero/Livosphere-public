@@ -5,7 +5,7 @@
     <string name="hub_section_devices">Устройства</string>
     <string name="hub_section_settings">Настройки</string>
     <string name="hub_theme_name">Контур</string>
-    <string name="hub_theme_value">Живой мир для телефона и часов</string>
+    <string name="hub_theme_value">Авторские обои и часы на главный экран</string>
     <string name="hub_surface_wallpaper">Обои</string>
     <string name="hub_surface_watchface">Часы</string>
     <string name="hub_wallpaper_preview_description">Предпросмотр обоев набора «Контур»</string>
@@ -105,7 +105,7 @@
     <string name="settings_version_unavailable">версия не определена</string>
     <string name="settings_whats_new_title">Что нового</string>
     <string name="settings_whats_new_summary">Короткая заметка об установленной версии</string>
-    <string name="settings_whats_new_body">Версия %1$s: доступны отдельные настройки движения, локальная справка и повторная проверка фактов телефона.</string>
+    <string name="settings_whats_new_body">Версия %1$s: три авторские темы с живыми обоями и независимыми часами S/M/L. В обоях меняются время суток, облака и ночные огни.</string>
     <string name="settings_whats_new_dismiss">Понятно</string>
     <string name="settings_whats_new_dismissed">Заметка этой версии уже закрыта.</string>
     <string name="settings_whats_new_unavailable">Не удалось проверить, закрыта ли заметка этой версии. Вернитесь в приложение позже.</string>
@@ -114,7 +114,7 @@
     <string name="settings_help_body">Просмотр не применяет оформление. Для обоев откройте системную примерку Android и подтвердите выбор. Виджет часов добавляется отдельно: выберите вариант, размер и действие по нажатию, затем подтвердите размещение Android. Если автоматическое добавление недоступно, удерживайте свободное место на главном экране и откройте «Виджеты». В приложении нет магазина. После обновления или удаления приложения снова проверьте «Устройства».</string>
     <string name="settings_about_title">О приложении</string>
     <string name="settings_about_summary">Версия и сведения о приложении</string>
-    <string name="settings_about_body">Livosphere %1$s. Графика набора «Контур» и значок приложения созданы для Livosphere, без заимствованных персонажей и эмблем. Установка приложения не предоставляет отдельную лицензию на распространение исходной графики. Настройки хранятся на устройстве; для работы не нужны аккаунт, подключение к сети или уведомления.</string>
+    <string name="settings_about_body">Livosphere %1$s. Ночная сакура, Неоновая набережная и Последний свет — авторские оформления Livosphere. Установка приложения не предоставляет отдельную лицензию на распространение исходной графики. Настройки хранятся на устройстве; для работы не нужны аккаунт, подключение к сети или уведомления.</string>
     <string name="theme_preview_unavailable">Предпросмотр этого набора недоступен</string>
     <string name="theme_set_name_unavailable">Набор</string>
     <string name="preview_wallpaper_named">Предпросмотр обоев набора «%1$s»</string>

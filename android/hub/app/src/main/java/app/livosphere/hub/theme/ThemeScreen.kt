@@ -91,11 +91,6 @@ import kotlinx.coroutines.launch
 
 internal const val STARTUP_DURATION_MILLIS = 440
 internal const val SWITCH_DURATION_MILLIS = 220
-private val WallpaperPreviewAlignment = BiasAlignment(
-    horizontalBias = 0f,
-    verticalBias = 0.24f,
-)
-
 internal val PreviewMotionPhaseKey = SemanticsPropertyKey<String>("PreviewMotionPhase")
 internal var SemanticsPropertyReceiver.previewMotionPhase by PreviewMotionPhaseKey
 internal val PreviewStartupAlphaKey = SemanticsPropertyKey<Float>("PreviewStartupAlpha")
@@ -122,6 +117,7 @@ internal fun ThemeScreen(
     onPhoneHelp: () -> Unit = {},
     hubMotionReduced: Boolean = false,
     setId: String? = PreviewAssetResolver.initialBrowsingSetId,
+    onSetSelected: (app.livosphere.contract.SetDescriptor) -> Unit = {},
 ) {
     val descriptor = PreviewAssetResolver.descriptor(setId)
     val availableSetId = descriptor?.setId?.value
@@ -136,11 +132,12 @@ internal fun ThemeScreen(
                 .fillMaxWidth()
                 .align(Alignment.TopCenter)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 24.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
                 .semantics { testTag = "hub-screen-theme" },
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ProductHeader(displayName)
+            CollectionSelector(setId, onSetSelected)
             SurfaceSelector(
                 selectedSurface = selectedSurface,
                 onSurfaceSelected = onSurfaceSelected,
@@ -175,9 +172,9 @@ private fun ProductHeader(displayName: String?) {
             text = displayName ?: stringResource(R.string.theme_preview_unavailable),
             modifier = Modifier.semantics { heading() },
             color = MaterialTheme.colorScheme.onBackground,
-            fontSize = 40.sp,
+            fontSize = 28.sp,
             fontWeight = FontWeight.SemiBold,
-            lineHeight = 44.sp,
+            lineHeight = 32.sp,
         )
         Text(
             text = stringResource(R.string.hub_theme_value),
@@ -511,8 +508,8 @@ private fun PreviewImage(
         HubSurface.WALLPAPER -> Image(
             painter = previewPainter?.invoke(surface) ?: painterResource(asset.drawableId),
             contentDescription = null,
-            contentScale = ContentScale.Crop,
-            alignment = WallpaperPreviewAlignment,
+            contentScale = ContentScale.Fit,
+            alignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxSize()
                 .semantics { testTag = artTag },
@@ -622,3 +619,26 @@ private val HubSurface.testName: String
         HubSurface.WALLPAPER -> "wallpaper"
         HubSurface.WATCH_FACE -> "watchface"
     }
+
+@Composable
+private fun CollectionSelector(selectedId: String?, onSelected: (app.livosphere.contract.SetDescriptor) -> Unit) {
+    val context = LocalContext.current
+    Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        app.livosphere.content.AuthoredContentCatalog.sets.forEach { set ->
+            val chosen = selectedId == set.setId.value
+            val name = PreviewAssetResolver.displayName(context, set)
+            val asset = PreviewAssetResolver.resolve(context, set, HubSurface.WALLPAPER)
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                .border(if (chosen) 2.dp else 1.dp, if (chosen) HubPrimary else HubControlBorder, RoundedCornerShape(12.dp))
+                .selectable(chosen, onClick = { onSelected(set) }, role = Role.RadioButton)
+                .semantics { testTag = "collection-${set.setId.value}"; contentDescription = name }
+                .padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                if (asset != null) Image(painterResource(asset.drawableId), null,
+                    Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop,
+                    alignment = BiasAlignment(0f, -.25f))
+                Text(name, Modifier.padding(vertical = 4.dp), fontSize = 10.sp, lineHeight = 12.sp,
+                    color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
+            }
+        }
+    }
+}
