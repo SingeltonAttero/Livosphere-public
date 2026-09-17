@@ -1,0 +1,4 @@
+interface:
+  display_name: "Контент Livosphere"
+  short_description: "Авторские обои и часы: от идеи до APK"
+  default_prompt: "Используй $livosphere-content для подготовки самостоятельного авторского виджета Livosphere по моей идее."
