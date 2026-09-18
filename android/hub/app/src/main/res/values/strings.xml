@@ -176,4 +176,10 @@
     <string name="settings_pending_touch">Не сохранено: реакции на касание — %1$s</string>
     <string name="settings_retry">Повторить</string>
     <string name="settings_discard">Отменить изменение</string>
+    <string name="settings_effect_title">Интенсивность эффектов</string>
+    <string name="settings_effect_summary">Количество слоёв облаков и групп городских огней. Экономия энергии и уменьшение движения имеют приоритет.</string>
+    <string name="settings_effect_subtle">Спокойная</string>
+    <string name="settings_effect_balanced">Сбалансированная</string>
+    <string name="settings_effect_full">Полная</string>
+    <string name="settings_pending_effect">Не сохранено: интенсивность — %1$s</string>
 </resources>

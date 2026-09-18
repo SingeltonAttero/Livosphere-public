@@ -26,6 +26,9 @@ class SurfaceSettingsRepository(private val store: DataStore<StoredSurfaceSettin
             override suspend fun setInteractions(wallpaperId: String, enabled: Boolean) = updateWallpaper(wallpaperId, available) {
                 it.copy(interactionsEnabled = enabled, revision = nextRevision(it.revision))
             }
+            override suspend fun setEffectLevel(wallpaperId: String, level: WallpaperEffectLevel) = updateWallpaper(wallpaperId, available) {
+                it.copy(effectLevel = level, revision = nextRevision(it.revision))
+            }
             override suspend fun setMotion(wallpaperId: String, mode: WallpaperMotionMode) = updateWallpaper(wallpaperId, available) {
                 it.copy(motionMode = mode, revision = nextRevision(it.revision))
             }

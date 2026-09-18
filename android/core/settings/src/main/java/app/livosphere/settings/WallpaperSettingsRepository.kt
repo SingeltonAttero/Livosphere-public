@@ -3,6 +3,7 @@ package app.livosphere.settings
 import android.content.Context
 import app.livosphere.contract.SettingsOutcome
 import app.livosphere.contract.WallpaperPreferences
+import app.livosphere.contract.WallpaperEffectLevel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -29,6 +30,7 @@ open class WallpaperSettingsRepository(
         .distinctUntilChanged()
 
     open suspend fun setTouchReactionsEnabled(enabled: Boolean) { port.setInteractions(wallpaperId, enabled).orThrow() }
+    open suspend fun setEffectLevel(level: WallpaperEffectLevel) { port.setEffectLevel(wallpaperId, level).orThrow() }
     open suspend fun setMotionMode(mode: WallpaperMotionMode) { port.setMotion(wallpaperId, mode).orThrow() }
 }
 private fun SettingsOutcome<*>.orThrow() { if (this is SettingsOutcome.Failure) throw SurfaceSettingsException(reason) }

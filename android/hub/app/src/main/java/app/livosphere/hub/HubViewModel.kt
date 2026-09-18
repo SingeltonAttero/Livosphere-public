@@ -7,6 +7,7 @@ import app.livosphere.hub.onboarding.HubSettingsRepository
 import app.livosphere.hub.settings.DataStoreHubRuntimeSettings
 import app.livosphere.hub.settings.HubMotionMode
 import app.livosphere.hub.wallpaper.*
+import app.livosphere.contract.WallpaperEffectLevel
 import app.livosphere.contract.SettingsOutcome
 import app.livosphere.contract.SurfaceSettingsFailure
 import app.livosphere.settings.SurfaceSettingsException
@@ -37,6 +38,8 @@ data class WallpaperSettingsUiState(
     val failure: SurfaceSettingsFailure? = null,
     val pendingMotion: WallpaperMotionMode? = null,
     val pendingTouch: Boolean? = null,
+    val effectLevel: WallpaperEffectLevel? = null,
+    val pendingEffectLevel: WallpaperEffectLevel? = null,
 )
 
 @HiltViewModel
@@ -100,6 +103,9 @@ class HubViewModel private constructor(
     private var settingsReadFailure: SurfaceSettingsFailure? = null
     private var pendingMotion: WallpaperMotionMode? = null
     private var pendingTouch: Boolean? = null
+    private var effectWriteGeneration = 0L
+    private var effectWriteFailure: SurfaceSettingsFailure? = null
+    private var pendingEffectLevel: WallpaperEffectLevel? = null
     private var hubMotionWriteUnavailable = false
 
     val state: StateFlow<HubState> = mutableState.asStateFlow()
@@ -123,6 +129,9 @@ class HubViewModel private constructor(
                     action is HubAction.SectionSelected ||
                         (action is HubAction.NavigationRestored && before.selectedSection != HubSection.SETTINGS))
                 if (before.phone.target != transition.state.phone.target || action is HubAction.ForegroundStarted || enteredSettings) {
+                    effectWriteGeneration++
+                    effectWriteFailure = null
+                    pendingEffectLevel = null
                     touchWriteGeneration++
                     motionWriteGeneration++
                     touchWriteFailure = null
@@ -185,14 +194,16 @@ class HubViewModel private constructor(
                                     mutableWallpaperSettings.value = WallpaperSettingsUiState(
                                         touchReactions = result.value.interactionsEnabled.takeIf { touchWriteFailure == null },
                                         motion = result.value.motionMode.takeIf { motionWriteFailure == null },
-                                        failure = touchWriteFailure ?: motionWriteFailure,
+                                        failure = effectWriteFailure ?: touchWriteFailure ?: motionWriteFailure,
+                                        effectLevel = result.value.effectLevel.takeIf { effectWriteFailure == null },
+                                        pendingEffectLevel = pendingEffectLevel,
                                         pendingMotion = pendingMotion, pendingTouch = pendingTouch,
                                     )
                                 }
                                 is SettingsOutcome.Failure -> {
                                     settingsReadFailure = result.reason
-                                    mutableWallpaperSettings.value = WallpaperSettingsUiState(failure = touchWriteFailure ?: motionWriteFailure ?: result.reason,
-                                        pendingMotion = pendingMotion, pendingTouch = pendingTouch)
+                                    mutableWallpaperSettings.value = WallpaperSettingsUiState(failure = effectWriteFailure ?: touchWriteFailure ?: motionWriteFailure ?: result.reason,
+                                        pendingMotion = pendingMotion, pendingTouch = pendingTouch, pendingEffectLevel = pendingEffectLevel)
                                 }
                             }
                         }
@@ -226,7 +237,7 @@ class HubViewModel private constructor(
                     touchWriteFailure = null
                     pendingTouch = null
                     mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(touchReactions = enabled,
-                        failure = motionWriteFailure ?: settingsReadFailure, pendingTouch = null)
+                        failure = effectWriteFailure ?: motionWriteFailure ?: settingsReadFailure, pendingTouch = null)
                     retryReadAfterSuccessfulRecovery(owner)
                 }
             } catch (cancelled: CancellationException) {
@@ -237,7 +248,7 @@ class HubViewModel private constructor(
                     touchWriteFailure = (error as? SurfaceSettingsException)?.reason ?: SurfaceSettingsFailure.Write
                     pendingTouch = enabled
                     mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(touchReactions = null,
-                        failure = touchWriteFailure ?: motionWriteFailure ?: settingsReadFailure, pendingTouch = enabled)
+                        failure = effectWriteFailure ?: touchWriteFailure ?: motionWriteFailure ?: settingsReadFailure, pendingTouch = enabled)
                 }
             }
         }
@@ -254,7 +265,7 @@ class HubViewModel private constructor(
                     motionWriteFailure = null
                     pendingMotion = null
                     mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(motion = mode,
-                        failure = touchWriteFailure ?: settingsReadFailure, pendingMotion = null)
+                        failure = effectWriteFailure ?: touchWriteFailure ?: settingsReadFailure, pendingMotion = null)
                     retryReadAfterSuccessfulRecovery(owner)
                 }
             }
@@ -264,7 +275,33 @@ class HubViewModel private constructor(
                     motionWriteFailure = (error as? SurfaceSettingsException)?.reason ?: SurfaceSettingsFailure.Write
                     pendingMotion = mode
                     mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(motion = null,
-                        failure = touchWriteFailure ?: motionWriteFailure ?: settingsReadFailure, pendingMotion = mode)
+                        failure = effectWriteFailure ?: touchWriteFailure ?: motionWriteFailure ?: settingsReadFailure, pendingMotion = mode)
+                }
+            }
+        }
+    }
+
+    fun setWallpaperEffectLevel(level: WallpaperEffectLevel) {
+        val generation = ++effectWriteGeneration
+        val owner = state.value.phone.target?.wallpaperId ?: return
+        val settings = wallpaperSettingsRepository?.forWallpaper(owner) ?: return
+        viewModelScope.launch {
+            try {
+                settings.setEffectLevel(level)
+                if (state.value.phone.target?.wallpaperId == owner && effectWriteGeneration == generation) {
+                    effectWriteFailure = null
+                    pendingEffectLevel = null
+                    mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(effectLevel = level,
+                        pendingEffectLevel = null, failure = touchWriteFailure ?: motionWriteFailure ?: settingsReadFailure)
+                    retryReadAfterSuccessfulRecovery(owner)
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) {
+                if (state.value.phone.target?.wallpaperId == owner && effectWriteGeneration == generation) {
+                    effectWriteFailure = (error as? SurfaceSettingsException)?.reason ?: SurfaceSettingsFailure.Write
+                    pendingEffectLevel = level
+                    mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(effectLevel = null,
+                        pendingEffectLevel = level, failure = effectWriteFailure)
                 }
             }
         }
@@ -273,14 +310,17 @@ class HubViewModel private constructor(
     fun retryWallpaperSettings() {
         val motion = pendingMotion
         val touch = pendingTouch
-        if (motion == null && touch == null) discardWallpaperSettingsDrafts()
+        val effects = pendingEffectLevel
+        if (motion == null && touch == null && effects == null) discardWallpaperSettingsDrafts()
         else {
+            effects?.let(::setWallpaperEffectLevel)
             motion?.let(::setWallpaperMotionMode)
             touch?.let(::setTouchReactionsEnabled)
         }
     }
 
     fun discardWallpaperSettingsDrafts() {
+        effectWriteGeneration++; effectWriteFailure = null; pendingEffectLevel = null
         motionWriteGeneration++; touchWriteGeneration++
         pendingMotion = null; pendingTouch = null
         motionWriteFailure = null; touchWriteFailure = null; settingsReadFailure = null
