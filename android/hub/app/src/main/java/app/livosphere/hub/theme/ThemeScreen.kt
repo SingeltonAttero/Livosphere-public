@@ -41,7 +41,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.clip
@@ -125,6 +124,23 @@ internal fun ThemeScreen(
     val displayName = remember(descriptor, context) { descriptor?.let { PreviewAssetResolver.displayName(context, it) } }
     val systemMotionReduced = rememberCoroutineScope().coroutineContext[MotionDurationScale]?.scaleFactor == 0f
     val reduced = systemMotionReduced || hubMotionReduced
+    if (descriptor != null) {
+        ThemeCarousel(
+            setId = descriptor.setId.value,
+            selectedSurface = selectedSurface,
+            onSurfaceSelected = onSurfaceSelected,
+            onSetSelected = onSetSelected,
+            onThemePreviewSeen = onThemePreviewSeen,
+            phoneState = phoneState,
+            widgetAvailable = widgetAvailable,
+            onTry = onTry,
+            onPhoneRefresh = onPhoneRefresh,
+            onPhoneHelp = onPhoneHelp,
+            reduced = reduced,
+            previewPainter = previewPainter,
+        )
+        return
+    }
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -137,7 +153,6 @@ internal fun ThemeScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ProductHeader(displayName)
-            CollectionSelector(setId, onSetSelected)
             SurfaceSelector(
                 selectedSurface = selectedSurface,
                 onSurfaceSelected = onSurfaceSelected,
@@ -186,7 +201,7 @@ private fun ProductHeader(displayName: String?) {
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun SurfaceSelector(
+internal fun SurfaceSelector(
     selectedSurface: HubSurface,
     onSurfaceSelected: (HubSurface) -> Unit,
     reduced: Boolean,
@@ -619,26 +634,3 @@ private val HubSurface.testName: String
         HubSurface.WALLPAPER -> "wallpaper"
         HubSurface.WATCH_FACE -> "watchface"
     }
-
-@Composable
-private fun CollectionSelector(selectedId: String?, onSelected: (app.livosphere.contract.SetDescriptor) -> Unit) {
-    val context = LocalContext.current
-    Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        app.livosphere.content.AuthoredContentCatalog.sets.forEach { set ->
-            val chosen = selectedId == set.setId.value
-            val name = PreviewAssetResolver.displayName(context, set)
-            val asset = PreviewAssetResolver.resolve(context, set, HubSurface.WALLPAPER)
-            Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
-                .border(if (chosen) 2.dp else 1.dp, if (chosen) HubPrimary else HubControlBorder, RoundedCornerShape(12.dp))
-                .selectable(chosen, onClick = { onSelected(set) }, role = Role.RadioButton)
-                .semantics { testTag = "collection-${set.setId.value}"; contentDescription = name }
-                .padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                if (asset != null) Image(painterResource(asset.drawableId), null,
-                    Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop,
-                    alignment = BiasAlignment(0f, -.25f))
-                Text(name, Modifier.padding(vertical = 4.dp), fontSize = 10.sp, lineHeight = 12.sp,
-                    color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
-            }
-        }
-    }
-}

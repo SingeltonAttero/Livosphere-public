@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Livosphere</string>
-    <string name="hub_section_theme">Тема</string>
+    <string name="hub_section_theme">Наборы</string>
     <string name="hub_section_devices">Устройства</string>
     <string name="hub_section_settings">Настройки</string>
     <string name="hub_theme_name">Контур</string>
@@ -21,7 +21,7 @@
     <string name="hub_settings_failure">История приглашений недоступна. Автоматическое знакомство отключено; помощь и просмотр доступны.</string>
     <string name="hub_onboarding_help">Знакомство с оформлением</string>
     <string name="hub_onboarding_title">Один мир, две поверхности</string>
-    <string name="hub_onboarding_description">В «Теме» можно отдельно рассмотреть обои и виджет часов. «Примерить обои» открывает системный путь Android, а «Добавить часы» — настройку виджета; оба действия требуют системного подтверждения. Preview ничего не применяет.</string>
+    <string name="hub_onboarding_description">В «Наборах» можно листать коллекцию и отдельно выбирать обои или часы. «Установить» открывает системную примерку обоев или настройку виджета. Установка происходит после подтверждения в Android.</string>
     <string name="phone_direct_explanation">Откроется системная примерка. Применение — после подтверждения.</string>
     <string name="phone_chooser_explanation">Откроется системный выбор живых обоев. Выберите нужные обои и подтвердите применение.</string>
     <string name="phone_chooser_action">Выбрать живые обои</string>
@@ -123,4 +123,18 @@
     <string name="settings_surface_corrupt">Настройки оформления повреждены. Данные сохранены; автоматический сброс не выполнен.</string>
     <string name="settings_surface_version">Версия сохранённых настроек не поддерживается. Обновите приложение; данные сохранены.</string>
     <string name="settings_surface_io">Не удалось прочитать или сохранить настройки. Откройте экран повторно, чтобы попробовать ещё раз.</string>
+    <string name="collection_install">Установить</string>
+    <string name="collection_wallpaper_kind">Живые обои · Бесплатно</string>
+    <string name="collection_widget_kind">Виджет часов · Бесплатно</string>
+    <string name="collection_page">Набор %1$d из %2$d</string>
+    <string name="collection_wallpaper_features">Смена суток · Облака · Ночные огни</string>
+    <string name="collection_widget_features">Размеры S / M / L · Без установки обоев</string>
+    <string name="collection_install_wallpaper_hint">Подтверждение установки — в Android</string>
+    <string name="collection_install_widget_hint">Далее — размер и добавление на главный экран</string>
+    <string name="collection_sakura_description">Тихая улица над неоновым городом. Сакура, ночной драйв и холодное сияние.</string>
+    <string name="collection_harbor_description">Огни мегаполиса у воды. Розовый неон, серебристый спорткар и просторное небо.</string>
+    <string name="collection_sunset_description">Последние лучи над городом. Тёплый горизонт, бордовый спорткар и вечерняя тишина.</string>
+    <string name="collection_sakura_clock_description">Тонкие цифры, прохладный акцент и лепесток сакуры. Время и дата с первого взгляда.</string>
+    <string name="collection_harbor_clock_description">Чёткие цифры и неоновые акценты. Лаконичные часы в ритме ночного города.</string>
+    <string name="collection_sunset_clock_description">Аналоговый циферблат в тёплых оттенках заката. Спокойный акцент на главном экране.</string>
 </resources>
