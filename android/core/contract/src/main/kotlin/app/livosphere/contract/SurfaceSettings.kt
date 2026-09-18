@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 
 /** Owned preferences only. Platform active/installed/host observations never enter this contract. */
 enum class WallpaperMotionMode { NORMAL, REDUCED, OFF }
+enum class WallpaperEffectLevel { SUBTLE, BALANCED, FULL }
 enum class PreviewSurface { WALLPAPER, CLOCK_WIDGET }
 
 data class BrowsingPreferences(val setId: String, val surface: PreviewSurface, val revision: Long = 0) {
@@ -13,6 +14,7 @@ data class WallpaperPreferences(
     val interactionsEnabled: Boolean = true,
     val motionMode: WallpaperMotionMode = WallpaperMotionMode.NORMAL,
     val revision: Long = 0,
+    val effectLevel: WallpaperEffectLevel = WallpaperEffectLevel.FULL,
 ) { init { require(revision >= 0) } }
 
 /** Explicit clock application destination; timezone always remains the phone's. */
@@ -79,6 +81,7 @@ interface WallpaperSettingsRepository {
     fun observe(wallpaperId: String): Flow<SettingsOutcome<WallpaperPreferences>>
     suspend fun setInteractions(wallpaperId: String, enabled: Boolean): SettingsOutcome<WallpaperPreferences>
     suspend fun setMotion(wallpaperId: String, mode: WallpaperMotionMode): SettingsOutcome<WallpaperPreferences>
+    suspend fun setEffectLevel(wallpaperId: String, level: WallpaperEffectLevel): SettingsOutcome<WallpaperPreferences>
 }
 interface WidgetSettingsRepository {
     fun observe(appWidgetId: Int): Flow<SettingsOutcome<WidgetPreferences>>

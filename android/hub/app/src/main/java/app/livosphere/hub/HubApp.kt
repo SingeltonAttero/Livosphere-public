@@ -269,6 +269,13 @@ fun HubApp(
                                 wallpaperSettingsFailure = wallpaperSettings.failure,
                                 pendingMotion = wallpaperSettings.pendingMotion,
                                 pendingTouch = wallpaperSettings.pendingTouch,
+                                effectLevel = wallpaperSettings.effectLevel,
+                                pendingEffectLevel = wallpaperSettings.pendingEffectLevel,
+                                supportsEffectLevels = app.livosphere.content.AuthoredContentCatalog.sets.any {
+                                    it.wallpaper.componentId.value == state.phone.target?.wallpaperId &&
+                                        app.livosphere.contract.SupportedSetting.EFFECT_LEVEL in it.wallpaper.supportedSettings
+                                },
+                                onEffectLevelChanged = viewModel::setWallpaperEffectLevel,
                                 onRetryWallpaperSettings = viewModel::retryWallpaperSettings,
                                 onDiscardWallpaperSettings = viewModel::discardWallpaperSettingsDrafts,
                                 wallpaperName = app.livosphere.content.AuthoredContentCatalog.sets

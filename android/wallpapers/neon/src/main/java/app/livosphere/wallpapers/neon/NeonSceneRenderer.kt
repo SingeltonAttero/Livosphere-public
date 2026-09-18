@@ -67,7 +67,7 @@ class NeonSceneRenderer(
         canvas.save()
         canvas.translate(left, top); canvas.scale(width, height)
         drawClouds(canvas, frame)
-        drawLights(canvas, frame)
+        drawLights(canvas, frame, now)
         canvas.restore()
     }
 
@@ -82,6 +82,7 @@ class NeonSceneRenderer(
     }
 
     private fun drawClouds(canvas: Canvas, frame: NeonFrame) {
+        if (frame.motion.effectiveLevel == null) return
         canvas.saveLayer(0f, 0f, 1f, .32f, null)
         val color = when (frame.phase) {
             DayPhase.MORNING -> Color.rgb(244, 224, 224)
@@ -113,17 +114,15 @@ class NeonSceneRenderer(
         canvas.restore()
     }
 
-    private fun drawLights(canvas: Canvas, frame: NeonFrame) {
+    private fun drawLights(canvas: Canvas, frame: NeonFrame, now: Long) {
         if (!NeonScenePolicy.lightsEnabled(frame.phase)) return
-        val groups = when (theme) {
-            NeonTheme.SAKURA -> listOf(.635f to .525f, .955f to .357f, .605f to .45f, .652f to .355f, .699f to .354f)
-            NeonTheme.HARBOR -> listOf(.14f to .32f, .31f to .295f, .645f to .322f, .467f to .291f, .792f to .357f)
-            NeonTheme.SUNSET -> listOf(.77f to .425f, .88f to .475f, .12f to .42f, .93f to .415f, .72f to .49f)
-        }
-        val count = NeonScenePolicy.groupCount(frame.motion.effectiveLevel ?: AuthoredEffectLevel.SUBTLE)
-        groups.take(count).forEachIndexed { index, (x, y) ->
-            val intensity = if (frame.motion.staticFrame) .7f
-                else NeonScenePolicy.lightIntensity(frame.phase, frame.elapsed, index, theme)
+        val level = frame.motion.effectiveLevel ?: return
+        val groups = NeonScenePolicy.lightGroups(theme)
+        val count = NeonScenePolicy.groupCount(level, theme)
+        groups.take(count).forEachIndexed { index, group ->
+            val (x, y) = group
+            val intensity = NeonScenePolicy.emitterIntensity(frame.phase, frame.elapsed, index, theme, frame.motion) *
+                NeonScenePolicy.nightEntryGain(frame.phase, frame.previousPhase, now - frame.phaseChangedAt, index, frame.motion.staticFrame)
             glow.color = when (index % 3) { 0 -> Color.rgb(114, 229, 255); 1 -> Color.rgb(247, 130, 212); else -> Color.rgb(244, 205, 148) }
             glow.alpha = (intensity * 190).roundToInt()
             repeat(5) { window ->
@@ -131,11 +130,25 @@ class NeonSceneRenderer(
                 val py = y + window * .005f
                 canvas.drawRoundRect(px, py, px + .0025f, py + .0015f, .0005f, .0005f, glow)
             }
-            if (theme == NeonTheme.HARBOR && index == 0) {
-                glow.alpha = (intensity * 65).roundToInt()
-                canvas.drawRoundRect(x, .445f, x + .004f, .475f, .001f, .002f, glow)
-            }
+            group.reflection?.let { patch -> drawReflection(canvas, patch, intensity) }
         }
+    }
+
+    private fun drawReflection(canvas: Canvas, patch: NeonReflection, intensity: Float) {
+        val color = glow.color or (0xff shl 24)
+        val alpha = (NeonScenePolicy.reflectionIntensity(intensity) * 190).roundToInt()
+        glow.shader = LinearGradient(0f, patch.top, 0f, patch.top + patch.height,
+            intArrayOf(Color.TRANSPARENT, color, Color.TRANSPARENT), floatArrayOf(0f, .18f, 1f), Shader.TileMode.CLAMP)
+        glow.alpha = alpha
+        // Fixed narrow ripples keep the pulse local; the same envelope drives the source windows.
+        repeat(12) { stripe ->
+            val fraction = stripe / 12f
+            val y = patch.top + fraction * patch.height
+            val halfWidth = patch.width * (.3f + .2f * sin(stripe * 2.4f))
+            canvas.drawRoundRect(patch.x - halfWidth, y, patch.x + halfWidth, y + patch.height / 24f,
+                .001f, .001f, glow)
+        }
+        glow.shader = null
     }
 
     override fun close() { images.evictAll(); texture.recycle(); skyMask.recycle() }

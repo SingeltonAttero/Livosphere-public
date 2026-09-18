@@ -84,6 +84,7 @@ enum class SupportedSetting {
     TAP,
     SWIPE,
     REDUCED_MOTION,
+    EFFECT_LEVEL,
 }
 
 sealed interface InstallRoute {

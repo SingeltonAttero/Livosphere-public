@@ -131,7 +131,7 @@ object ApplicationSurfaceSettings {
 }
 
 internal fun WallpaperPreferences.encode() = buildJsonObject {
-    put("interactionsEnabled", interactionsEnabled); put("motionMode", motionMode.name); put("revision", revision)
+    put("interactionsEnabled", interactionsEnabled); put("motionMode", motionMode.name); put("revision", revision); put("effectLevel", effectLevel.name)
 }
 internal fun BrowsingPreferences.encode() = buildJsonObject {
     put("setId", setId); put("surface", surface.name); put("revision", revision)
@@ -144,7 +144,8 @@ internal fun WidgetPreferences.encode() = buildJsonObject {
 }
 internal fun JsonElement.wallpaper(): WallpaperPreferences = jsonObject.let { obj ->
     WallpaperPreferences(obj.getValue("interactionsEnabled").strictBoolean(),
-        WallpaperMotionMode.valueOf(obj.getValue("motionMode").strictString()), obj.getValue("revision").strictLong())
+        WallpaperMotionMode.valueOf(obj.getValue("motionMode").strictString()), obj.getValue("revision").strictLong(),
+        obj["effectLevel"]?.let { WallpaperEffectLevel.valueOf(it.strictString()) } ?: WallpaperEffectLevel.FULL)
 }
 internal fun JsonElement.browsing(): BrowsingPreferences = jsonObject.let { obj ->
     BrowsingPreferences(obj.getValue("setId").strictString(), PreviewSurface.valueOf(obj.getValue("surface").strictString()),

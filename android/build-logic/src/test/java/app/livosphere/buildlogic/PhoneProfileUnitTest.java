@@ -62,6 +62,17 @@ public class PhoneProfileUnitTest {
         assertTrue(error.getMessage().contains("индекс checksums не совпадает"));
     }
 
+    @Test public void acceptsDeclaredEffectLevelAndRejectsUnknownSetting() throws Exception {
+        Path manifest = PhoneSetFixture.create(temporary.newFolder().toPath(), "effects");
+        String text = Files.readString(manifest).replace("contribution.wallpaper-main.supportedSettings=none",
+                "contribution.wallpaper-main.supportedSettings=time-of-day,effect-level");
+        Files.writeString(manifest, text);
+        assertTrue(SetManifestReader.read(manifest, BuildProfile.PHONE).contributionFor("wallpaper")
+                .supportedSettings().contains("effect-level"));
+        Files.writeString(manifest, text.replace("effect-level", "unsupported-effect"));
+        assertThrows(GradleException.class, () -> SetManifestReader.read(manifest, BuildProfile.PHONE));
+    }
+
     private Path contourWithoutWatchfaceAssets() throws Exception {
         Path sourceManifest = Path.of(System.getProperty("livosphere.contourManifest"));
         Path sourceSet = sourceManifest.getParent().getParent();

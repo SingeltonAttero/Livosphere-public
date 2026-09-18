@@ -70,7 +70,7 @@ class OwnedSettingsHubAppTest {
             fixture.file.writeText(healthy)
             compose.onNodeWithTag("hub-nav-settings").performClick()
             compose.waitUntil(5_000) {
-                vm.wallpaperSettingsUi.value == WallpaperSettingsUiState(true, WallpaperMotionMode.NORMAL)
+                vm.wallpaperSettingsUi.value == WallpaperSettingsUiState(true, WallpaperMotionMode.NORMAL, effectLevel = app.livosphere.contract.WallpaperEffectLevel.FULL)
             }
             if (compose.onAllNodesWithTag("touch-reactions-control").fetchSemanticsNodes().isEmpty()) {
                 compose.onNodeWithTag("settings-wallpaper-toggle").performClick()

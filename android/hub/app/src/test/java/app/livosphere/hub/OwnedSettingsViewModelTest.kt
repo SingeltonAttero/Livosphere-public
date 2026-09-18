@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelStore
 import app.livosphere.contract.SettingsOutcome
 import app.livosphere.contract.SurfaceSettingsFailure
 import app.livosphere.contract.WallpaperPreferences
+import app.livosphere.contract.WallpaperEffectLevel
 import app.livosphere.hub.onboarding.*
 import app.livosphere.hub.wallpaper.*
 import app.livosphere.settings.*
@@ -59,7 +60,7 @@ class OwnedSettingsViewModelTest {
         store.readsFail = false
         model.onAction(HubAction.SectionSelected(HubSection.SETTINGS)); runCurrent()
         assertEquals(2, store.opens)
-        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.NORMAL), model.wallpaperSettingsUi.value)
+        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.NORMAL, effectLevel = WallpaperEffectLevel.FULL), model.wallpaperSettingsUi.value)
         model.onAction(HubAction.ForegroundStarted(HubSection.SETTINGS)); runCurrent()
         assertEquals(3, store.opens)
         model.onAction(HubAction.Phone(PhoneWallpaperAction.TargetSelected(b))); runCurrent()
@@ -86,7 +87,7 @@ class OwnedSettingsViewModelTest {
         assertNull(model.wallpaperSettingsUi.value.motion)
         failWrite = false
         model.setWallpaperMotionMode(WallpaperMotionMode.OFF); runCurrent()
-        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.OFF), model.wallpaperSettingsUi.value)
+        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.OFF, effectLevel = WallpaperEffectLevel.FULL), model.wallpaperSettingsUi.value)
     }
 
     @Test fun successfulWriteReopensFailedReaderAndTypedWriteFailureOverridesEarlierReadError() = runTest(dispatcher) {
@@ -100,7 +101,7 @@ class OwnedSettingsViewModelTest {
         store.readsFail = false; store.writeFailure = null
         model.setWallpaperMotionMode(WallpaperMotionMode.REDUCED); runCurrent()
         assertEquals(2, store.opens)
-        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.REDUCED), model.wallpaperSettingsUi.value)
+        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.REDUCED, effectLevel = WallpaperEffectLevel.FULL), model.wallpaperSettingsUi.value)
     }
 
     @Test fun obsoleteOwnerAndPreviousSelectionTypedErrorsCannotReplaceCurrentSuccess() = runTest(dispatcher) {
@@ -115,10 +116,10 @@ class OwnedSettingsViewModelTest {
         val model = vm(settings); runCurrent()
         model.setTouchReactionsEnabled(false); runCurrent(); assertTrue(entered.isCompleted)
         model.onAction(HubAction.Phone(PhoneWallpaperAction.TargetSelected(b))); runCurrent()
-        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.NORMAL), model.wallpaperSettingsUi.value)
+        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.NORMAL, effectLevel = WallpaperEffectLevel.FULL), model.wallpaperSettingsUi.value)
         model.onAction(HubAction.Phone(PhoneWallpaperAction.TargetSelected(a))); runCurrent()
         release.complete(Unit); runCurrent()
-        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.NORMAL), model.wallpaperSettingsUi.value)
+        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.NORMAL, effectLevel = WallpaperEffectLevel.FULL), model.wallpaperSettingsUi.value)
     }
     @Test fun failedDraftCanRetryOrBeDiscardedWithoutChangingSavedValue() = runTest(dispatcher) {
         var failWrite = true
@@ -135,11 +136,11 @@ class OwnedSettingsViewModelTest {
         assertEquals(WallpaperMotionMode.NORMAL, (settings.settings.value as SettingsOutcome.Success).value.motionMode)
         failWrite = false
         model.retryWallpaperSettings(); runCurrent()
-        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.OFF), model.wallpaperSettingsUi.value)
+        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.OFF, effectLevel = WallpaperEffectLevel.FULL), model.wallpaperSettingsUi.value)
         failWrite = true
         model.setWallpaperMotionMode(WallpaperMotionMode.REDUCED); runCurrent()
         model.discardWallpaperSettingsDrafts(); runCurrent()
-        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.OFF), model.wallpaperSettingsUi.value)
+        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.OFF, effectLevel = WallpaperEffectLevel.FULL), model.wallpaperSettingsUi.value)
     }
 
     @Test fun changingWallpaperDropsFailedDraftInsteadOfApplyingItToAnotherOwner() = runTest(dispatcher) {
@@ -180,4 +181,40 @@ class OwnedSettingsViewModelTest {
         assertNull(model.pendingHubMotion.value)
     }
 
+
+    @Test fun effectFailureRetainsDraftRetryAndDiscardPreserveOtherPreferences() = runTest(dispatcher) {
+        val store = Store()
+        val model = vm(WallpaperSettingsRepository(SurfaceSettingsRepository(store), a.wallpaperId)); runCurrent()
+        store.writeFailure = IOException("controlled")
+        model.setWallpaperEffectLevel(WallpaperEffectLevel.SUBTLE); runCurrent()
+        assertNull(model.wallpaperSettingsUi.value.effectLevel)
+        assertEquals(WallpaperEffectLevel.SUBTLE, model.wallpaperSettingsUi.value.pendingEffectLevel)
+        model.discardWallpaperSettingsDrafts(); runCurrent()
+        assertEquals(WallpaperEffectLevel.FULL, model.wallpaperSettingsUi.value.effectLevel)
+        model.setWallpaperEffectLevel(WallpaperEffectLevel.BALANCED); runCurrent()
+        store.writeFailure = null
+        model.retryWallpaperSettings(); runCurrent()
+        assertEquals(WallpaperEffectLevel.BALANCED, model.wallpaperSettingsUi.value.effectLevel)
+        assertNull(model.wallpaperSettingsUi.value.failure)
+        assertEquals(WallpaperMotionMode.NORMAL, model.wallpaperSettingsUi.value.motion)
+        assertEquals(true, model.wallpaperSettingsUi.value.touchReactions)
+    }
+
+    @Test fun delayedEffectFailureDoesNotReplaceAnotherOwnerOrRevisitedOwner() = runTest(dispatcher) {
+        val source = SurfaceSettingsRepository(Store())
+        val release = CompletableDeferred<Unit>()
+        val settings = object : WallpaperSettingsRepository(source, a.wallpaperId) {
+            override suspend fun setEffectLevel(level: WallpaperEffectLevel) {
+                release.await(); throw IOException("controlled")
+            }
+        }
+        val model = vm(settings); runCurrent()
+        model.setWallpaperEffectLevel(WallpaperEffectLevel.SUBTLE); runCurrent()
+        model.onAction(HubAction.Phone(PhoneWallpaperAction.TargetSelected(b))); runCurrent()
+        model.onAction(HubAction.Phone(PhoneWallpaperAction.TargetSelected(a))); runCurrent()
+        release.complete(Unit); runCurrent()
+        assertEquals(WallpaperEffectLevel.FULL, model.wallpaperSettingsUi.value.effectLevel)
+        assertNull(model.wallpaperSettingsUi.value.pendingEffectLevel)
+        assertNull(model.wallpaperSettingsUi.value.failure)
+    }
 }

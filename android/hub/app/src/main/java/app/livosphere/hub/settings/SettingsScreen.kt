@@ -33,6 +33,7 @@ import app.livosphere.R
 import app.livosphere.hub.HubSectionScreen
 import app.livosphere.settings.WallpaperMotionMode
 import app.livosphere.contract.SurfaceSettingsFailure
+import app.livosphere.contract.WallpaperEffectLevel
 
 /** One scrollable page: preferences are app-owned and never represent platform facts. */
 @Composable
@@ -44,6 +45,10 @@ internal fun SettingsScreen(
     wallpaperSettingsFailure: SurfaceSettingsFailure? = null,
     pendingMotion: WallpaperMotionMode? = null,
     pendingTouch: Boolean? = null,
+    effectLevel: WallpaperEffectLevel? = null,
+    pendingEffectLevel: WallpaperEffectLevel? = null,
+    supportsEffectLevels: Boolean = false,
+    onEffectLevelChanged: (WallpaperEffectLevel) -> Unit = {},
     onRetryWallpaperSettings: () -> Unit = {},
     onDiscardWallpaperSettings: () -> Unit = {},
     wallpaperName: String? = null,
@@ -71,18 +76,24 @@ internal fun SettingsScreen(
             SurfaceSettingsFailure.Read, SurfaceSettingsFailure.Write -> R.string.settings_surface_io
         })
         if (wallpaperSettingsFailure != null) {
+            pendingEffectLevel?.let { Text(stringResource(R.string.settings_pending_effect, stringResource(it.labelResource))) }
             pendingMotion?.let { Text(stringResource(R.string.settings_pending_motion, stringResource(it.labelResource))) }
             pendingTouch?.let { Text(stringResource(R.string.settings_pending_touch,
                 stringResource(if (it) R.string.hub_touch_reactions_on else R.string.hub_touch_reactions_off))) }
             TextButton(onClick = onRetryWallpaperSettings, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 .semantics { testTag = "settings-wallpaper-retry" }) { Text(stringResource(R.string.settings_retry)) }
-            if (pendingMotion != null || pendingTouch != null) TextButton(onClick = onDiscardWallpaperSettings,
+            if (pendingMotion != null || pendingTouch != null || pendingEffectLevel != null) TextButton(onClick = onDiscardWallpaperSettings,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { testTag = "settings-wallpaper-discard" }) {
                 Text(stringResource(R.string.settings_discard))
             }
         }
         if (wallpaperMotionMode == null && wallpaperSettingsFailure == null) UnavailableSettingsNotice(R.string.settings_wallpaper_motion_unavailable)
         else if (wallpaperMotionMode != null && wallpaperSettingsFailure == null) MotionChoice("wallpaper-motion", wallpaperMotionMode, WallpaperMotionMode.entries.toList(), { stringResource(it.labelResource) }, onWallpaperMotionChanged)
+        if (supportsEffectLevels && effectLevel != null && wallpaperSettingsFailure == null) {
+            Text(stringResource(R.string.settings_effect_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.settings_effect_summary), style = MaterialTheme.typography.bodyMedium)
+            MotionChoice("wallpaper-effect", effectLevel, WallpaperEffectLevel.entries.toList(), { stringResource(it.labelResource) }, onEffectLevelChanged)
+        }
         if (supportsTouchReactions) {
             if (touchReactionsEnabled == null && wallpaperSettingsFailure == null) UnavailableSettingsNotice(R.string.hub_touch_reactions_unavailable)
             else if (touchReactionsEnabled != null && wallpaperSettingsFailure == null) {
@@ -211,4 +222,10 @@ private val WallpaperMotionMode.labelResource: Int get() = when (this) {
 private val HubMotionMode.labelResource: Int get() = when (this) {
     HubMotionMode.NORMAL -> R.string.settings_motion_normal
     HubMotionMode.REDUCED -> R.string.settings_motion_reduced
+}
+
+private val WallpaperEffectLevel.labelResource: Int get() = when (this) {
+    WallpaperEffectLevel.SUBTLE -> R.string.settings_effect_subtle
+    WallpaperEffectLevel.BALANCED -> R.string.settings_effect_balanced
+    WallpaperEffectLevel.FULL -> R.string.settings_effect_full
 }

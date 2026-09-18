@@ -6,6 +6,7 @@ import android.os.*
 import android.provider.Settings
 import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
+import app.livosphere.contract.SettingsOutcome
 import app.livosphere.contract.DayPhase
 import app.livosphere.contract.WallpaperMotionMode
 import app.livosphere.settings.WallpaperSettingsRepository
@@ -94,7 +95,12 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
                 contentResolver.registerContentObserver(Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE), false, motionObserver)
                 observerRegistered = true
             } catch (_: RuntimeException) { }
-            scope.launch { settings.motionMode.collect { preference -> handler.post { mode = preference; updateMotion() } } }
+            scope.launch { settings.settings.collect { result -> handler.post {
+                val preference = (result as? SettingsOutcome.Success)?.value
+                mode = preference?.motionMode
+                effectLevel = preference?.effectLevel?.let { AuthoredEffectLevel.valueOf(it.name) } ?: AuthoredEffectLevel.SUBTLE
+                updateMotion()
+            } } }
         }
         private fun updateMotion() {
             val battery = try { registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) } catch (_: RuntimeException) { null }
@@ -157,7 +163,7 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
             engines -= this
             super.onDestroy()
         }
-        fun debugState() = "neon theme=${theme.setId} phase=$phase visible=$visible valid=$valid static=${effective.staticFrame} frames=$frames lights=${NeonScenePolicy.lightsEnabled(phase)}"
+        fun debugState() = "neon theme=${theme.setId} phase=$phase visible=$visible valid=$valid static=${effective.staticFrame} requested=$effectLevel effective=${effective.effectiveLevel} frames=$frames lights=${NeonScenePolicy.lightsEnabled(phase)}"
         private fun fence(action: () -> Unit) {
             val done = CountDownLatch(1)
             if (handler.post { try { action() } finally { done.countDown() } }) await(done)
