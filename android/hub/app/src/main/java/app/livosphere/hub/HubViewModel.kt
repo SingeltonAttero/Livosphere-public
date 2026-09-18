@@ -35,6 +35,8 @@ data class WallpaperSettingsUiState(
     val touchReactions: Boolean? = null,
     val motion: WallpaperMotionMode? = null,
     val failure: SurfaceSettingsFailure? = null,
+    val pendingMotion: WallpaperMotionMode? = null,
+    val pendingTouch: Boolean? = null,
 )
 
 @HiltViewModel
@@ -83,6 +85,7 @@ class HubViewModel private constructor(
     private val mutableState = MutableStateFlow(HubState(phone = PhoneWallpaperState(target = wallpaperGateway?.initialBrowsingTarget)))
     private val mutableWallpaperSettings = MutableStateFlow(WallpaperSettingsUiState())
     private val mutableHubMotion = MutableStateFlow<HubMotionMode?>(null)
+    private val mutablePendingHubMotion = MutableStateFlow<HubMotionMode?>(null)
     private val mutableDismissedReleaseVersion = MutableStateFlow<String?>(null)
     private val commandChannel = Channel<HubCommand.ShowSection>(capacity = Channel.CONFLATED)
     private data class ActionEnvelope(val action: HubAction, val consumed: CompletableDeferred<Boolean>? = null)
@@ -95,6 +98,8 @@ class HubViewModel private constructor(
     private var motionWriteFailure: SurfaceSettingsFailure? = null
     private var touchWriteFailure: SurfaceSettingsFailure? = null
     private var settingsReadFailure: SurfaceSettingsFailure? = null
+    private var pendingMotion: WallpaperMotionMode? = null
+    private var pendingTouch: Boolean? = null
     private var hubMotionWriteUnavailable = false
 
     val state: StateFlow<HubState> = mutableState.asStateFlow()
@@ -105,6 +110,7 @@ class HubViewModel private constructor(
     val wallpaperSettingsFailure = wallpaperSettingsUi.map { it.failure }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val wallpaperMotion = wallpaperSettingsUi.map { it.motion }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val hubMotion = mutableHubMotion.asStateFlow()
+    val pendingHubMotion = mutablePendingHubMotion.asStateFlow()
     val dismissedReleaseVersion = mutableDismissedReleaseVersion.asStateFlow()
 
     init {
@@ -122,6 +128,8 @@ class HubViewModel private constructor(
                     touchWriteFailure = null
                     motionWriteFailure = null
                     settingsReadFailure = null
+                    pendingMotion = null
+                    pendingTouch = null
                     mutableWallpaperSettings.value = WallpaperSettingsUiState()
                     settingsObservation.value = transition.state.phone.target?.wallpaperId to (settingsObservation.value.second + 1)
                 }
@@ -150,6 +158,7 @@ class HubViewModel private constructor(
                     // A read error emits the honest unavailable model, then closes its inner
                     // DataStore flow. Foreground and entering Settings are explicit retry boundaries.
                     hubMotionWriteUnavailable = false
+                    mutablePendingHubMotion.value = null
                     runtimeSettingsRepository?.retrySettings()
                     knowledgeProvider?.let { onAction(HubAction.KnowledgeChanged(it.knowledge.value)) }
                 }
@@ -177,11 +186,13 @@ class HubViewModel private constructor(
                                         touchReactions = result.value.interactionsEnabled.takeIf { touchWriteFailure == null },
                                         motion = result.value.motionMode.takeIf { motionWriteFailure == null },
                                         failure = touchWriteFailure ?: motionWriteFailure,
+                                        pendingMotion = pendingMotion, pendingTouch = pendingTouch,
                                     )
                                 }
                                 is SettingsOutcome.Failure -> {
                                     settingsReadFailure = result.reason
-                                    mutableWallpaperSettings.value = WallpaperSettingsUiState(failure = touchWriteFailure ?: motionWriteFailure ?: result.reason)
+                                    mutableWallpaperSettings.value = WallpaperSettingsUiState(failure = touchWriteFailure ?: motionWriteFailure ?: result.reason,
+                                        pendingMotion = pendingMotion, pendingTouch = pendingTouch)
                                 }
                             }
                         }
@@ -213,8 +224,9 @@ class HubViewModel private constructor(
                 settings.setTouchReactionsEnabled(enabled)
                 if (state.value.phone.target?.wallpaperId == owner && touchWriteGeneration == writeGeneration) {
                     touchWriteFailure = null
+                    pendingTouch = null
                     mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(touchReactions = enabled,
-                        failure = motionWriteFailure ?: settingsReadFailure)
+                        failure = motionWriteFailure ?: settingsReadFailure, pendingTouch = null)
                     retryReadAfterSuccessfulRecovery(owner)
                 }
             } catch (cancelled: CancellationException) {
@@ -223,8 +235,9 @@ class HubViewModel private constructor(
                 // Do not leave an optimistic enabled/disabled switch after a failed DataStore edit.
                 if (state.value.phone.target?.wallpaperId == owner && touchWriteGeneration == writeGeneration) {
                     touchWriteFailure = (error as? SurfaceSettingsException)?.reason ?: SurfaceSettingsFailure.Write
+                    pendingTouch = enabled
                     mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(touchReactions = null,
-                        failure = touchWriteFailure ?: motionWriteFailure ?: settingsReadFailure)
+                        failure = touchWriteFailure ?: motionWriteFailure ?: settingsReadFailure, pendingTouch = enabled)
                 }
             }
         }
@@ -239,8 +252,9 @@ class HubViewModel private constructor(
                 settings.setMotionMode(mode)
                 if (state.value.phone.target?.wallpaperId == owner && motionWriteGeneration == writeGeneration) {
                     motionWriteFailure = null
+                    pendingMotion = null
                     mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(motion = mode,
-                        failure = touchWriteFailure ?: settingsReadFailure)
+                        failure = touchWriteFailure ?: settingsReadFailure, pendingMotion = null)
                     retryReadAfterSuccessfulRecovery(owner)
                 }
             }
@@ -248,11 +262,30 @@ class HubViewModel private constructor(
             catch (error: Exception) {
                 if (state.value.phone.target?.wallpaperId == owner && motionWriteGeneration == writeGeneration) {
                     motionWriteFailure = (error as? SurfaceSettingsException)?.reason ?: SurfaceSettingsFailure.Write
+                    pendingMotion = mode
                     mutableWallpaperSettings.value = mutableWallpaperSettings.value.copy(motion = null,
-                        failure = touchWriteFailure ?: motionWriteFailure ?: settingsReadFailure)
+                        failure = touchWriteFailure ?: motionWriteFailure ?: settingsReadFailure, pendingMotion = mode)
                 }
             }
         }
+    }
+
+    fun retryWallpaperSettings() {
+        val motion = pendingMotion
+        val touch = pendingTouch
+        if (motion == null && touch == null) discardWallpaperSettingsDrafts()
+        else {
+            motion?.let(::setWallpaperMotionMode)
+            touch?.let(::setTouchReactionsEnabled)
+        }
+    }
+
+    fun discardWallpaperSettingsDrafts() {
+        motionWriteGeneration++; touchWriteGeneration++
+        pendingMotion = null; pendingTouch = null
+        motionWriteFailure = null; touchWriteFailure = null; settingsReadFailure = null
+        mutableWallpaperSettings.value = WallpaperSettingsUiState()
+        settingsObservation.value = state.value.phone.target?.wallpaperId to (settingsObservation.value.second + 1)
     }
 
     private fun retryReadAfterSuccessfulRecovery(owner: String) {
@@ -268,13 +301,26 @@ class HubViewModel private constructor(
             try {
                 settings.setHubMotionMode(mode)
                 hubMotionWriteUnavailable = false
+                mutablePendingHubMotion.value = null
+                mutableHubMotion.value = mode
             }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) {
                 hubMotionWriteUnavailable = true
+                mutablePendingHubMotion.value = mode
                 mutableHubMotion.value = null
             }
         }
+    }
+
+    fun retryHubMotion() {
+        mutablePendingHubMotion.value?.let(::setHubMotionMode) ?: discardHubMotionDraft()
+    }
+
+    fun discardHubMotionDraft() {
+        mutablePendingHubMotion.value = null
+        hubMotionWriteUnavailable = false
+        runtimeSettingsRepository?.retrySettings()
     }
 
     fun dismissReleaseNote(versionName: String) {

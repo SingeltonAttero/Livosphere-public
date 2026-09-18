@@ -21,10 +21,9 @@ import app.livosphere.contract.WidgetSize
 import app.livosphere.widgets.RegistryWidgetCatalog
 
 @Composable
-internal fun WidgetFeed(listState: LazyListState, onOpen: (String) -> Unit) {
+internal fun WidgetFeed(listState: LazyListState, sets: List<app.livosphere.contract.SetDescriptor> = AuthoredContentCatalog.sets, onOpen: (String) -> Unit) {
     val context = LocalContext.current
     val catalog = remember(context) { RegistryWidgetCatalog(context) }
-    val sets = remember { AuthoredContentCatalog.sets }
     Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
         LazyColumn(Modifier.widthIn(max = 600.dp).fillMaxSize().semantics { testTag = "hub-screen-widgets" },
             state = listState, contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -35,6 +34,9 @@ internal fun WidgetFeed(listState: LazyListState, onOpen: (String) -> Unit) {
                     Text(stringResource(R.string.widget_feed_subtitle), style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+            if (sets.isEmpty()) item(key = "empty") {
+                Text(stringResource(R.string.widget_catalog_empty), Modifier.semantics { testTag = "widget-catalog-empty" })
             }
             items(sets, key = { it.setId.value }) { set ->
                 val widget = remember(set) { catalog.itemForSet(set.setId.value) }

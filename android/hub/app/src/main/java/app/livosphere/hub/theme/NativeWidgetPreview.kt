@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import app.livosphere.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -25,11 +28,16 @@ internal fun NativeWidgetPreview(widgetId: String, size: WidgetSize, modifier: M
     val context = LocalContext.current
     val density = LocalDensity.current
     val catalog = remember(context) { RegistryWidgetCatalog(context) }
+    val layoutId = catalog.layoutResource(context, widgetId, size)
+    if (layoutId == 0) {
+        Text(stringResource(R.string.theme_preview_unavailable), modifier)
+        return
+    }
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val width = if (size == WidgetSize.S) minOf(maxWidth, 144.dp) else maxWidth
         val height = width * when (size) { WidgetSize.S -> 1f; WidgetSize.M -> 110f / 250; WidgetSize.L -> 180f / 250 }
         val views = remember(widgetId, size, width, height, density.fontScale) {
-            RemoteViews(context.packageName, catalog.layoutResource(context, widgetId, size)).also {
+            RemoteViews(context.packageName, layoutId).also {
                 ClockLayoutAdapter.adapt(context, it, size, Bundle().apply {
                     putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, width.value.toInt())
                     putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, height.value.toInt())
@@ -39,7 +47,13 @@ internal fun NativeWidgetPreview(widgetId: String, size: WidgetSize, modifier: M
         AndroidView(modifier = Modifier.width(width).height(height), factory = { FrameLayout(it) }, update = { parent ->
             if (parent.tag !== views) {
                 parent.removeAllViews()
-                parent.addView(views.apply(context, parent), FrameLayout.LayoutParams(-1, -1))
+                val nativeView = runCatching { views.apply(context, parent) }.getOrElse {
+                    android.widget.TextView(context).apply {
+                        text = context.getString(R.string.theme_preview_unavailable)
+                        gravity = android.view.Gravity.CENTER
+                    }
+                }
+                parent.addView(nativeView, FrameLayout.LayoutParams(-1, -1))
                 parent.tag = views
             }
         })

@@ -42,8 +42,16 @@ internal fun SettingsScreen(
     supportsTouchReactions: Boolean = true,
     wallpaperMotionMode: WallpaperMotionMode? = WallpaperMotionMode.NORMAL,
     wallpaperSettingsFailure: SurfaceSettingsFailure? = null,
+    pendingMotion: WallpaperMotionMode? = null,
+    pendingTouch: Boolean? = null,
+    onRetryWallpaperSettings: () -> Unit = {},
+    onDiscardWallpaperSettings: () -> Unit = {},
+    wallpaperName: String? = null,
     onWallpaperMotionChanged: (WallpaperMotionMode) -> Unit = {},
     hubMotionMode: HubMotionMode? = null,
+    pendingHubMotion: HubMotionMode? = null,
+    onRetryHubMotion: () -> Unit = {},
+    onDiscardHubMotion: () -> Unit = {},
     onHubMotionChanged: (HubMotionMode) -> Unit = {},
     /** null means the persisted acknowledgement is unavailable, not that it was dismissed. */
     releaseNoteVisible: Boolean? = null,
@@ -55,12 +63,24 @@ internal fun SettingsScreen(
     testTag = "hub-screen-settings",
 ) {
     ExpandableSetting("settings-wallpaper", R.string.settings_wallpaper_title, R.string.settings_wallpaper_summary) {
+        wallpaperName?.let { Text(stringResource(R.string.phone_selected_wallpaper, it)) }
         if (wallpaperSettingsFailure != null) UnavailableSettingsNotice(when (wallpaperSettingsFailure) {
             is SurfaceSettingsFailure.NeedsConfiguration -> R.string.settings_surface_missing
             is SurfaceSettingsFailure.CorruptRecord, SurfaceSettingsFailure.CorruptFile -> R.string.settings_surface_corrupt
             is SurfaceSettingsFailure.UnsupportedVersion -> R.string.settings_surface_version
             SurfaceSettingsFailure.Read, SurfaceSettingsFailure.Write -> R.string.settings_surface_io
         })
+        if (wallpaperSettingsFailure != null) {
+            pendingMotion?.let { Text(stringResource(R.string.settings_pending_motion, stringResource(it.labelResource))) }
+            pendingTouch?.let { Text(stringResource(R.string.settings_pending_touch,
+                stringResource(if (it) R.string.hub_touch_reactions_on else R.string.hub_touch_reactions_off))) }
+            TextButton(onClick = onRetryWallpaperSettings, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                .semantics { testTag = "settings-wallpaper-retry" }) { Text(stringResource(R.string.settings_retry)) }
+            if (pendingMotion != null || pendingTouch != null) TextButton(onClick = onDiscardWallpaperSettings,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { testTag = "settings-wallpaper-discard" }) {
+                Text(stringResource(R.string.settings_discard))
+            }
+        }
         if (wallpaperMotionMode == null && wallpaperSettingsFailure == null) UnavailableSettingsNotice(R.string.settings_wallpaper_motion_unavailable)
         else if (wallpaperMotionMode != null && wallpaperSettingsFailure == null) MotionChoice("wallpaper-motion", wallpaperMotionMode, WallpaperMotionMode.entries.toList(), { stringResource(it.labelResource) }, onWallpaperMotionChanged)
         if (supportsTouchReactions) {
@@ -71,7 +91,15 @@ internal fun SettingsScreen(
         }
     }
     ExpandableSetting("settings-hub-motion", R.string.settings_hub_motion_title, R.string.settings_hub_motion_summary) {
-        if (hubMotionMode == null) UnavailableSettingsNotice(R.string.settings_hub_motion_unavailable)
+        if (hubMotionMode == null) {
+            UnavailableSettingsNotice(R.string.settings_hub_motion_unavailable)
+            pendingHubMotion?.let { Text(stringResource(R.string.settings_pending_motion, stringResource(it.labelResource))) }
+            TextButton(onClick = onRetryHubMotion, modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "settings-hub-retry" }) {
+                Text(stringResource(R.string.settings_retry))
+            }
+            if (pendingHubMotion != null) TextButton(onClick = onDiscardHubMotion, modifier = Modifier.heightIn(min = 48.dp)
+                .semantics { testTag = "settings-hub-discard" }) { Text(stringResource(R.string.settings_discard)) }
+        }
         else MotionChoice("hub-motion", hubMotionMode, HubMotionMode.entries.toList(), { stringResource(it.labelResource) }, onHubMotionChanged)
     }
     ExpandableSetting("settings-whats-new", R.string.settings_whats_new_title, R.string.settings_whats_new_summary) {

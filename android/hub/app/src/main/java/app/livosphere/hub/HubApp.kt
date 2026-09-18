@@ -43,6 +43,11 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import app.livosphere.R
 import app.livosphere.hub.devices.DevicesScreen
+import app.livosphere.hub.devices.WidgetInstances
+import app.livosphere.hub.devices.WidgetInstancesReader
+import androidx.compose.runtime.mutableStateOf
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import app.livosphere.hub.navigation.DevicesKey
 import app.livosphere.hub.navigation.HubNavigator
 import app.livosphere.hub.navigation.SettingsKey
@@ -81,6 +86,7 @@ fun HubApp(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val wallpaperSettings by viewModel.wallpaperSettingsUi.collectAsStateWithLifecycle()
     val hubMotion by viewModel.hubMotion.collectAsStateWithLifecycle()
+    val pendingHubMotion by viewModel.pendingHubMotion.collectAsStateWithLifecycle()
     val dismissedReleaseVersion by viewModel.dismissedReleaseVersion.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // This is a platform fact, deliberately read from the installed package rather than persisted.
@@ -97,8 +103,16 @@ fun HubApp(
     val latestRestoredSection by rememberUpdatedState(restoredSection)
 
     val widgetReconciliationScope = rememberCoroutineScope()
+    var widgetRefresh by remember { mutableIntStateOf(0) }
+    var widgetInstances by remember { mutableStateOf(WidgetInstances(loading = true)) }
+    val instancesReader = remember(context) { WidgetInstancesReader.android(context) }
+    LaunchedEffect(widgetRefresh) {
+        widgetInstances = WidgetInstances(loading = true)
+        widgetInstances = withContext(Dispatchers.IO) { instancesReader.read() }
+    }
 
     LifecycleResumeEffect(viewModel) {
+        widgetRefresh++
         widgetReconciliationScope.launch {
             val catalog = RegistryWidgetCatalog(context)
             ClockWidgetRuntime.repository(context).pendingPins(catalog::contains).cleanup(System.currentTimeMillis())
@@ -230,7 +244,15 @@ fun HubApp(
                         NestedScreen(navHeight, goBack) {
                             DevicesScreen(settingsFailed = state.settings is Outcome.Failure,
                                 phoneState = state.phone,
-                                onRefresh = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.Refresh)) },
+                                wallpaperName = app.livosphere.content.AuthoredContentCatalog.sets
+                                    .singleOrNull { it.wallpaper.componentId.value == state.phone.target?.wallpaperId }
+                                    ?.let { app.livosphere.hub.theme.PreviewAssetResolver.displayName(context, it) },
+                                widgets = widgetInstances,
+                                onEditWidget = { id -> context.startActivity(ClockWidgetRuntime.configurationIntent(context, id)) },
+                                onOpenWidgets = { viewModel.onAction(HubAction.SectionSelected(HubSection.WIDGETS)) },
+                                onHome = { context.startActivity(android.content.Intent(android.content.Intent.ACTION_MAIN)
+                                    .addCategory(android.content.Intent.CATEGORY_HOME)) },
+                                onRefresh = { widgetRefresh++; viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.Refresh)) },
                                 onPhoneHelp = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.ToggleHelp)) },
                                 onHelp = { viewModel.onAction(HubAction.OpenOnboarding) })
                         }
@@ -245,8 +267,18 @@ fun HubApp(
                                 onTouchReactionsChanged = viewModel::setTouchReactionsEnabled,
                                 wallpaperMotionMode = wallpaperSettings.motion,
                                 wallpaperSettingsFailure = wallpaperSettings.failure,
+                                pendingMotion = wallpaperSettings.pendingMotion,
+                                pendingTouch = wallpaperSettings.pendingTouch,
+                                onRetryWallpaperSettings = viewModel::retryWallpaperSettings,
+                                onDiscardWallpaperSettings = viewModel::discardWallpaperSettingsDrafts,
+                                wallpaperName = app.livosphere.content.AuthoredContentCatalog.sets
+                                    .singleOrNull { it.wallpaper.componentId.value == state.phone.target?.wallpaperId }
+                                    ?.let { app.livosphere.hub.theme.PreviewAssetResolver.displayName(context, it) },
                                 onWallpaperMotionChanged = viewModel::setWallpaperMotionMode,
                                 hubMotionMode = hubMotion,
+                                pendingHubMotion = pendingHubMotion,
+                                onRetryHubMotion = viewModel::retryHubMotion,
+                                onDiscardHubMotion = viewModel::discardHubMotionDraft,
                                 onHubMotionChanged = viewModel::setHubMotionMode,
                                 releaseNoteVisible = if (hubMotion == null || installedVersionName == null) null
                                 else dismissedReleaseVersion != installedVersionName,

@@ -157,4 +157,23 @@
     <string name="more_guide">Как установить</string>
     <string name="more_guide_summary">Обои, часы и подтверждение в Android</string>
     <string name="hub_back">Назад</string>
+    <string name="phone_selected_wallpaper">Выбранные обои: %1$s</string>
+    <string name="widget_instances_title">Мои виджеты</string>
+    <string name="widget_instances_explanation">Это экземпляры, о которых сообщает Android. Приложение не определяет, на какой странице они видны. Размещение на экране блокировки зависит от телефона; часы можно добавить на главный экран отдельно от обоев.</string>
+    <string name="widget_instances_loading">Проверяем виджеты…</string>
+    <string name="widget_instances_failed">Не удалось прочитать список виджетов. Нажмите «Проверить снова» выше.</string>
+    <string name="widget_instances_empty">Android пока не сообщает об экземплярах наших часов.</string>
+    <string name="widget_instance_unconfigured">Часы без доступной настройки</string>
+    <string name="widget_instance_needs_configuration">Сохранённые настройки недоступны. Откройте настройку этого экземпляра для проверки.</string>
+    <string name="widget_instance_number">Экземпляр №%1$d</string>
+    <string name="widget_instance_edit">Настроить: %1$s</string>
+    <string name="widget_open_catalog">Выбрать другие часы</string>
+    <string name="widget_removal_title">Как удалить виджет</string>
+    <string name="widget_removal_body">1. Перейдите на главный экран.\n\n2. Найдите нужные часы и удерживайте их.\n\n3. Выберите «Удалить» у значка виджета. Название действия зависит от launcher.\n\nДругие часы и обои останутся. Эта инструкция сама ничего не удаляет; после возврата сведения обновятся.</string>
+    <string name="widget_go_home">Перейти на главный экран</string>
+    <string name="widget_catalog_empty">В этой версии пока нет доступных часов. Обои можно выбрать в отдельной вкладке.</string>
+    <string name="settings_pending_motion">Не сохранено: движение — %1$s</string>
+    <string name="settings_pending_touch">Не сохранено: реакции на касание — %1$s</string>
+    <string name="settings_retry">Повторить</string>
+    <string name="settings_discard">Отменить изменение</string>
 </resources>

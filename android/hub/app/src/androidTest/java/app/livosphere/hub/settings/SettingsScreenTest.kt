@@ -125,4 +125,20 @@ class SettingsScreenTest {
         composeRule.onNodeWithTag("settings-whats-new-unavailable").assertIsDisplayed()
         composeRule.onNodeWithText("Заметка этой версии уже закрыта.").assertDoesNotExist()
     }
+    @Test fun failedWallpaperDraftOffersRetryAndDiscard() {
+        var retried = 0
+        var discarded = 0
+        composeRule.setContent { LivosphereTheme {
+            SettingsScreen(null, {}, wallpaperMotionMode = null,
+                wallpaperSettingsFailure = app.livosphere.contract.SurfaceSettingsFailure.Write,
+                pendingMotion = WallpaperMotionMode.OFF,
+                onRetryWallpaperSettings = { retried++ }, onDiscardWallpaperSettings = { discarded++ })
+        } }
+        composeRule.onNodeWithTag("settings-wallpaper-toggle").performClick()
+        composeRule.onNodeWithTag("settings-wallpaper-retry").performClick()
+        composeRule.onNodeWithTag("settings-wallpaper-discard").performClick()
+        org.junit.Assert.assertEquals(1, retried)
+        org.junit.Assert.assertEquals(1, discarded)
+    }
+
 }

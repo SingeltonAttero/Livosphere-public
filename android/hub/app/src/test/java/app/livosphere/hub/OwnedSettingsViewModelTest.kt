@@ -120,4 +120,64 @@ class OwnedSettingsViewModelTest {
         release.complete(Unit); runCurrent()
         assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.NORMAL), model.wallpaperSettingsUi.value)
     }
+    @Test fun failedDraftCanRetryOrBeDiscardedWithoutChangingSavedValue() = runTest(dispatcher) {
+        var failWrite = true
+        val settings = object : WallpaperSettingsRepository(SurfaceSettingsRepository(Store()), a.wallpaperId) {
+            override val settings = MutableStateFlow<SettingsOutcome<WallpaperPreferences>>(SettingsOutcome.Success(WallpaperPreferences()))
+            override suspend fun setMotionMode(mode: WallpaperMotionMode) {
+                if (failWrite) throw java.io.IOException("controlled")
+                settings.value = SettingsOutcome.Success(WallpaperPreferences(motionMode = mode))
+            }
+        }
+        val model = vm(settings); runCurrent()
+        model.setWallpaperMotionMode(WallpaperMotionMode.OFF); runCurrent()
+        assertEquals(WallpaperMotionMode.OFF, model.wallpaperSettingsUi.value.pendingMotion)
+        assertEquals(WallpaperMotionMode.NORMAL, (settings.settings.value as SettingsOutcome.Success).value.motionMode)
+        failWrite = false
+        model.retryWallpaperSettings(); runCurrent()
+        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.OFF), model.wallpaperSettingsUi.value)
+        failWrite = true
+        model.setWallpaperMotionMode(WallpaperMotionMode.REDUCED); runCurrent()
+        model.discardWallpaperSettingsDrafts(); runCurrent()
+        assertEquals(WallpaperSettingsUiState(true, WallpaperMotionMode.OFF), model.wallpaperSettingsUi.value)
+    }
+
+    @Test fun changingWallpaperDropsFailedDraftInsteadOfApplyingItToAnotherOwner() = runTest(dispatcher) {
+        val store = Store().also { it.writeFailure = java.io.IOException("controlled") }
+        val model = vm(WallpaperSettingsRepository(SurfaceSettingsRepository(store), a.wallpaperId)); runCurrent()
+        model.setWallpaperMotionMode(WallpaperMotionMode.OFF); runCurrent()
+        assertEquals(WallpaperMotionMode.OFF, model.wallpaperSettingsUi.value.pendingMotion)
+        model.onAction(HubAction.Phone(PhoneWallpaperAction.TargetSelected(b))); runCurrent()
+        model.retryWallpaperSettings(); runCurrent()
+        assertNull(model.wallpaperSettingsUi.value.pendingMotion)
+        assertEquals(WallpaperMotionMode.NORMAL, model.wallpaperSettingsUi.value.motion)
+        assertTrue(store.values.value.wallpapers.isEmpty())
+    }
+
+    @Test fun hubMotionFailureRetainsDraftAndRetryDoesNotChangeWallpaperSettings() = runTest(dispatcher) {
+        val values = MutableStateFlow(app.livosphere.hub.settings.StoredHubSettings.from(InvitationHistory()))
+        var failWrite = true
+        val store = object : DataStore<app.livosphere.hub.settings.StoredHubSettings> {
+            override val data = values
+            override suspend fun updateData(transform: suspend (app.livosphere.hub.settings.StoredHubSettings) -> app.livosphere.hub.settings.StoredHubSettings): app.livosphere.hub.settings.StoredHubSettings {
+                if (failWrite) throw java.io.IOException("controlled")
+                return transform(values.value).also { values.value = it }
+            }
+        }
+        val knowledge = object : ApplicationKnowledgeProvider { override val knowledge = MutableStateFlow<ApplicationKnowledge>(ApplicationKnowledge.Unknown) }
+        val model = HubViewModel(history, knowledge, Clock.systemUTC(), app.livosphere.hub.settings.DataStoreHubRuntimeSettings(store)).also { models.put("hub", it) }
+        runCurrent()
+        model.setHubMotionMode(app.livosphere.hub.settings.HubMotionMode.REDUCED); runCurrent()
+        assertNull(model.hubMotion.value)
+        assertEquals(app.livosphere.hub.settings.HubMotionMode.REDUCED, model.pendingHubMotion.value)
+        assertEquals(app.livosphere.hub.settings.HubMotionMode.NORMAL, values.value.hubMotionMode)
+        model.discardHubMotionDraft(); runCurrent()
+        assertEquals(app.livosphere.hub.settings.HubMotionMode.NORMAL, model.hubMotion.value)
+        model.setHubMotionMode(app.livosphere.hub.settings.HubMotionMode.REDUCED); runCurrent()
+        failWrite = false
+        model.retryHubMotion(); runCurrent()
+        assertEquals(app.livosphere.hub.settings.HubMotionMode.REDUCED, model.hubMotion.value)
+        assertNull(model.pendingHubMotion.value)
+    }
+
 }
