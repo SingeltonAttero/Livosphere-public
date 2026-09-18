@@ -13,10 +13,17 @@ class WidgetPresentationPolicyTest {
         }
     }
     @Test fun analogDateFitsBesideDialAndFullDigitalKeepsHierarchy() {
-        assertEquals("d MMM", WidgetPresentationPolicy.metrics(WidgetSize.M, 250, 1f, true).datePattern)
+        assertEquals("d MMMM", WidgetPresentationPolicy.metrics(WidgetSize.M, 250, 1f, true).datePattern)
         val medium = WidgetPresentationPolicy.metrics(WidgetSize.M, 250, 1f, false)
         val large = WidgetPresentationPolicy.metrics(WidgetSize.L, 250, 1f, false)
         assertTrue(large.timeSp > medium.timeSp)
         assertTrue(medium.timeSp > medium.dateSp * 3)
+    }
+    @Test fun tallerHostUsesReadableContentInsteadOfStretchingTheBackground() {
+        val compact = WidgetPresentationPolicy.metrics(WidgetSize.M, 340, 1f, false, 110)
+        val roomy = WidgetPresentationPolicy.metrics(WidgetSize.M, 340, 1f, false, 200)
+        assertTrue(roomy.timeSp > compact.timeSp)
+        assertTrue(roomy.dateSp > compact.dateSp)
+        assertEquals("d MMMM", roomy.datePattern)
     }
 }

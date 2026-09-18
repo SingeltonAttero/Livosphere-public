@@ -1,7 +1,5 @@
 package app.livosphere.hub.theme
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -10,10 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -22,8 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.livosphere.R
 import app.livosphere.content.AuthoredContentCatalog
-import app.livosphere.hub.HubStage
-import app.livosphere.hub.HubSurface
+import app.livosphere.contract.WidgetSize
 import app.livosphere.widgets.RegistryWidgetCatalog
 
 @Composable
@@ -44,14 +38,11 @@ internal fun WidgetFeed(listState: LazyListState, onOpen: (String) -> Unit) {
             }
             items(sets, key = { it.setId.value }) { set ->
                 val widget = remember(set) { catalog.itemForSet(set.setId.value) }
-                val preview = remember(set) { PreviewAssetResolver.resolve(context, set, HubSurface.WATCH_FACE) }
                 if (widget != null) Surface(onClick = { onOpen(widget.widgetId) },
                     shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface,
                     modifier = Modifier.fillMaxWidth().semantics { testTag = "widget-${widget.widgetId}" }) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (preview != null) Image(painterResource(preview.drawableId), widget.displayName,
-                            Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(20.dp)).background(HubStage).padding(16.dp),
-                            contentScale = ContentScale.Fit)
+                        NativeWidgetPreview(widget.widgetId, WidgetSize.M, Modifier.fillMaxWidth())
                         Text(widget.displayName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                         Text(stringResource(R.string.widget_feed_sizes), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -128,13 +128,21 @@ object ClockTargetPolicy {
 
 /** Stable clock hierarchy inside host geometry; text never grows beyond its allocated face. */
 object WidgetPresentationPolicy {
-    fun metrics(size: WidgetSize, widthDp: Int, fontScale: Float, analog: Boolean): ClockLayoutMetrics {
+    fun metrics(size: WidgetSize, widthDp: Int, fontScale: Float, analog: Boolean,
+        heightDp: Int = when (size) { WidgetSize.L -> 180; else -> 110 }): ClockLayoutMetrics {
         val width = widthDp.coerceAtLeast(80)
+        val height = heightDp.coerceAtLeast(64)
         val scale = fontScale.coerceAtLeast(1f)
-        val base = when (size) { WidgetSize.S -> 29f; WidgetSize.M -> 51f; WidgetSize.L -> 65f }
-        val time = minOf(base, (width - 24) / 3.2f) / scale
-        val compact = width < 240 || analog
-        return ClockLayoutMetrics(time, (if (size == WidgetSize.L && !analog) 14f else 12f) / scale,
-            if (analog) "d MMM" else if (compact) "EEE, d MMM" else "EEE, d MMMM")
+        val date = when {
+            height <= 120 -> 12f
+            size == WidgetSize.L -> 18f
+            else -> 16f
+        }.let { minOf(it, (if (analog && size == WidgetSize.M) (width - 38) / 2f else width - 32f) / 7.5f) }
+        val base = when (size) { WidgetSize.S -> 44f; WidgetSize.M -> 56f; WidgetSize.L -> 80f }
+        val verticalSpace = height - (if (size == WidgetSize.L) 32 else 24) -
+            if (size == WidgetSize.S) 0f else (date * 2.4f + if (size == WidgetSize.L) 10 else 6)
+        val time = minOf(base, (width - 24) / 3.2f, verticalSpace / 1.2f).coerceAtLeast(12f) / scale
+        // Weekday has its own line; neither weekday nor month needs an abbreviation.
+        return ClockLayoutMetrics(time, date.coerceAtLeast(8f) / scale, "d MMMM")
     }
 }

@@ -187,13 +187,16 @@ object ClockLayoutAdapter {
             WidgetSize.S -> 110; else -> 250
         })
         val analog = catalog.isAnalog(widgetId)
-        val metrics = WidgetPresentationPolicy.metrics(size, width, context.resources.configuration.fontScale, analog)
+        val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, if (size == WidgetSize.L) 180 else 110)
+        val metrics = WidgetPresentationPolicy.metrics(size, width, context.resources.configuration.fontScale, analog, height)
         if (!analog) views.setTextViewTextSize(catalog.timeViewId(context), TypedValue.COMPLEX_UNIT_SP, metrics.timeSp)
         if (size != WidgetSize.S) {
             val dateId = catalog.dateViewId(context)
             views.setTextViewTextSize(dateId, TypedValue.COMPLEX_UNIT_SP, metrics.dateSp)
             views.setCharSequence(dateId, "setFormat12Hour", metrics.datePattern)
             views.setCharSequence(dateId, "setFormat24Hour", metrics.datePattern)
+            val weekdayId = context.resources.getIdentifier("clock_widget_weekday", "id", context.packageName)
+            if (weekdayId != 0) views.setTextViewTextSize(weekdayId, TypedValue.COMPLEX_UNIT_SP, metrics.dateSp)
         }
     }
 }
