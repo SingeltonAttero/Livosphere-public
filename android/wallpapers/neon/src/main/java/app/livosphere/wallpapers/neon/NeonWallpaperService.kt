@@ -6,6 +6,8 @@ import android.os.*
 import android.provider.Settings
 import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
+import android.view.MotionEvent
+import android.view.ViewConfiguration
 import app.livosphere.contract.SettingsOutcome
 import app.livosphere.contract.DayPhase
 import app.livosphere.contract.WallpaperMotionMode
@@ -42,6 +44,10 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
         private var phaseChangedAt = 0L
         private var frames = 0L
         private var effectLevel = AuthoredEffectLevel.FULL
+        private var interactionsEnabled = false
+        private var surfaceWidth = 0
+        private var surfaceHeight = 0
+        private val interactions = NeonInteractionController(theme, ViewConfiguration.get(applicationContext).scaledTouchSlop.toFloat())
         private var effective = policy.evaluate(NeonScenePolicy.definition, effectLevel, WallpaperMotionMode.OFF,
             true, ScenePowerFacts(null, null, null))
         private val loop = WallpaperRenderLoop(WallpaperClock { SystemClock.elapsedRealtime() },
@@ -53,7 +59,7 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
             }) {
             NeonSceneRenderer(applicationContext, theme, checkNotNull(holder)) {
                 frames++
-                NeonFrame(phase, previousPhase, phaseChangedAt, clock.value(SystemClock.elapsedRealtime()), effective)
+                NeonFrame(phase, previousPhase, phaseChangedAt, clock.value(SystemClock.elapsedRealtime()), effective, interactions.frame(SystemClock.elapsedRealtime()))
             }
         }
         private val phases = PhaseScheduler(Clock.systemUTC(), { ZoneId.systemDefault() },
@@ -65,6 +71,7 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
                     previousPhase = phase
                     phase = selection.phase
                     phaseChangedAt = SystemClock.elapsedRealtime()
+                    updateInteractions()
                     loop.invalidate()
                 }
             }
@@ -84,7 +91,8 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
 
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
-            setTouchEventsEnabled(false)
+            setTouchEventsEnabled(true)
+            setOffsetNotificationsEnabled(true)
             loop.setReducedMotion(true)
             val filter = IntentFilter().apply {
                 addAction(Intent.ACTION_TIME_CHANGED); addAction(Intent.ACTION_TIMEZONE_CHANGED); addAction(Intent.ACTION_DATE_CHANGED)
@@ -98,6 +106,7 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
             scope.launch { settings.settings.collect { result -> handler.post {
                 val preference = (result as? SettingsOutcome.Success)?.value
                 mode = preference?.motionMode
+                interactionsEnabled = preference?.interactionsEnabled == true
                 effectLevel = preference?.effectLevel?.let { AuthoredEffectLevel.valueOf(it.name) } ?: AuthoredEffectLevel.SUBTLE
                 updateMotion()
             } } }
@@ -111,9 +120,33 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
             val reduced = try { Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f } catch (_: RuntimeException) { true }
             effective = policy.evaluate(NeonScenePolicy.definition, effectLevel, mode ?: WallpaperMotionMode.OFF,
                 reduced, ScenePowerFacts(saver, percent, null))
+            updateInteractions()
             clock.setRunning(visible && valid && !effective.staticFrame, SystemClock.elapsedRealtime())
             loop.setReducedMotion(effective.staticFrame)
             if (visible && valid) loop.invalidate()
+        }
+        private fun updateInteractions() = interactions.configure(
+            visible && valid && interactionsEnabled && !effective.staticFrame, phase, effectLevel, surfaceWidth, surfaceHeight)
+
+        override fun onTouchEvent(event: MotionEvent) {
+            // MotionEvent is recycled by Android after this callback. Post primitive values only.
+            val action = event.actionMasked
+            val x = event.x; val y = event.y; val pointers = event.pointerCount
+            val now = SystemClock.elapsedRealtime()
+            handler.post {
+                if (pointers > 1 || action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_POINTER_DOWN) interactions.pointerCancel(now)
+                else when (action) {
+                    MotionEvent.ACTION_DOWN -> interactions.down(x, y, now)
+                    MotionEvent.ACTION_MOVE -> interactions.move(x, y, now)
+                    MotionEvent.ACTION_UP -> interactions.up(x, y, now)
+                }
+            }
+            super.onTouchEvent(event)
+        }
+        override fun onOffsetsChanged(xOffset: Float, yOffset: Float, xOffsetStep: Float, yOffsetStep: Float, xPixelOffset: Int, yPixelOffset: Int) {
+            val now = SystemClock.elapsedRealtime()
+            handler.post { interactions.offset(xOffset, xOffsetStep, now) }
+            super.onOffsetsChanged(xOffset, yOffset, xOffsetStep, yOffsetStep, xPixelOffset, yPixelOffset)
         }
         override fun onVisibilityChanged(isVisible: Boolean) {
             super.onVisibilityChanged(isVisible)
@@ -130,6 +163,7 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
                 phases.stop()
                 loop.setSurfaceValid(false)
                 holder = surfaceHolder
+                surfaceWidth = width; surfaceHeight = height
                 valid = width > 0 && height > 0 && surfaceHolder.surface.isValid
                 if (visible && valid) phases.start()
                 updateMotion()
@@ -147,7 +181,7 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
         }
         override fun onSurfaceDestroyed(surfaceHolder: SurfaceHolder) {
             fence {
-                phases.stop(); valid = false
+                phases.stop(); valid = false; updateInteractions()
                 clock.setRunning(false, SystemClock.elapsedRealtime())
                 loop.setSurfaceValid(false); holder = null
             }
@@ -157,13 +191,13 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
             scope.cancel()
             if (receiverRegistered) runCatching { unregisterReceiver(receiver) }
             if (observerRegistered) runCatching { contentResolver.unregisterContentObserver(motionObserver) }
-            fence { phases.close(); loop.close(); valid = false; visible = false; holder = null }
+            fence { phases.close(); loop.close(); interactions.cancel(); valid = false; visible = false; holder = null }
             handler.removeCallbacksAndMessages(null)
             thread.quitSafely()
             engines -= this
             super.onDestroy()
         }
-        fun debugState() = "neon theme=${theme.setId} phase=$phase visible=$visible valid=$valid static=${effective.staticFrame} requested=$effectLevel effective=${effective.effectiveLevel} frames=$frames lights=${NeonScenePolicy.lightsEnabled(phase)}"
+        fun debugState() = "neon theme=${theme.setId} phase=$phase visible=$visible valid=$valid static=${effective.staticFrame} requested=$effectLevel effective=${effective.effectiveLevel} frames=$frames lights=${NeonScenePolicy.lightsEnabled(phase)} interactions=$interactionsEnabled blinks=${interactions.blinks} swipes=${interactions.swipes} pulses=${interactions.pulses} blink=${interactions.frame(SystemClock.elapsedRealtime()).blink} shift=${interactions.frame(SystemClock.elapsedRealtime()).cloudOffset}"
         private fun fence(action: () -> Unit) {
             val done = CountDownLatch(1)
             if (handler.post { try { action() } finally { done.countDown() } }) await(done)

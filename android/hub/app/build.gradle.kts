@@ -93,5 +93,6 @@ dependencies {
     androidTestImplementation(libs.datastore.preferences)
     androidTestImplementation(libs.datastore.preferences)
     androidTestImplementation(project(":wallpapers:engine"))
+    androidTestImplementation(project(":wallpapers:neon"))
     debugImplementation(libs.compose.ui.test.manifest)
 }

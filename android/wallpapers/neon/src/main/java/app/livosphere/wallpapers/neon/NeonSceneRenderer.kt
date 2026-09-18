@@ -15,6 +15,7 @@ data class NeonFrame(
     val phaseChangedAt: Long,
     val elapsed: Long,
     val motion: EffectiveMotion,
+    val interaction: NeonInteractionFrame = NeonInteractionFrame(),
 )
 
 /** Product-owned Canvas composition; wallpaper scheduling stays in the shared engine. */
@@ -26,6 +27,7 @@ class NeonSceneRenderer(
 ) : WallpaperRenderer {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val glow = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val blinkLayer = NeonBlinkLayer(context, theme)
     private val texture = cloudTexture(context, theme)
     private val skyMask = skyMask(theme)
     private val maskPaint = Paint(Paint.FILTER_BITMAP_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN) }
@@ -47,6 +49,7 @@ class NeonSceneRenderer(
 
     fun draw(canvas: Canvas, frame: NeonFrame, now: Long = SystemClock.elapsedRealtime()) {
         val current = image(frame.phase)
+        if (!frame.motion.staticFrame) blinkLayer.prepare(frame.phase)
         val scale = max(canvas.width.toFloat() / current.width, canvas.height.toFloat() / current.height)
         val width = current.width * scale
         val height = current.height * scale
@@ -60,9 +63,11 @@ class NeonSceneRenderer(
         val progress = ((now - frame.phaseChangedAt) / 6000f).coerceIn(0f, 1f)
         if (blendAllowed && progress < 1f && frame.previousPhase != frame.phase) {
             canvas.drawBitmap(image(frame.previousPhase), null, destination, paint)
+            blinkLayer.draw(canvas, frame.previousPhase, destination, frame.interaction.blink)
             paint.alpha = (progress * 255).roundToInt()
         }
         canvas.drawBitmap(current, null, destination, paint)
+        blinkLayer.draw(canvas, frame.phase, destination, frame.interaction.blink * paint.alpha / 255f)
         paint.alpha = 255
         canvas.save()
         canvas.translate(left, top); canvas.scale(width, height)
@@ -105,7 +110,7 @@ class NeonSceneRenderer(
             val y = if (layer == 0) .025f else if (theme == NeonTheme.HARBOR) .09f else .135f
             paint.alpha = if (frame.phase == DayPhase.NIGHT) 90 else 160
             for (tile in -2..1) {
-                val x = position + tile * tileWidth
+                val x = position + tile * tileWidth + frame.interaction.cloudOffset * if (layer == 0) .55f else 1f
                 canvas.drawBitmap(texture, null, RectF(x, y, x + tileWidth, y + .12f), paint)
             }
         }
@@ -121,7 +126,8 @@ class NeonSceneRenderer(
         val count = NeonScenePolicy.groupCount(level, theme)
         groups.take(count).forEachIndexed { index, group ->
             val (x, y) = group
-            val intensity = NeonScenePolicy.emitterIntensity(frame.phase, frame.elapsed, index, theme, frame.motion) *
+            val intensity = (NeonScenePolicy.emitterIntensity(frame.phase, frame.elapsed, index, theme, frame.motion) +
+                if (frame.interaction.lightGroup == index) frame.interaction.lightBoost else 0f).coerceAtMost(1.3f) *
                 NeonScenePolicy.nightEntryGain(frame.phase, frame.previousPhase, now - frame.phaseChangedAt, index, frame.motion.staticFrame)
             glow.color = when (index % 3) { 0 -> Color.rgb(114, 229, 255); 1 -> Color.rgb(247, 130, 212); else -> Color.rgb(244, 205, 148) }
             glow.alpha = (intensity * 190).roundToInt()
@@ -151,7 +157,7 @@ class NeonSceneRenderer(
         glow.shader = null
     }
 
-    override fun close() { images.evictAll(); texture.recycle(); skyMask.recycle() }
+    override fun close() { images.evictAll(); blinkLayer.close(); texture.recycle(); skyMask.recycle() }
 
     companion object {
         /** Feather the empty-sky boundary instead of cutting clouds across a visible polygon edge. */

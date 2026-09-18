@@ -49,15 +49,21 @@ object NeonScenePolicy {
     fun reflectionIntensity(emitterIntensity: Float) = emitterIntensity * .32f
 
     val definition = SceneDefinition(
-        objects = listOf(SceneObjectDefinition("clouds", .5f, .12f, .5f), SceneObjectDefinition("city", .7f, .4f, .1f)),
+        objects = listOf(SceneObjectDefinition("clouds", .5f, .12f, .5f), SceneObjectDefinition("city", .7f, .4f, .1f), SceneObjectDefinition("character", .45f, .5f, .2f)),
         effects = listOf(
             effect("far-clouds", "clouds", AuthoredEffectLevel.entries.toSet()),
             effect("city-lights", "city", AuthoredEffectLevel.entries.toSet()),
             effect("near-clouds", "clouds", setOf(AuthoredEffectLevel.BALANCED, AuthoredEffectLevel.FULL)),
             effect("extra-lights", "city", setOf(AuthoredEffectLevel.FULL)),
+            reaction("blink", "character", SceneTrigger.TAP, 240),
+            reaction("city-response", "city", SceneTrigger.TAP, 1200),
+            reaction("cloud-response", "clouds", SceneTrigger.OFFSET, 990),
         ),
-        declaredTriggers = setOf(SceneTrigger.AMBIENT),
+        declaredTriggers = setOf(SceneTrigger.AMBIENT, SceneTrigger.TAP, SceneTrigger.OFFSET),
     )
+    private fun reaction(id: String, objectId: String, trigger: SceneTrigger, duration: Long) =
+        SceneEffectDefinition(id, objectId, trigger, 1, duration, .014f, 0f, AuthoredEffectLevel.entries.toSet(),
+            SceneEffectType.TRANSLATE_PULSE, EffectStopRule.REPLACE)
     private fun effect(id: String, objectId: String, levels: Set<AuthoredEffectLevel>) =
         SceneEffectDefinition(id, objectId, SceneTrigger.AMBIENT, 0, 180_000, .1f, 0f, levels,
             SceneEffectType.TRANSLATE, EffectStopRule.REPLACE)
