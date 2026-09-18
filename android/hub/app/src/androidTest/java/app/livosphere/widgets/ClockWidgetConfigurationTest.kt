@@ -23,6 +23,39 @@ class ClockWidgetConfigurationTest {
 
     @After fun resetHooks() = ClockActivityHooks.reset()
 
+    @Test fun prePinDetailsKeepSelectedWidgetAndInstallOnlyAfterConfirmation() {
+        val calls = mutableListOf<Pair<String, WidgetSize>>()
+        ClockActivityHooks.pin = { _, widgetId, size, _ ->
+            calls += widgetId to size
+            PinRequestResult.UNSUPPORTED
+        }
+        val items = RegistryWidgetCatalog(context).items()
+        items.forEachIndexed { index, item ->
+            ActivityScenario.launch<ClockWidgetPrePinActivity>(ClockWidgetRuntime.prePinIntent(context, item.widgetId)).use { scenario ->
+                compose.onNodeWithTag("widget-detail-title").assertTextEquals(item.displayName)
+                compose.onNodeWithTag("widget-detail-preview-M").assertIsDisplayed()
+                items.filter { it.widgetId != item.widgetId }.forEach {
+                    compose.onNodeWithText(it.displayName).assertDoesNotExist()
+                }
+                assertEquals(index, calls.size)
+                compose.onNodeWithTag("widget-size-S").performScrollTo().performClick().assertIsSelected()
+                scenario.recreate()
+                compose.onNodeWithTag("widget-size-S").assertIsSelected()
+                compose.onNodeWithTag("widget-detail-preview-S").performScrollTo().assertIsDisplayed()
+                compose.onNodeWithText("По нажатию").performScrollTo().assertIsDisplayed()
+                compose.onNodeWithText("Установить виджет").performScrollTo().performClick()
+                compose.waitUntil { calls.size == index + 1 }
+                assertEquals(item.widgetId to WidgetSize.S, calls.last())
+                compose.onNodeWithText("Перейти на главный экран").performScrollTo().assertIsDisplayed()
+                compose.onNodeWithText("Назад").performScrollTo().performClick()
+            }
+        }
+        ActivityScenario.launch<ClockWidgetPrePinActivity>(ClockWidgetRuntime.prePinIntent(context, items.first().widgetId)).use {
+            compose.onNodeWithText("Назад").performClick()
+        }
+        assertEquals(items.size, calls.size)
+    }
+
     @Test fun pickerStartsCancelledAndReturnsOkOnlyAfterSaveAndUpdate() {
         val old = WidgetPreferences("isolation-fixture-clock-widget", WidgetSize.S, null, 7, 2)
         val drafts = mutableListOf<WidgetPreferences>()
@@ -67,9 +100,9 @@ class ClockWidgetConfigurationTest {
         ActivityScenario.launch<ClockWidgetPrePinActivity>(
             ClockWidgetRuntime.prePinIntent(context, "contour-debug-clock-widget"),
         ).use {
-            compose.onNodeWithText("Добавить виджет").performClick()
+            compose.onNodeWithText("Установить виджет").performScrollTo().performClick()
             compose.onNodeWithText("Перейти на главный экран").assertIsDisplayed()
-            compose.onNodeWithText("Отмена").performClick()
+            compose.onNodeWithText("Назад").performScrollTo().performClick()
         }
     }
 

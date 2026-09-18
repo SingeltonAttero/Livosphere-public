@@ -5,7 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -46,6 +46,7 @@ internal fun WallpaperFeed(
     onSeen: () -> Unit,
     onInstall: () -> Unit,
     onSupport: () -> Unit,
+    onCatalog: (() -> Unit)? = null,
 ) {
     val sets = remember { AuthoredContentCatalog.sets }
     if (sets.isEmpty() || sets.none { it.setId.value == setId }) {
@@ -59,6 +60,8 @@ internal fun WallpaperFeed(
     val select by rememberUpdatedState(onSetSelected)
     val seen by rememberUpdatedState(onSeen)
     LaunchedEffect(pager) {
+        // A catalog selection takes precedence over a restored pager position.
+        pager.scrollToPage(sets.indexOfFirst { it.setId.value == setId })
         seen()
         snapshotFlow { pager.currentPage }.distinctUntilChanged().collect { select(sets[it]) }
     }
@@ -84,7 +87,7 @@ internal fun WallpaperFeed(
             CustomAccessibilityAction(previousDescription) { scope.launch { pager.scrollToPage((pager.currentPage + sets.size - 1) % sets.size) }; true },
         )
     }) {
-        VerticalPager(state = pager, key = { sets[it].setId.value }, modifier = Modifier.fillMaxSize().semantics { testTag = "wallpaper-pager" }) { index ->
+        HorizontalPager(state = pager, key = { sets[it].setId.value }, modifier = Modifier.fillMaxSize().semantics { testTag = "wallpaper-pager" }) { index ->
             val set = sets[index]
             val asset = remember(set) { PreviewAssetResolver.resolve(context, set, HubSurface.WALLPAPER) }
             Box(Modifier.fillMaxSize().then(if (index == pager.currentPage) Modifier else Modifier.clearAndSetSemantics {})) {
@@ -98,6 +101,15 @@ internal fun WallpaperFeed(
             0f to HubArtworkBackdrop.copy(alpha = .4f), .12f to Color.Transparent,
             .62f to Color.Transparent, 1f to HubArtworkBackdrop.copy(alpha = .85f),
         )))
+        if (onCatalog != null) Button(onClick = onCatalog,
+            modifier = Modifier.align(Alignment.TopEnd)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .padding(horizontal = 20.dp, vertical = 8.dp).heightIn(min = 48.dp)
+                .semantics { testTag = "wallpaper-catalog-open" },
+            colors = ButtonDefaults.buttonColors(containerColor = HubArtworkBackdrop.copy(alpha = .7f), contentColor = HubOnArtwork),
+            shape = RoundedCornerShape(16.dp)) {
+            Text(stringResource(R.string.wallpaper_catalog_title))
+        }
         Column(Modifier.align(Alignment.BottomCenter).padding(bottom = bottomInset + 8.dp)
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
             .widthIn(max = 560.dp).fillMaxWidth().padding(horizontal = 20.dp),

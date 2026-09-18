@@ -25,11 +25,11 @@ internal object PreviewAssetResolver {
     fun resolve(context: Context, setId: String?, surface: HubSurface): PreviewAsset? =
         resolve(context, descriptor(setId), surface)
 
-    fun resolve(context: Context, descriptor: SetDescriptor?, surface: HubSurface): PreviewAsset? {
+    fun resolve(context: Context, descriptor: SetDescriptor?, surface: HubSurface, widgetSize: WidgetSize = WidgetSize.M): PreviewAsset? {
         descriptor ?: return null
         val roleRef = when (surface) {
             HubSurface.WALLPAPER -> descriptor.preview.wallpaperRef
-            HubSurface.WATCH_FACE -> descriptor.preview.widgetRefs[WidgetSize.M]
+            HubSurface.WATCH_FACE -> descriptor.preview.widgetRefs[widgetSize]
         }
         val reference = if (roleRef != null) descriptor.preview.resources.singleOrNull { it.symbolicName == roleRef }
             else if (descriptor.schemaVersion == 1 && surface == HubSurface.WALLPAPER) descriptor.preview.resources.singleOrNull {

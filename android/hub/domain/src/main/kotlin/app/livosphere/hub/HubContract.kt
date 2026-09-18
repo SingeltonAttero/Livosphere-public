@@ -11,6 +11,7 @@ import app.livosphere.hub.wallpaper.*
 
 enum class HubSection {
     THEME,
+    WALLPAPER_CATALOG,
     WIDGETS,
     MORE,
     DEVICES,
@@ -172,7 +173,7 @@ object HubReducer {
     }
 
     private fun surfaceFor(section: HubSection, previous: HubSurface): HubSurface = when (section) {
-        HubSection.THEME -> HubSurface.WALLPAPER
+        HubSection.THEME, HubSection.WALLPAPER_CATALOG -> HubSurface.WALLPAPER
         HubSection.WIDGETS -> HubSurface.WATCH_FACE
         else -> previous
     }
