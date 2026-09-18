@@ -82,6 +82,7 @@ enum class SupportedSetting {
     BATTERY_LEVEL,
     CHARGING,
     TAP,
+    TILT,
     SWIPE,
     REDUCED_MOTION,
     EFFECT_LEVEL,

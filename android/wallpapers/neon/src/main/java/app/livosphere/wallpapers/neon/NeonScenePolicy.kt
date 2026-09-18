@@ -55,11 +55,11 @@ object NeonScenePolicy {
             effect("city-lights", "city", AuthoredEffectLevel.entries.toSet()),
             effect("near-clouds", "clouds", setOf(AuthoredEffectLevel.BALANCED, AuthoredEffectLevel.FULL)),
             effect("extra-lights", "city", setOf(AuthoredEffectLevel.FULL)),
-            reaction("blink", "character", SceneTrigger.TAP, 240),
-            reaction("city-response", "city", SceneTrigger.TAP, 1200),
-            reaction("cloud-response", "clouds", SceneTrigger.OFFSET, 990),
+            reaction("blink", "character", SceneTrigger.TILT, 240),
+            reaction("city-response", "city", SceneTrigger.TILT, 1200),
+            reaction("cloud-response", "clouds", SceneTrigger.TILT, 990),
         ),
-        declaredTriggers = setOf(SceneTrigger.AMBIENT, SceneTrigger.TAP, SceneTrigger.OFFSET),
+        declaredTriggers = setOf(SceneTrigger.AMBIENT, SceneTrigger.TILT),
     )
     private fun reaction(id: String, objectId: String, trigger: SceneTrigger, duration: Long) =
         SceneEffectDefinition(id, objectId, trigger, 1, duration, .014f, 0f, AuthoredEffectLevel.entries.toSet(),

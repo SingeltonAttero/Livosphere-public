@@ -263,7 +263,10 @@ fun HubApp(
                                 touchReactionsEnabled = wallpaperSettings.touchReactions,
                                 supportsTouchReactions = app.livosphere.content.AuthoredContentCatalog.sets
                                     .singleOrNull { it.wallpaper.componentId.value == state.phone.target?.wallpaperId }
-                                    ?.wallpaper?.supportedSettings?.contains(app.livosphere.contract.SupportedSetting.TAP) == true,
+                                    ?.wallpaper?.supportedSettings?.any { it == app.livosphere.contract.SupportedSetting.TAP || it == app.livosphere.contract.SupportedSetting.TILT } == true,
+                                tiltReactions = app.livosphere.content.AuthoredContentCatalog.sets
+                                    .singleOrNull { it.wallpaper.componentId.value == state.phone.target?.wallpaperId }
+                                    ?.wallpaper?.supportedSettings?.contains(app.livosphere.contract.SupportedSetting.TILT) == true,
                                 onTouchReactionsChanged = viewModel::setTouchReactionsEnabled,
                                 wallpaperMotionMode = wallpaperSettings.motion,
                                 wallpaperSettingsFailure = wallpaperSettings.failure,

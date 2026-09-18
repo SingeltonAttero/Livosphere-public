@@ -33,7 +33,7 @@ final class SetManifestReader {
     private static final Set<String> INSTALL_ROUTES = Set.of(
             "embedded-preview", "system-wallpaper-preview", "system-widget-pin", "separate-watchface-package");
     private static final Set<String> SETTINGS = Set.of(
-            "none", "time-of-day", "battery-level", "charging", "tap", "swipe", "reduced-motion", "effect-level");
+            "none", "time-of-day", "battery-level", "charging", "tap", "tilt", "swipe", "reduced-motion", "effect-level");
     private static final Map<String, String> CONTENT_STATUS_ENUMS = Map.of(
             "approved-for-start", "APPROVED_FOR_START",
             "release-ready", "RELEASE_READY", "draft", "DRAFT", "image-approved", "IMAGE_APPROVED", "html-approved", "HTML_APPROVED");

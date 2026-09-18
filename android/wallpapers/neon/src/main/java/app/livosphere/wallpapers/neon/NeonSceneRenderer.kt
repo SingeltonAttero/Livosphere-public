@@ -107,7 +107,8 @@ class NeonSceneRenderer(
             val tileWidth = if (layer == 0) 1.65f else 1.25f
             val initial = if (layer == 0) .03f else .42f
             val position = ((elapsed * speed * theme.cloudDirection + initial) % tileWidth + tileWidth) % tileWidth
-            val y = if (layer == 0) .025f else if (theme == NeonTheme.HARBOR) .09f else .135f
+            val y = (if (layer == 0) .025f else if (theme == NeonTheme.HARBOR) .09f else .135f) +
+                frame.interaction.cloudOffsetY * if (layer == 0) .55f else 1f
             paint.alpha = if (frame.phase == DayPhase.NIGHT) 90 else 160
             for (tile in -2..1) {
                 val x = position + tile * tileWidth + frame.interaction.cloudOffset * if (layer == 0) .55f else 1f
