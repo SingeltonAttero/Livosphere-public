@@ -47,11 +47,16 @@ internal fun WallpaperFeed(
     onInstall: () -> Unit,
     onSupport: () -> Unit,
     onCatalog: (() -> Unit)? = null,
+    sets: List<SetDescriptor> = AuthoredContentCatalog.sets,
 ) {
-    val sets = remember { AuthoredContentCatalog.sets }
     if (sets.isEmpty() || sets.none { it.setId.value == setId }) {
         Box(Modifier.fillMaxSize().background(HubArtworkBackdrop), contentAlignment = Alignment.Center) {
-            Text(stringResource(R.string.theme_preview_unavailable), color = HubOnArtwork)
+            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(stringResource(R.string.theme_preview_unavailable), color = HubOnArtwork)
+                TextButton(onClick = onSupport, modifier = Modifier.heightIn(min = 48.dp).semantics { testTag = "catalog-recovery" }) {
+                    Text(stringResource(R.string.wallpaper_support), color = HubOnArtwork)
+                }
+            }
         }
         return
     }
@@ -67,6 +72,7 @@ internal fun WallpaperFeed(
     }
     val context = LocalContext.current
     val current = sets[pager.currentPage]
+    val currentAsset = remember(current) { PreviewAssetResolver.resolve(context, current, HubSurface.WALLPAPER) }
     val name = remember(current) { PreviewAssetResolver.displayName(context, current) }
     val nextPage = (pager.currentPage + 1) % sets.size
     val next = sets[nextPage]
@@ -75,7 +81,7 @@ internal fun WallpaperFeed(
     val nextDescription = stringResource(R.string.wallpaper_next, nextName)
     val previousDescription = stringResource(R.string.wallpaper_previous)
     val ready = phoneState?.target?.wallpaperId == current.wallpaper.componentId.value && setId == current.setId.value
-    val enabled = ready && phoneState?.path?.route != null && !phoneState.busy && !phoneState.refreshing
+    val enabled = currentAsset != null && ready && phoneState?.path?.route != null && !phoneState.busy && !phoneState.refreshing
     val hasProblem = ready && phoneState != null && (phoneState.failure != null ||
         (phoneState.path.route == null && !phoneState.refreshing && !phoneState.busy))
     val explanation = if (phoneState != null) phonePathExplanation(phoneState) else stringResource(R.string.phone_checking)
@@ -118,6 +124,7 @@ internal fun WallpaperFeed(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { testTag = "wallpaper-support" }) {
                 Text(stringResource(R.string.wallpaper_support), color = HubOnArtwork, textAlign = TextAlign.Center)
             }
+            if (currentAsset == null) Text(stringResource(R.string.theme_preview_unavailable), color = HubOnArtwork)
             Button(onClick = onInstall, enabled = enabled,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).semantics {
                     testTag = "theme-primary-action"; stateDescription = explanation

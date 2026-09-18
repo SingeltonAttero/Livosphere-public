@@ -19,6 +19,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.testTag
@@ -33,8 +35,11 @@ import app.livosphere.hub.wallpaper.*
 
 @Composable
 internal fun DevicesScreen(settingsFailed: Boolean, onHelp: () -> Unit,
-    phoneState: PhoneWallpaperState = PhoneWallpaperState(), onRefresh: () -> Unit = {}, onPhoneHelp: () -> Unit = {}) {
+    phoneState: PhoneWallpaperState = PhoneWallpaperState(), onRefresh: () -> Unit = {}, onPhoneHelp: () -> Unit = {},
+    wallpaperName: String? = null, widgets: WidgetInstances = WidgetInstances(),
+    onEditWidget: (Int) -> Unit = {}, onOpenWidgets: () -> Unit = {}, onHome: () -> Unit = {}) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var removalHelp by rememberSaveable { mutableStateOf(false) }
     val snapshot = phoneState.snapshot
     Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
     Column(
@@ -46,6 +51,7 @@ internal fun DevicesScreen(settingsFailed: Boolean, onHelp: () -> Unit,
         Text(stringResource(R.string.hub_section_devices), Modifier.semantics { heading() },
             style = MaterialTheme.typography.headlineLarge)
         Text(stringResource(R.string.phone_title), style = MaterialTheme.typography.titleMedium)
+        wallpaperName?.let { Text(stringResource(R.string.phone_selected_wallpaper, it)) }
         Column(Modifier.testTag("phone-summary").semantics { liveRegion = LiveRegionMode.Polite },
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (phoneState.refreshing) {
@@ -80,9 +86,32 @@ internal fun DevicesScreen(settingsFailed: Boolean, onHelp: () -> Unit,
             }
         }
         RecoveryPanel(phoneState, onRefresh, onPhoneHelp)
-        Text(stringResource(R.string.hub_watch_fact), style = MaterialTheme.typography.titleMedium)
-        Text(stringResource(R.string.hub_unknown_explanation), Modifier.testTag("devices-unknown"),
+        Text(stringResource(R.string.widget_instances_title), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.widget_instances_explanation), Modifier.testTag("devices-unknown"),
             style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        when {
+            widgets.loading -> Text(stringResource(R.string.widget_instances_loading))
+            widgets.failed -> Text(stringResource(R.string.widget_instances_failed), Modifier.testTag("widget-instances-error"))
+            widgets.items.isEmpty() -> Text(stringResource(R.string.widget_instances_empty), Modifier.testTag("widget-instances-empty"))
+            else -> widgets.items.forEach { widget ->
+                Column(Modifier.fillMaxWidth().testTag("widget-instance-${widget.id}"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val title = widget.name ?: stringResource(R.string.widget_instance_unconfigured)
+                    Text("$title · ${widget.size.name}", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.widget_instance_number, widget.id), style = MaterialTheme.typography.bodySmall)
+                    if (widget.needsConfiguration) Text(stringResource(R.string.widget_instance_needs_configuration))
+                    OutlinedButton(onClick = { onEditWidget(widget.id) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("widget-edit-${widget.id}")) {
+                        Text(stringResource(R.string.widget_instance_edit, title))
+                    }
+                }
+            }
+        }
+        OutlinedButton(onClick = onOpenWidgets, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("devices-widget-catalog")) {
+            Text(stringResource(R.string.widget_open_catalog))
+        }
+        OutlinedButton(onClick = { removalHelp = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("widget-removal-help")) {
+            Text(stringResource(R.string.widget_removal_title))
+        }
         if (settingsFailed) {
             Text(stringResource(R.string.hub_settings_failure), Modifier.testTag("devices-settings-failure"),
                 style = MaterialTheme.typography.bodyMedium)
@@ -93,6 +122,15 @@ internal fun DevicesScreen(settingsFailed: Boolean, onHelp: () -> Unit,
         }
     }
     }
+    if (removalHelp) AlertDialog(onDismissRequest = { removalHelp = false },
+        title = { Text(stringResource(R.string.widget_removal_title)) },
+        text = { Text(stringResource(R.string.widget_removal_body)) },
+        confirmButton = { TextButton(onClick = { removalHelp = false; onHome() }, modifier = Modifier.heightIn(min = 48.dp)) {
+            Text(stringResource(R.string.widget_go_home))
+        } },
+        dismissButton = { TextButton(onClick = { removalHelp = false }, modifier = Modifier.heightIn(min = 48.dp)) {
+            Text(stringResource(R.string.hub_back))
+        } })
 }
 
 @Composable
