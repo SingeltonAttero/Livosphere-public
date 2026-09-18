@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Livosphere</string>
-    <string name="hub_section_theme">Наборы</string>
+    <string name="hub_section_theme">Обои</string>
     <string name="hub_section_devices">Устройства</string>
     <string name="hub_section_settings">Настройки</string>
     <string name="hub_theme_name">Контур</string>
@@ -21,7 +21,7 @@
     <string name="hub_settings_failure">История приглашений недоступна. Автоматическое знакомство отключено; помощь и просмотр доступны.</string>
     <string name="hub_onboarding_help">Знакомство с оформлением</string>
     <string name="hub_onboarding_title">Один мир, две поверхности</string>
-    <string name="hub_onboarding_description">В «Наборах» можно листать коллекцию и отдельно выбирать обои или часы. «Установить» открывает системную примерку обоев или настройку виджета. Установка происходит после подтверждения в Android.</string>
+    <string name="hub_onboarding_description">Во вкладке «Обои» листайте сцены и нажмите «Установить обои». Во вкладке «Виджеты» выберите часы. Установка происходит после подтверждения в Android. Помощь и настройки находятся во вкладке «Ещё».</string>
     <string name="phone_direct_explanation">Откроется системная примерка. Применение — после подтверждения.</string>
     <string name="phone_chooser_explanation">Откроется системный выбор живых обоев. Выберите нужные обои и подтвердите применение.</string>
     <string name="phone_chooser_action">Выбрать живые обои</string>
@@ -137,4 +137,20 @@
     <string name="collection_sakura_clock_description">Тонкие цифры, прохладный акцент и лепесток сакуры. Время и дата с первого взгляда.</string>
     <string name="collection_harbor_clock_description">Чёткие цифры и неоновые акценты. Лаконичные часы в ритме ночного города.</string>
     <string name="collection_sunset_clock_description">Аналоговый циферблат в тёплых оттенках заката. Спокойный акцент на главном экране.</string>
+    <string name="hub_section_widgets">Виджеты</string>
+    <string name="hub_section_more">Ещё</string>
+    <string name="wallpaper_install">Установить обои</string>
+    <string name="widget_install">Установить виджет</string>
+    <string name="wallpaper_next">Следующие обои — %1$s</string>
+    <string name="wallpaper_next_short">Далее · %1$s</string>
+    <string name="wallpaper_previous">Предыдущие обои</string>
+    <string name="wallpaper_support">Помощь с установкой</string>
+    <string name="widget_feed_subtitle">Авторские часы для главного экрана</string>
+    <string name="widget_feed_sizes">S / M / L · Устанавливаются отдельно</string>
+    <string name="more_subtitle">Настройки и помощь — всё в одном месте</string>
+    <string name="more_settings_summary">Движение обоев и настройки приложения</string>
+    <string name="more_installation_summary">Проверить установку и доступность на телефоне</string>
+    <string name="more_guide">Как установить</string>
+    <string name="more_guide_summary">Обои, часы и подтверждение в Android</string>
+    <string name="hub_back">Назад</string>
 </resources>

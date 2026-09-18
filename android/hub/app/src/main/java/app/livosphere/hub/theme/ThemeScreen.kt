@@ -125,19 +125,10 @@ internal fun ThemeScreen(
     val systemMotionReduced = rememberCoroutineScope().coroutineContext[MotionDurationScale]?.scaleFactor == 0f
     val reduced = systemMotionReduced || hubMotionReduced
     if (descriptor != null) {
-        ThemeCarousel(
-            setId = descriptor.setId.value,
-            selectedSurface = selectedSurface,
-            onSurfaceSelected = onSurfaceSelected,
-            onSetSelected = onSetSelected,
-            onThemePreviewSeen = onThemePreviewSeen,
-            phoneState = phoneState,
-            widgetAvailable = widgetAvailable,
-            onTry = onTry,
-            onPhoneRefresh = onPhoneRefresh,
-            onPhoneHelp = onPhoneHelp,
-            reduced = reduced,
-            previewPainter = previewPainter,
+        WallpaperFeed(
+            setId = descriptor.setId.value, phoneState = phoneState,
+            onSetSelected = onSetSelected, onSeen = onThemePreviewSeen,
+            onInstall = onTry, onSupport = onPhoneHelp,
         )
         return
     }

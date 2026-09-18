@@ -9,6 +9,12 @@ import kotlinx.serialization.Serializable
 internal data object ThemeKey : NavKey
 
 @Serializable
+internal data object WidgetsKey : NavKey
+
+@Serializable
+internal data object MoreKey : NavKey
+
+@Serializable
 internal data object DevicesKey : NavKey
 
 @Serializable
@@ -26,17 +32,22 @@ internal class HubNavigator(
         if (backStack.size == 1 && backStack.lastOrNull() == key) return
 
         backStack.clear()
+        if (section == HubSection.SETTINGS || section == HubSection.DEVICES) backStack.add(MoreKey)
         backStack.add(key)
     }
 }
 
 internal fun HubSection.toNavKey(): NavKey = when (this) {
     HubSection.THEME -> ThemeKey
+    HubSection.WIDGETS -> WidgetsKey
+    HubSection.MORE -> MoreKey
     HubSection.DEVICES -> DevicesKey
     HubSection.SETTINGS -> SettingsKey
 }
 
 internal fun NavKey?.toSection(): HubSection = when (this) {
+    WidgetsKey -> HubSection.WIDGETS
+    MoreKey -> HubSection.MORE
     DevicesKey -> HubSection.DEVICES
     SettingsKey -> HubSection.SETTINGS
     ThemeKey, null -> HubSection.THEME

@@ -2,27 +2,18 @@ package app.livosphere.hub
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,19 +21,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -65,7 +49,19 @@ import app.livosphere.hub.navigation.SettingsKey
 import app.livosphere.hub.navigation.ThemeKey
 import app.livosphere.hub.navigation.toSection
 import app.livosphere.hub.settings.SettingsScreen
-import app.livosphere.hub.theme.ThemeScreen
+import app.livosphere.hub.theme.WallpaperFeed
+import app.livosphere.hub.theme.WidgetFeed
+import app.livosphere.hub.more.MoreScreen
+import app.livosphere.hub.navigation.MoreKey
+import app.livosphere.hub.navigation.WidgetsKey
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.material3.TextButton
 import app.livosphere.hub.onboarding.OnboardingDialog
 import app.livosphere.hub.onboarding.Outcome
 import kotlinx.coroutines.flow.collectLatest
@@ -78,6 +74,7 @@ fun HubApp(
     viewModel: HubViewModel,
     onExit: () -> Unit,
     wallpaperLauncher: WallpaperLauncher? = null,
+    widgetLauncher: ((String) -> Unit)? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val wallpaperSettings by viewModel.wallpaperSettingsUi.collectAsStateWithLifecycle()
@@ -92,6 +89,7 @@ fun HubApp(
     val displayedVersionName = installedVersionName ?: stringResource(R.string.settings_version_unavailable)
     val backStack = rememberNavBackStack(ThemeKey)
     val navigator = remember(backStack) { HubNavigator(backStack) }
+    val widgetListState = rememberLazyListState()
     val restoredSection = backStack.lastOrNull().toSection()
     val latestRestoredSection by rememberUpdatedState(restoredSection)
 
@@ -149,70 +147,81 @@ fun HubApp(
         viewModel.commands.collectLatest(navigator::execute)
     }
 
+    val immersive = restoredSection == HubSection.THEME
+    val density = LocalDensity.current
+    var navHeightPx by remember { mutableIntStateOf(with(density) { 100.dp.roundToPx() }) }
+    val navHeight = with(density) { navHeightPx.toDp() }
+    val view = LocalView.current
+    val window = (context as? android.app.Activity)?.window
+    SideEffect {
+        window?.let {
+            androidx.core.view.WindowCompat.getInsetsController(it, view).apply {
+                isAppearanceLightStatusBars = !immersive
+                isAppearanceLightNavigationBars = !immersive
+            }
+            it.isNavigationBarContrastEnforced = false
+        }
+    }
+    val goBack: () -> Unit = {
+        if (backStack.size > 1) {
+            backStack.removeAt(backStack.lastIndex)
+            viewModel.onAction(HubAction.NavigationRestored(backStack.lastOrNull().toSection()))
+        } else onExit()
+    }
     LivosphereTheme {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing),
-            ) {
-                NavDisplay(
-                    backStack = backStack,
-                    modifier = Modifier.weight(1f).clipToBounds(),
-                    onBack = onExit,
-                    // Screen navigation is deliberately immediate. The only hub motion is
-                    // preview motion, which receives the persisted and system-safe setting.
-                    transitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
-                    popTransitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
-                    entryProvider = entryProvider {
-                        entry<ThemeKey> {
-                            val selectedSet = app.livosphere.content.AuthoredContentCatalog.sets.singleOrNull {
-                                it.wallpaper.componentId.value == state.phone.target?.wallpaperId
-                            } ?: app.livosphere.content.AuthoredContentCatalog.sets.firstOrNull()
-                            val selectedClock = selectedSet?.setId?.value?.let(RegistryWidgetCatalog(context)::itemForSet)
-                            ThemeScreen(
-                                setId = selectedSet?.setId?.value,
-                                onSetSelected = { set ->
-                                    val target = AndroidWallpaperTarget.resolve(context, set.wallpaper.componentId.value)
-                                    if (target != null) viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.TargetSelected(target)))
-                                },
-                                selectedSurface = state.selectedSurface,
-                                hasSeenThemePreview = state.hasSeenThemePreview,
-                                onSurfaceSelected = { surface ->
-                                    viewModel.onAction(HubAction.SurfaceSelected(surface))
-                                },
-                                onThemePreviewSeen = {
-                                    viewModel.onAction(HubAction.ThemePreviewSeen)
-                                },
-                                phoneState = state.phone,
-                                widgetAvailable = selectedClock != null,
-                                widgetDisplayName = selectedClock?.displayName,
-                                onTry = {
-                                    if (state.selectedSurface == HubSurface.WALLPAPER) {
-                                        viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn))
-                                    } else {
-                                        selectedClock?.widgetId?.let { widgetId -> context.startActivity(
-                                            ClockWidgetRuntime.prePinIntent(context, widgetId)) }
-                                    }
-                                },
-                                onPhoneRefresh = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.Refresh)) },
-                                onPhoneHelp = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.ToggleHelp)) },
-                                // A pending or failed preference read is static until a
-                                // confirmed NORMAL value is available.
-                                hubMotionReduced = hubMotion != app.livosphere.hub.settings.HubMotionMode.NORMAL,
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            NavDisplay(
+                backStack = backStack,
+                modifier = Modifier.fillMaxSize().clipToBounds(),
+                onBack = goBack,
+                transitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
+                popTransitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
+                entryProvider = entryProvider {
+                    entry<ThemeKey> {
+                        val selectedSet = app.livosphere.content.AuthoredContentCatalog.sets.singleOrNull {
+                            it.wallpaper.componentId.value == state.phone.target?.wallpaperId
+                        }
+                        WallpaperFeed(
+                            setId = selectedSet?.setId?.value,
+                            bottomInset = navHeight,
+                            phoneState = state.phone,
+                            onSetSelected = { set ->
+                                val target = AndroidWallpaperTarget.resolve(context, set.wallpaper.componentId.value)
+                                if (target != null) viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.TargetSelected(target)))
+                            },
+                            onSeen = { viewModel.onAction(HubAction.ThemePreviewSeen) },
+                            onInstall = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn)) },
+                            onSupport = { viewModel.onAction(HubAction.SectionSelected(HubSection.DEVICES)) },
+                        )
+                    }
+                    entry<WidgetsKey> {
+                        HubContentArea(navHeight) {
+                            WidgetFeed(widgetListState) { widgetId ->
+                                if (widgetLauncher != null) widgetLauncher(widgetId)
+                                else context.startActivity(ClockWidgetRuntime.prePinIntent(context, widgetId))
+                            }
+                        }
+                    }
+                    entry<MoreKey> {
+                        HubContentArea(navHeight) {
+                            MoreScreen(
+                                onSettings = { viewModel.onAction(HubAction.SectionSelected(HubSection.SETTINGS)) },
+                                onInstallation = { viewModel.onAction(HubAction.SectionSelected(HubSection.DEVICES)) },
+                                onGuide = { viewModel.onAction(HubAction.OpenOnboarding) },
                             )
                         }
-                        entry<DevicesKey> {
+                    }
+                    entry<DevicesKey> {
+                        NestedScreen(navHeight, goBack) {
                             DevicesScreen(settingsFailed = state.settings is Outcome.Failure,
                                 phoneState = state.phone,
                                 onRefresh = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.Refresh)) },
                                 onPhoneHelp = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.ToggleHelp)) },
                                 onHelp = { viewModel.onAction(HubAction.OpenOnboarding) })
                         }
-                        entry<SettingsKey> {
+                    }
+                    entry<SettingsKey> {
+                        NestedScreen(navHeight, goBack) {
                             SettingsScreen(
                                 touchReactionsEnabled = wallpaperSettings.touchReactions,
                                 supportsTouchReactions = app.livosphere.content.AuthoredContentCatalog.sets
@@ -230,17 +239,17 @@ fun HubApp(
                                 onReleaseNoteDismissed = { installedVersionName?.let(viewModel::dismissReleaseNote) },
                             )
                         }
-                    },
-                )
+                    }
+                },
+            )
+            Box(Modifier.align(Alignment.BottomCenter).onSizeChanged { navHeightPx = it.height }) {
                 HubBottomNavigation(
-                    selectedSection = if (state.selectedSection == restoredSection) {
-                        state.selectedSection
-                    } else {
-                        restoredSection
+                    selectedSection = when (restoredSection) {
+                        HubSection.DEVICES, HubSection.SETTINGS -> HubSection.MORE
+                        else -> restoredSection
                     },
-                    onSectionSelected = { section ->
-                        viewModel.onAction(HubAction.SectionSelected(section))
-                    },
+                    immersive = immersive,
+                    onSectionSelected = { viewModel.onAction(HubAction.SectionSelected(it)) },
                 )
             }
         }
@@ -253,129 +262,22 @@ fun HubApp(
     }
 }
 
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun HubBottomNavigation(
-    selectedSection: HubSection,
-    onSectionSelected: (HubSection) -> Unit,
-) {
-    Surface(color = MaterialTheme.colorScheme.surface) {
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center,
-        ) {
-            // Keep the approved equal-width row only while all real localized labels fit into
-            // its text slots. Dynamic font scale is not a reliable proxy for that condition.
-            val labelStyle = MaterialTheme.typography.labelLarge.copy(
-                fontWeight = FontWeight.SemiBold,
-            )
-            val textMeasurer = rememberTextMeasurer()
-            val navigationWidth = minOf(maxWidth, 720.dp)
-            val equalRowTextWidth = ((navigationWidth - 24.dp) / 3 - 24.dp).coerceAtLeast(0.dp)
-            val labelLayouts = HubSection.entries.associateWith { section ->
-                textMeasurer.measure(
-                    text = AnnotatedString(stringResource(section.labelResource)),
-                    style = labelStyle,
-                    maxLines = 1,
-                    softWrap = false,
-                )
-            }
-            val equalRowFits = with(LocalDensity.current) {
-                val available = equalRowTextWidth.roundToPx()
-                HubSection.entries.all { section ->
-                    labelLayouts.getValue(section).size.width + 1 <= available
-                }
-            }
-            val flowLabelSizes = with(LocalDensity.current) {
-                HubSection.entries.associateWith { section ->
-                    labelLayouts.getValue(section).size.let { size ->
-                        size.width.toDp() to size.height.toDp()
-                    }
-                }
-            }
-            if (!equalRowFits) {
-                FlowRow(
-                    modifier = Modifier
-                        .widthIn(max = 720.dp)
-                        .fillMaxWidth()
-                        .selectableGroup()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(
-                        8.dp,
-                        Alignment.CenterHorizontally,
-                    ),
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-                ) {
-                    HubSection.entries.forEach { section ->
-                        HubBottomNavigationItem(
-                            section = section,
-                            selected = section == selectedSection,
-                            onSectionSelected = onSectionSelected,
-                            modifier = Modifier.width(flowLabelSizes.getValue(section).first + 24.dp),
-                            minHeight = flowLabelSizes.getValue(section).second + 26.dp,
-                        )
-                    }
-                }
-            } else Row(
-                modifier = Modifier
-                    .widthIn(max = 720.dp)
-                    .fillMaxWidth()
-                    .selectableGroup()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-            ) {
-                HubSection.entries.forEach { section ->
-                    HubBottomNavigationItem(
-                        section = section,
-                        selected = section == selectedSection,
-                        onSectionSelected = onSectionSelected,
-                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
-                        minHeight = flowLabelSizes.getValue(section).second + 26.dp,
-                    )
-                }
-            }
+private fun HubContentArea(bottomInset: androidx.compose.ui.unit.Dp, content: @Composable () -> Unit) {
+    // Insets belong to the destination, so the outgoing list never receives the
+    // wallpaper's larger viewport and clamps its saved scroll position.
+    Box(Modifier.fillMaxSize().padding(bottom = bottomInset)
+        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+        .clipToBounds()) { content() }
+}
+
+@Composable
+private fun NestedScreen(bottomInset: androidx.compose.ui.unit.Dp, onBack: () -> Unit, content: @Composable () -> Unit) {
+    HubContentArea(bottomInset) {
+        Column(Modifier.fillMaxSize()) {
+            TextButton(onClick = onBack, modifier = Modifier.padding(horizontal = 12.dp).heightIn(min = 48.dp)
+                .semantics { testTag = "hub-back" }) { Text(stringResource(R.string.hub_back)) }
+            Box(Modifier.weight(1f)) { content() }
         }
     }
 }
-
-@Composable
-private fun HubBottomNavigationItem(
-    section: HubSection,
-    selected: Boolean,
-    onSectionSelected: (HubSection) -> Unit,
-    modifier: Modifier,
-    minHeight: Dp,
-) {
-    val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier = modifier
-            .heightIn(min = maxOf(56.dp, minHeight))
-            .clip(shape)
-            .background(if (selected) HubSelected else MaterialTheme.colorScheme.surface)
-            .selectable(selected = selected, role = Role.Tab, onClick = { onSectionSelected(section) })
-            .semantics { testTag = "hub-nav-${section.testName}" }
-            .padding(horizontal = 8.dp, vertical = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = stringResource(section.labelResource),
-            color = if (selected) HubPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            softWrap = true,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.fillMaxWidth()
-                .semantics { testTag = "hub-nav-label-${section.testName}" },
-        )
-    }
-}
-
-private val HubSection.labelResource: Int
-    get() = when (this) {
-        HubSection.THEME -> R.string.hub_section_theme
-        HubSection.DEVICES -> R.string.hub_section_devices
-        HubSection.SETTINGS -> R.string.hub_section_settings
-    }
-
-private val HubSection.testName: String
-    get() = name.lowercase()
