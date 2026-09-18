@@ -45,3 +45,7 @@ OpenAI image_gen, 2026-09-17; output exec-b6750794-f748-4e08-a265-4fd72be01a68.p
 Clock resource revision 2: owner-requested S/M/L geometry, inset decorations, full weekday/month and scalable analog dial. Original theme palettes retained. Native preview captures replace concept thumbnails after device verification. Visual acceptance of this correction is pending owner review.
 
 Widget preview S/M/L v02: direct capture of the actual RemoteViews on API37, Russian locale, 2026-09-18. Matches native layouts; replaces concept rendering. Small digital variants intentionally omit overlay decoration. Wallpaper previews unchanged. Owner visual acceptance pending.
+
+## Native interactions, 2026-09-18
+
+Owner direction: «ну так делай анимации», all three scenes. Four closed-eye keyframes generated from the corresponding phase art using OpenAI image_gen, preserved unchanged. Runtime decodes only the feathered eye regions; two authored states with a 240 ms blend, no separately authored half-closed frame. Exact prompts and generator files: `_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/night-sakura/interactions-v01/PROVENANCE.md` and `PHASE-PROVENANCE.md`. Static widget and preview resources unchanged.

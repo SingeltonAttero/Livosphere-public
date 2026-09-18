@@ -1,1 +1,1 @@
-<scene id="electric-harbor" renderer="neon-v1" camera="fixed" subject="fixed" cloudLayers="2" />
+<scene id="electric-harbor" renderer="neon-v2" camera="fixed" subject="tap-blink" cloudLayers="2" />

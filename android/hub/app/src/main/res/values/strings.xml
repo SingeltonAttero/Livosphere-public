@@ -87,7 +87,7 @@
     <string name="hub_onboarding_skip">Пропустить</string>
     <string name="hub_settings_description">Управление реакциями применяется к выбранным обоям независимо от хаба и часов.</string>
     <string name="hub_touch_reactions_title">Реакции на касания</string>
-    <string name="hub_touch_reactions_description">Короткое касание может подсветить ядро обоев. Жесты Android не перехватываются.</string>
+    <string name="hub_touch_reactions_description">Касания и свайпы оживляют отдельные детали сцены. Жесты Android не перехватываются.</string>
     <string name="hub_touch_reactions_unavailable">Настройка реакций сейчас недоступна. Обои продолжают работать в безопасном базовом режиме.</string>
     <string name="hub_touch_reactions_on">Включено</string>
     <string name="hub_touch_reactions_off">Выключено</string>
