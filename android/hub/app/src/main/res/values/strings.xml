@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Livosphere</string>
-    <string name="hub_section_theme">Тема</string>
+    <string name="hub_section_theme">Наборы</string>
     <string name="hub_section_devices">Устройства</string>
     <string name="hub_section_settings">Настройки</string>
     <string name="hub_theme_name">Контур</string>
-    <string name="hub_theme_value">Живой мир для телефона и часов</string>
+    <string name="hub_theme_value">Авторские обои и часы на главный экран</string>
     <string name="hub_surface_wallpaper">Обои</string>
     <string name="hub_surface_watchface">Часы</string>
     <string name="hub_wallpaper_preview_description">Предпросмотр обоев набора «Контур»</string>
@@ -21,7 +21,7 @@
     <string name="hub_settings_failure">История приглашений недоступна. Автоматическое знакомство отключено; помощь и просмотр доступны.</string>
     <string name="hub_onboarding_help">Знакомство с оформлением</string>
     <string name="hub_onboarding_title">Один мир, две поверхности</string>
-    <string name="hub_onboarding_description">В «Теме» можно отдельно рассмотреть обои и виджет часов. «Примерить обои» открывает системный путь Android, а «Добавить часы» — настройку виджета; оба действия требуют системного подтверждения. Preview ничего не применяет.</string>
+    <string name="hub_onboarding_description">В «Наборах» можно листать коллекцию и отдельно выбирать обои или часы. «Установить» открывает системную примерку обоев или настройку виджета. Установка происходит после подтверждения в Android.</string>
     <string name="phone_direct_explanation">Откроется системная примерка. Применение — после подтверждения.</string>
     <string name="phone_chooser_explanation">Откроется системный выбор живых обоев. Выберите нужные обои и подтвердите применение.</string>
     <string name="phone_chooser_action">Выбрать живые обои</string>
@@ -105,7 +105,7 @@
     <string name="settings_version_unavailable">версия не определена</string>
     <string name="settings_whats_new_title">Что нового</string>
     <string name="settings_whats_new_summary">Короткая заметка об установленной версии</string>
-    <string name="settings_whats_new_body">Версия %1$s: доступны отдельные настройки движения, локальная справка и повторная проверка фактов телефона.</string>
+    <string name="settings_whats_new_body">Версия %1$s: три авторские темы с живыми обоями и независимыми часами S/M/L. В обоях меняются время суток, облака и ночные огни.</string>
     <string name="settings_whats_new_dismiss">Понятно</string>
     <string name="settings_whats_new_dismissed">Заметка этой версии уже закрыта.</string>
     <string name="settings_whats_new_unavailable">Не удалось проверить, закрыта ли заметка этой версии. Вернитесь в приложение позже.</string>
@@ -114,7 +114,7 @@
     <string name="settings_help_body">Просмотр не применяет оформление. Для обоев откройте системную примерку Android и подтвердите выбор. Виджет часов добавляется отдельно: выберите вариант, размер и действие по нажатию, затем подтвердите размещение Android. Если автоматическое добавление недоступно, удерживайте свободное место на главном экране и откройте «Виджеты». В приложении нет магазина. После обновления или удаления приложения снова проверьте «Устройства».</string>
     <string name="settings_about_title">О приложении</string>
     <string name="settings_about_summary">Версия и сведения о приложении</string>
-    <string name="settings_about_body">Livosphere %1$s. Графика набора «Контур» и значок приложения созданы для Livosphere, без заимствованных персонажей и эмблем. Установка приложения не предоставляет отдельную лицензию на распространение исходной графики. Настройки хранятся на устройстве; для работы не нужны аккаунт, подключение к сети или уведомления.</string>
+    <string name="settings_about_body">Livosphere %1$s. Ночная сакура, Неоновая набережная и Последний свет — авторские оформления Livosphere. Установка приложения не предоставляет отдельную лицензию на распространение исходной графики. Настройки хранятся на устройстве; для работы не нужны аккаунт, подключение к сети или уведомления.</string>
     <string name="theme_preview_unavailable">Предпросмотр этого набора недоступен</string>
     <string name="theme_set_name_unavailable">Набор</string>
     <string name="preview_wallpaper_named">Предпросмотр обоев набора «%1$s»</string>
@@ -123,4 +123,18 @@
     <string name="settings_surface_corrupt">Настройки оформления повреждены. Данные сохранены; автоматический сброс не выполнен.</string>
     <string name="settings_surface_version">Версия сохранённых настроек не поддерживается. Обновите приложение; данные сохранены.</string>
     <string name="settings_surface_io">Не удалось прочитать или сохранить настройки. Откройте экран повторно, чтобы попробовать ещё раз.</string>
+    <string name="collection_install">Установить</string>
+    <string name="collection_wallpaper_kind">Живые обои · Бесплатно</string>
+    <string name="collection_widget_kind">Виджет часов · Бесплатно</string>
+    <string name="collection_page">Набор %1$d из %2$d</string>
+    <string name="collection_wallpaper_features">Смена суток · Облака · Ночные огни</string>
+    <string name="collection_widget_features">Размеры S / M / L · Без установки обоев</string>
+    <string name="collection_install_wallpaper_hint">Подтверждение установки — в Android</string>
+    <string name="collection_install_widget_hint">Далее — размер и добавление на главный экран</string>
+    <string name="collection_sakura_description">Тихая улица над неоновым городом. Сакура, ночной драйв и холодное сияние.</string>
+    <string name="collection_harbor_description">Огни мегаполиса у воды. Розовый неон, серебристый спорткар и просторное небо.</string>
+    <string name="collection_sunset_description">Последние лучи над городом. Тёплый горизонт, бордовый спорткар и вечерняя тишина.</string>
+    <string name="collection_sakura_clock_description">Тонкие цифры, прохладный акцент и лепесток сакуры. Время и дата с первого взгляда.</string>
+    <string name="collection_harbor_clock_description">Чёткие цифры и неоновые акценты. Лаконичные часы в ритме ночного города.</string>
+    <string name="collection_sunset_clock_description">Аналоговый циферблат в тёплых оттенках заката. Спокойный акцент на главном экране.</string>
 </resources>

@@ -8,7 +8,7 @@ import app.livosphere.hub.onboarding.HubSettingsRepository
 import app.livosphere.settings.WallpaperSettingsRepository
 import app.livosphere.settings.ApplicationSurfaceSettings
 import app.livosphere.settings.SurfaceSettingsRepository
-import app.livosphere.generated.GeneratedSetRegistry
+import app.livosphere.content.AuthoredContentCatalog
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -54,7 +54,7 @@ object HubSettingsModule {
 
     @Provides @Singleton
     fun wallpaperSettings(repository: SurfaceSettingsRepository): WallpaperSettingsRepository =
-        WallpaperSettingsRepository(repository, "contour-wallpaper") { id ->
-            GeneratedSetRegistry.sets.any { it.wallpaper.componentId.value == id }
+        WallpaperSettingsRepository(repository, AuthoredContentCatalog.sets.firstOrNull()?.wallpaper?.componentId?.value ?: "unavailable-wallpaper") { id ->
+            AuthoredContentCatalog.sets.any { it.wallpaper.componentId.value == id }
         }
 }

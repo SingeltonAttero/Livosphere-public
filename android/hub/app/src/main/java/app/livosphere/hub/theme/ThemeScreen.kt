@@ -41,7 +41,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.clip
@@ -91,11 +90,6 @@ import kotlinx.coroutines.launch
 
 internal const val STARTUP_DURATION_MILLIS = 440
 internal const val SWITCH_DURATION_MILLIS = 220
-private val WallpaperPreviewAlignment = BiasAlignment(
-    horizontalBias = 0f,
-    verticalBias = 0.24f,
-)
-
 internal val PreviewMotionPhaseKey = SemanticsPropertyKey<String>("PreviewMotionPhase")
 internal var SemanticsPropertyReceiver.previewMotionPhase by PreviewMotionPhaseKey
 internal val PreviewStartupAlphaKey = SemanticsPropertyKey<Float>("PreviewStartupAlpha")
@@ -122,6 +116,7 @@ internal fun ThemeScreen(
     onPhoneHelp: () -> Unit = {},
     hubMotionReduced: Boolean = false,
     setId: String? = PreviewAssetResolver.initialBrowsingSetId,
+    onSetSelected: (app.livosphere.contract.SetDescriptor) -> Unit = {},
 ) {
     val descriptor = PreviewAssetResolver.descriptor(setId)
     val availableSetId = descriptor?.setId?.value
@@ -129,6 +124,23 @@ internal fun ThemeScreen(
     val displayName = remember(descriptor, context) { descriptor?.let { PreviewAssetResolver.displayName(context, it) } }
     val systemMotionReduced = rememberCoroutineScope().coroutineContext[MotionDurationScale]?.scaleFactor == 0f
     val reduced = systemMotionReduced || hubMotionReduced
+    if (descriptor != null) {
+        ThemeCarousel(
+            setId = descriptor.setId.value,
+            selectedSurface = selectedSurface,
+            onSurfaceSelected = onSurfaceSelected,
+            onSetSelected = onSetSelected,
+            onThemePreviewSeen = onThemePreviewSeen,
+            phoneState = phoneState,
+            widgetAvailable = widgetAvailable,
+            onTry = onTry,
+            onPhoneRefresh = onPhoneRefresh,
+            onPhoneHelp = onPhoneHelp,
+            reduced = reduced,
+            previewPainter = previewPainter,
+        )
+        return
+    }
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
@@ -136,7 +148,7 @@ internal fun ThemeScreen(
                 .fillMaxWidth()
                 .align(Alignment.TopCenter)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 24.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
                 .semantics { testTag = "hub-screen-theme" },
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -175,9 +187,9 @@ private fun ProductHeader(displayName: String?) {
             text = displayName ?: stringResource(R.string.theme_preview_unavailable),
             modifier = Modifier.semantics { heading() },
             color = MaterialTheme.colorScheme.onBackground,
-            fontSize = 40.sp,
+            fontSize = 28.sp,
             fontWeight = FontWeight.SemiBold,
-            lineHeight = 44.sp,
+            lineHeight = 32.sp,
         )
         Text(
             text = stringResource(R.string.hub_theme_value),
@@ -189,7 +201,7 @@ private fun ProductHeader(displayName: String?) {
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun SurfaceSelector(
+internal fun SurfaceSelector(
     selectedSurface: HubSurface,
     onSurfaceSelected: (HubSurface) -> Unit,
     reduced: Boolean,
@@ -511,8 +523,8 @@ private fun PreviewImage(
         HubSurface.WALLPAPER -> Image(
             painter = previewPainter?.invoke(surface) ?: painterResource(asset.drawableId),
             contentDescription = null,
-            contentScale = ContentScale.Crop,
-            alignment = WallpaperPreviewAlignment,
+            contentScale = ContentScale.Fit,
+            alignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxSize()
                 .semantics { testTag = artTag },

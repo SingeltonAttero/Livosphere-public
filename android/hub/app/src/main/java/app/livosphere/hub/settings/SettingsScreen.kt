@@ -39,6 +39,7 @@ import app.livosphere.contract.SurfaceSettingsFailure
 internal fun SettingsScreen(
     touchReactionsEnabled: Boolean?,
     onTouchReactionsChanged: (Boolean) -> Unit,
+    supportsTouchReactions: Boolean = true,
     wallpaperMotionMode: WallpaperMotionMode? = WallpaperMotionMode.NORMAL,
     wallpaperSettingsFailure: SurfaceSettingsFailure? = null,
     onWallpaperMotionChanged: (WallpaperMotionMode) -> Unit = {},
@@ -62,9 +63,11 @@ internal fun SettingsScreen(
         })
         if (wallpaperMotionMode == null && wallpaperSettingsFailure == null) UnavailableSettingsNotice(R.string.settings_wallpaper_motion_unavailable)
         else if (wallpaperMotionMode != null && wallpaperSettingsFailure == null) MotionChoice("wallpaper-motion", wallpaperMotionMode, WallpaperMotionMode.entries.toList(), { stringResource(it.labelResource) }, onWallpaperMotionChanged)
-        if (touchReactionsEnabled == null && wallpaperSettingsFailure == null) UnavailableSettingsNotice(R.string.hub_touch_reactions_unavailable)
-        else if (touchReactionsEnabled != null && wallpaperSettingsFailure == null) {
-            TouchReactionSwitch(touchReactionsEnabled, onTouchReactionsChanged)
+        if (supportsTouchReactions) {
+            if (touchReactionsEnabled == null && wallpaperSettingsFailure == null) UnavailableSettingsNotice(R.string.hub_touch_reactions_unavailable)
+            else if (touchReactionsEnabled != null && wallpaperSettingsFailure == null) {
+                TouchReactionSwitch(touchReactionsEnabled, onTouchReactionsChanged)
+            }
         }
     }
     ExpandableSetting("settings-hub-motion", R.string.settings_hub_motion_title, R.string.settings_hub_motion_summary) {

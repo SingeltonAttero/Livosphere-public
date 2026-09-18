@@ -99,7 +99,7 @@ fun HubApp(
 
     LifecycleResumeEffect(viewModel) {
         widgetReconciliationScope.launch {
-            val catalog = RegistryWidgetCatalog()
+            val catalog = RegistryWidgetCatalog(context)
             ClockWidgetRuntime.repository(context).pendingPins(catalog::contains).cleanup(System.currentTimeMillis())
             ClockWidgetRuntime.reconcileOwnWidgets(context)
         }
@@ -169,12 +169,16 @@ fun HubApp(
                     popTransitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
                     entryProvider = entryProvider {
                         entry<ThemeKey> {
-                            val selectedSet = app.livosphere.generated.GeneratedSetRegistry.sets.singleOrNull {
+                            val selectedSet = app.livosphere.content.AuthoredContentCatalog.sets.singleOrNull {
                                 it.wallpaper.componentId.value == state.phone.target?.wallpaperId
-                            } ?: app.livosphere.generated.GeneratedSetRegistry.sets.firstOrNull()
-                            val selectedClock = selectedSet?.setId?.value?.let(RegistryWidgetCatalog()::itemForSet)
+                            } ?: app.livosphere.content.AuthoredContentCatalog.sets.firstOrNull()
+                            val selectedClock = selectedSet?.setId?.value?.let(RegistryWidgetCatalog(context)::itemForSet)
                             ThemeScreen(
                                 setId = selectedSet?.setId?.value,
+                                onSetSelected = { set ->
+                                    val target = AndroidWallpaperTarget.resolve(context, set.wallpaper.componentId.value)
+                                    if (target != null) viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.TargetSelected(target)))
+                                },
                                 selectedSurface = state.selectedSurface,
                                 hasSeenThemePreview = state.hasSeenThemePreview,
                                 onSurfaceSelected = { surface ->
@@ -211,6 +215,9 @@ fun HubApp(
                         entry<SettingsKey> {
                             SettingsScreen(
                                 touchReactionsEnabled = wallpaperSettings.touchReactions,
+                                supportsTouchReactions = app.livosphere.content.AuthoredContentCatalog.sets
+                                    .singleOrNull { it.wallpaper.componentId.value == state.phone.target?.wallpaperId }
+                                    ?.wallpaper?.supportedSettings?.contains(app.livosphere.contract.SupportedSetting.TAP) == true,
                                 onTouchReactionsChanged = viewModel::setTouchReactionsEnabled,
                                 wallpaperMotionMode = wallpaperSettings.motion,
                                 wallpaperSettingsFailure = wallpaperSettings.failure,
