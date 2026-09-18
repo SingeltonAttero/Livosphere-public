@@ -39,3 +39,9 @@ Output: `exec-d11b82fb-7d92-4489-8fe6-eefb858190ac.png`
 ## Облачный слой
 
 OpenAI image_gen, 2026-09-17; output exec-b6750794-f748-4e08-a265-4fd72be01a68.png. Задание: transparent PNG, нейтральное белое перисто-кучевое облако на широком холсте, мягкие естественные края, без неба и объектов, прозрачные поля; исходник не изменялся. Runtime придаёт оттенок текущей фазы и мягко гасит горизонтальные края для бесшовного пролёта.
+
+## Native widget polish, 2026-09-18
+
+Clock resource revision 2: owner-requested S/M/L geometry, inset decorations, full weekday/month and scalable analog dial. Original theme palettes retained. Native preview captures replace concept thumbnails after device verification. Visual acceptance of this correction is pending owner review.
+
+Widget preview S/M/L v02: direct capture of the actual RemoteViews on API37, Russian locale, 2026-09-18. Matches native layouts; replaces concept rendering. Small digital variants intentionally omit overlay decoration. Wallpaper previews unchanged. Owner visual acceptance pending.

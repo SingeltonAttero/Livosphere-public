@@ -69,7 +69,8 @@ class NeonCollectionTest {
 
     @Test fun nineRemoteViewsRenderTimeAndDateAtNormalAndLargeFont() {
         val catalog = RegistryWidgetCatalog(context)
-        val sizes = listOf(Triple(WidgetSize.S, 110, 110), Triple(WidgetSize.M, 250, 110), Triple(WidgetSize.L, 250, 180))
+        val sizes = listOf(Triple(WidgetSize.S, 110, 110), Triple(WidgetSize.M, 250, 110), Triple(WidgetSize.L, 250, 180),
+            Triple(WidgetSize.S, 168, 180), Triple(WidgetSize.M, 340, 200), Triple(WidgetSize.L, 340, 300))
         for (item in catalog.items()) for ((size, width, height) in sizes) for (fontScale in listOf(1f, 2f)) {
             lateinit var view: View
             lateinit var parent: FrameLayout
@@ -83,7 +84,10 @@ class NeonCollectionTest {
                 parent = FrameLayout(activity)
                 activity.addContentView(parent, android.view.ViewGroup.LayoutParams(-1, -1))
                 val remote = RemoteViews(context.packageName, catalog.layoutResource(context, item.widgetId, size))
-                val options = Bundle().apply { putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, width) }
+                val options = Bundle().apply {
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, width)
+                    putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, height)
+                }
                 ClockLayoutAdapter.adapt(renderContext, remote, size, options, catalog, item.widgetId)
                 view = remote.apply(renderContext, parent)
                 w = (width * density).toInt(); h = (height * density).toInt()
@@ -97,6 +101,8 @@ class NeonCollectionTest {
                     val analogId = context.resources.getIdentifier("clock_widget_analog", "id", context.packageName)
                     val clock = view.findViewById<AnalogClock>(analogId)
                     assertNotNull(clock); assertTrue(clock.width > 0); assertTrue(clock.height <= h)
+                    // Large artwork must fill the available face instead of staying at a 110dp intrinsic size.
+                    if (size == WidgetSize.L && width == 340) assertTrue(clock.height > 170 * context.resources.displayMetrics.density)
                 } else {
                     val time = view.findViewById<TextClock>(catalog.timeViewId(context))
                     assertNotNull(time)
@@ -105,17 +111,29 @@ class NeonCollectionTest {
                     assertTrue(time.height <= h)
                 }
                 val date = view.findViewById<TextClock?>(catalog.dateViewId(context))
+                val weekdayId = context.resources.getIdentifier("clock_widget_weekday", "id", context.packageName)
+                val weekday = view.findViewById<TextClock?>(weekdayId)
                 if (size == WidgetSize.S) assertNull(date) else {
                     assertNotNull(date)
                     assertTrue("Native TextClock must show a date", date!!.text.isNotBlank())
-                    val sample = if (catalog.isAnalog(item.widgetId)) "30 сент." else "ср, 30 сентября"
+                    val sample = "30 сентября"
+                    assertEquals("d MMMM", date.format24Hour.toString())
                     assertTrue("${item.widgetId}/$size clips date at $fontScale: ${date!!.width}", date.paint.measureText(sample) <= date.width)
-                    assertTrue(date.bottom <= h)
+                    assertNotNull(weekday)
+                    assertEquals("EEEE", weekday!!.format24Hour.toString())
+                    assertTrue("${item.widgetId}/$size clips weekday", weekday.paint.measureText("понедельник") <= weekday.width)
+                    for (text in listOf(date, weekday)) {
+                        val rect = android.graphics.Rect(0, 0, text.width, text.height)
+                        (view as android.view.ViewGroup).offsetDescendantRectToMyCoords(text, rect)
+                        assertTrue("${item.widgetId}/$size clips text vertically: $rect in $w x $h", rect.top >= 0 && rect.bottom <= h)
+                    }
                 }
+                if (size == WidgetSize.S) assertNull(weekday)
                 if (fontScale == 1f) {
                     val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                     view.draw(Canvas(bitmap))
-                    val out = File(context.getExternalFilesDir("neon-review"), "${item.widgetId}-${size.name.lowercase()}.png")
+                    val suffix = if (width in listOf(168, 340)) "-host" else ""
+                    val out = File(context.getExternalFilesDir("neon-review"), "${item.widgetId}-${size.name.lowercase()}$suffix.png")
                     out.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }; bitmap.recycle()
                 }
                 (parent.parent as android.view.ViewGroup).removeView(parent)

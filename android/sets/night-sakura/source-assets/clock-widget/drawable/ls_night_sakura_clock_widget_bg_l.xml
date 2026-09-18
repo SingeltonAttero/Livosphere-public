@@ -1,1 +1,15 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="250dp" android:height="180dp" android:viewportWidth="250" android:viewportHeight="180"><path android:pathData="M 20,1 H 230 Q 249,1 249,20 V 160 Q 249,179 230,179 H 20 Q 1,179 1,160 V 20 Q 1,1 20,1 Z" android:fillColor="#101C30"/><path android:pathData="M 24,163 H 226" android:fillColor="#00000000" android:strokeColor="#80CADD" android:strokeWidth="0.8"/><path android:pathData="M 233,15 C 221,10 219,23 230,26 C 234,22 236,18 233,15 Z" android:fillColor="#E8A8C9"/></vector>
+<?xml version="1.0" ?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="22dp"/>
+            <gradient android:startColor="#102137" android:endColor="#182D43" android:angle="270"/>
+            <stroke android:width="1dp" android:color="#4D7184"/>
+        </shape>
+    </item>
+    <item android:width="22dp" android:height="22dp" android:gravity="top|right" android:top="12dp" android:right="14dp">
+        <vector android:width="22dp" android:height="22dp" android:viewportWidth="24" android:viewportHeight="24">
+            <path android:pathData="M 4,6 C 12,2 21,6 18,14 C 12,18 6,14 4,6 Z M 15,13 Q 20,17 21,21" android:fillColor="#D69BBD" android:strokeColor="#D69BBD" android:strokeWidth="0.8"/>
+        </vector>
+    </item>
+</layer-list>
