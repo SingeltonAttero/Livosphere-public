@@ -182,4 +182,14 @@
     <string name="settings_effect_balanced">Сбалансированная</string>
     <string name="settings_effect_full">Полная</string>
     <string name="settings_pending_effect">Не сохранено: интенсивность — %1$s</string>
+    <string name="hub_tilt_reactions_title">Реакция на наклон</string>
+    <string name="hub_tilt_reactions_description">Слегка наклоните телефон: облака мягко сместятся, девушка моргнёт, ночью откликнутся огни. Верните телефон в исходное положение для повтора. Если датчика нет, останется обычная анимация.</string>
+    <string name="settings_battery_title">Работа обоев в фоне</string>
+    <string name="settings_battery_exempt">Livosphere исключён из системной оптимизации батареи.</string>
+    <string name="settings_battery_optimized">Системная оптимизация батареи для Livosphere включена.</string>
+    <string name="settings_battery_unknown">Не удалось определить настройку оптимизации батареи.</string>
+    <string name="settings_battery_help">Если обои замирают после других приложений, найдите Livosphere в настройках батареи и выберите «Не оптимизировать» или «Без ограничений». На некоторых телефонах отдельно разрешите работу в фоне и автозапуск в настройках приложения. Названия пунктов зависят от телефона. На скрытом рабочем столе анимация приостанавливается и возобновляется при возвращении. Общий режим энергосбережения и настройка уменьшения движения по-прежнему останавливают эффекты.</string>
+    <string name="settings_battery_open">Настройки оптимизации батареи</string>
+    <string name="settings_battery_app">Настройки приложения Livosphere</string>
+    <string name="settings_battery_unavailable">Откройте настройки телефона → Приложения → Livosphere → Батарея.</string>
 </resources>

@@ -1,1 +1,1 @@
-<effects normalFps="20" nightLights="true" dayLights="false" reducedMotion="static" hidden="paused" tap="blink,local-night-light" swipe="cloud-response" blinkMs="240" lightPulseMs="1200" cooldownMs="1400" />
+<effects normalFps="20" nightLights="true" dayLights="false" reducedMotion="static" hidden="paused" tilt="cloud-response,blink,local-night-light" blinkMs="240" lightPulseMs="1200" cooldownMs="2500" />

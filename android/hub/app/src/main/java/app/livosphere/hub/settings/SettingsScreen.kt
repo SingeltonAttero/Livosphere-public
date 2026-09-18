@@ -41,6 +41,7 @@ internal fun SettingsScreen(
     touchReactionsEnabled: Boolean?,
     onTouchReactionsChanged: (Boolean) -> Unit,
     supportsTouchReactions: Boolean = true,
+    tiltReactions: Boolean = false,
     wallpaperMotionMode: WallpaperMotionMode? = WallpaperMotionMode.NORMAL,
     wallpaperSettingsFailure: SurfaceSettingsFailure? = null,
     pendingMotion: WallpaperMotionMode? = null,
@@ -97,7 +98,7 @@ internal fun SettingsScreen(
         if (supportsTouchReactions) {
             if (touchReactionsEnabled == null && wallpaperSettingsFailure == null) UnavailableSettingsNotice(R.string.hub_touch_reactions_unavailable)
             else if (touchReactionsEnabled != null && wallpaperSettingsFailure == null) {
-                TouchReactionSwitch(touchReactionsEnabled, onTouchReactionsChanged)
+                TouchReactionSwitch(touchReactionsEnabled, onTouchReactionsChanged, tiltReactions)
             }
         }
     }
@@ -130,6 +131,7 @@ internal fun SettingsScreen(
         }
     }
     ExpandableSetting("settings-help", R.string.settings_help_title, R.string.settings_help_summary) {
+        BatterySettingsHelp()
         Text(stringResource(R.string.settings_help_body), style = MaterialTheme.typography.bodyMedium)
     }
     ExpandableSetting("settings-about", R.string.settings_about_title, R.string.settings_about_summary) {
@@ -138,8 +140,8 @@ internal fun SettingsScreen(
 }
 
 @Composable
-private fun TouchReactionSwitch(enabled: Boolean, onChanged: (Boolean) -> Unit) {
-    val title = stringResource(R.string.hub_touch_reactions_title)
+private fun TouchReactionSwitch(enabled: Boolean, onChanged: (Boolean) -> Unit, tilt: Boolean) {
+    val title = stringResource(if (tilt) R.string.hub_tilt_reactions_title else R.string.hub_touch_reactions_title)
     val state = stringResource(if (enabled) R.string.hub_touch_reactions_on else R.string.hub_touch_reactions_off)
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).semantics { testTag = "touch-reactions-control" }.padding(vertical = 4.dp),
@@ -147,7 +149,7 @@ private fun TouchReactionSwitch(enabled: Boolean, onChanged: (Boolean) -> Unit) 
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(R.string.hub_touch_reactions_description), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(if (tilt) R.string.hub_tilt_reactions_description else R.string.hub_touch_reactions_description), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
         }
         Switch(checked = enabled, onCheckedChange = onChanged, modifier = Modifier.semantics {
             testTag = "touch-reactions-switch"; contentDescription = title; stateDescription = state

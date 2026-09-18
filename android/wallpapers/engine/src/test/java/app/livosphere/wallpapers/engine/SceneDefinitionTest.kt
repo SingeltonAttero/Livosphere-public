@@ -5,6 +5,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class SceneDefinitionTest {
+    @Test fun tiltTriggerIsParsed() { assertEquals(SceneTrigger.TILT, sceneTrigger("tilt")) }
     @Test fun acceptsDeclaredObjectsTriggersAndThreeStrictAuthoredLevels() {
         val scene = testSceneDefinition()
         assertEquals(3, scene.effectsFor(AuthoredEffectLevel.SUBTLE).size)

@@ -3,7 +3,7 @@ package app.livosphere.wallpapers.engine
 private val SCENE_ID = Regex("^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 enum class AuthoredEffectLevel { SUBTLE, BALANCED, FULL }
-enum class SceneTrigger { AMBIENT, TAP, OFFSET, CHARGING }
+enum class SceneTrigger { AMBIENT, TAP, TILT, OFFSET, CHARGING }
 enum class SceneEffectType { TRANSLATE, TRANSLATE_PULSE }
 enum class EffectStopRule { REPLACE }
 
@@ -76,6 +76,7 @@ data class SceneDefinition(
 fun sceneTrigger(value: String): SceneTrigger = when (value) {
     "ambient" -> SceneTrigger.AMBIENT
     "tap" -> SceneTrigger.TAP
+    "tilt" -> SceneTrigger.TILT
     "offset" -> SceneTrigger.OFFSET
     "charging" -> SceneTrigger.CHARGING
     else -> throw IllegalArgumentException("Unknown scene trigger: $value")

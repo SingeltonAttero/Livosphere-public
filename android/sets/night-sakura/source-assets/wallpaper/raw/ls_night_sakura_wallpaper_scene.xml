@@ -1,1 +1,1 @@
-<scene id="night-sakura" renderer="neon-v2" camera="fixed" subject="tap-blink" cloudLayers="2" />
+<scene id="night-sakura" renderer="neon-v3" camera="fixed" subject="tilt-blink" cloudLayers="2" />
