@@ -39,8 +39,8 @@ class NeonCollectionTest {
     @Test fun threeVisibleCollectionsSelectTheirOwnPreviewAndSystemTarget() {
         val sets = AuthoredContentCatalog.sets
         assertEquals(setOf("night-sakura", "electric-harbor", "last-light"), sets.map { it.setId.value }.toSet())
-        for (set in sets) {
-            compose.onNodeWithTag("collection-${set.setId.value}").performScrollTo().performClick().assertIsSelected()
+        for ((index, set) in sets.withIndex()) {
+            if (index > 0) compose.onNodeWithTag("wallpaper-next").performClick()
             val preview = checkNotNull(PreviewAssetResolver.resolve(context, set, HubSurface.WALLPAPER))
             compose.onNodeWithTag("theme-preview-art-${preview.symbolicName}").assertExists()
             val target = checkNotNull(AndroidWallpaperTarget.resolve(context, set.wallpaper.componentId.value))

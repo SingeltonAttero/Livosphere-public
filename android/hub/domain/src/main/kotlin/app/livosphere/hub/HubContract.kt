@@ -11,6 +11,8 @@ import app.livosphere.hub.wallpaper.*
 
 enum class HubSection {
     THEME,
+    WIDGETS,
+    MORE,
     DEVICES,
     SETTINGS,
 }
@@ -97,7 +99,8 @@ object HubReducer {
         is HubAction.Phone -> HubTransition(state)
         HubAction.RetryHistory -> HubTransition(state, listOf(HubCommand.RetryHistory))
         is HubAction.ForegroundStarted -> HubTransition(
-            state.copy(foreground = true, selectedSection = action.restoredSection),
+            state.copy(foreground = true, selectedSection = action.restoredSection,
+                selectedSurface = surfaceFor(action.restoredSection, state.selectedSurface)),
             listOf(HubCommand.RetryHistory),
         )
         HubAction.ForegroundStopped -> HubTransition(state.copy(
@@ -109,6 +112,7 @@ object HubReducer {
         is HubAction.SectionSelected -> selectSection(state, action.section)
         is HubAction.NavigationRestored -> HubTransition(
             state = state.copy(selectedSection = action.section,
+                selectedSurface = surfaceFor(action.section, state.selectedSurface),
                 onboardingVisible = state.onboardingVisible &&
                     (!state.onboardingIsAutomatic || action.section == HubSection.THEME),
                 pendingInvitation = if (state.selectedSection == action.section) state.pendingInvitation else null),
@@ -161,17 +165,23 @@ object HubReducer {
             onboardingVisible = false, onboardingIsAutomatic = false, pendingInvitation = null,
         ))
         HubAction.GoToTheme -> HubTransition(
-            state.copy(selectedSection = HubSection.THEME, onboardingVisible = false,
+            state.copy(selectedSection = HubSection.THEME, selectedSurface = HubSurface.WALLPAPER, onboardingVisible = false,
                 onboardingIsAutomatic = false, pendingInvitation = null),
             listOf(HubCommand.ShowSection(HubSection.THEME)),
         )
+    }
+
+    private fun surfaceFor(section: HubSection, previous: HubSurface): HubSurface = when (section) {
+        HubSection.THEME -> HubSurface.WALLPAPER
+        HubSection.WIDGETS -> HubSurface.WATCH_FACE
+        else -> previous
     }
 
     private fun selectSection(state: HubState, section: HubSection): HubTransition {
         if (state.selectedSection == section) return HubTransition(state)
 
         return HubTransition(
-            state = state.copy(selectedSection = section, pendingInvitation = null,
+            state = state.copy(selectedSection = section, selectedSurface = surfaceFor(section, state.selectedSurface), pendingInvitation = null,
                 onboardingVisible = state.onboardingVisible && !state.onboardingIsAutomatic,
                 onboardingIsAutomatic = false),
             commands = listOf(HubCommand.ShowSection(section)),

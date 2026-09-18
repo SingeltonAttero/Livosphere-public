@@ -6,6 +6,25 @@ import org.junit.Test
 
 class HubReducerTest {
     @Test
+    fun `tabs own their surfaces and returning to wallpaper invalidates old launch`() {
+        val widgets = HubReducer.reduce(HubState(), HubAction.SectionSelected(HubSection.WIDGETS)).state
+        assertEquals(HubSurface.WATCH_FACE, widgets.selectedSurface)
+        val wallpaper = HubReducer.reduce(widgets, HubAction.SectionSelected(HubSection.THEME)).state
+        assertEquals(HubSurface.WALLPAPER, wallpaper.selectedSurface)
+        assertTrue(wallpaper.phone.generation > widgets.phone.generation)
+    }
+
+    @Test
+    fun `restored widget tab and foreground keep widget surface`() {
+        val restored = HubReducer.reduce(HubState(), HubAction.NavigationRestored(HubSection.WIDGETS)).state
+        assertEquals(HubSurface.WATCH_FACE, restored.selectedSurface)
+        val foreground = HubReducer.reduce(HubState(), HubAction.ForegroundStarted(HubSection.WIDGETS)).state
+        assertEquals(HubSurface.WATCH_FACE, foreground.selectedSurface)
+        val support = HubReducer.reduce(restored, HubAction.SectionSelected(HubSection.SETTINGS)).state
+        assertEquals(HubSurface.WATCH_FACE, support.selectedSurface)
+    }
+
+    @Test
     fun `theme is the only initial section`() {
         val state = HubState()
 

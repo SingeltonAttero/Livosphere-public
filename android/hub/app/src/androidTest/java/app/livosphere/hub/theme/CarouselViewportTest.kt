@@ -25,21 +25,21 @@ class CarouselViewportTest(private val width: Int, private val height: Int, priv
             }
         }
         val action = compose.onNodeWithTag("theme-primary-action")
-        if (width == 375 && fontScale == 1f) action.assertIsDisplayed()
-        for (surface in listOf("wallpaper", "watchface")) {
-            compose.onNodeWithTag("theme-surface-$surface").performScrollTo().performClick().assertIsSelected()
-            action.performScrollTo().assertIsDisplayed().assertIsEnabled()
-            val bounds = action.getUnclippedBoundsInRoot()
-            assertTrue("Install touch target: $bounds", bounds.bottom - bounds.top >= 47.5.dp)
-            AuthoredContentCatalog.sets.forEach { set ->
-                val selection = compose.onNodeWithTag("collection-${set.setId.value}")
-                selection.performScrollTo().assertIsDisplayed()
-                val target = selection.getUnclippedBoundsInRoot()
-                // Root coordinates are rounded through physical pixels.
-                assertTrue("Collection touch target: $target", target.right - target.left >= 47.5.dp && target.bottom - target.top >= 47.5.dp)
-            }
-            compose.onNodeWithTag("hub-nav-settings").assertIsDisplayed()
-        }
+        action.assertIsDisplayed().assertIsEnabled()
+        val button = action.getUnclippedBoundsInRoot()
+        val next = compose.onNodeWithTag("wallpaper-next").assertIsDisplayed().getUnclippedBoundsInRoot()
+        val nav = compose.onNodeWithTag("hub-nav-theme").assertIsDisplayed().getUnclippedBoundsInRoot()
+        assertTrue("CTA overlaps next thumbnail", button.bottom <= next.top)
+        assertTrue("Thumbnail overlaps navigation", next.bottom <= nav.top)
+        assertTrue("CTA too small", button.bottom - button.top >= 47.5.dp)
+        compose.onNodeWithTag("hub-nav-widgets").performClick()
+        val widget = AuthoredContentCatalog.sets.first().clockWidget!!.componentId.value
+        compose.onNodeWithTag("hub-screen-widgets").performScrollToNode(hasTestTag("widget-install-$widget"))
+        compose.onNodeWithTag("widget-install-$widget").assertIsDisplayed().assertIsEnabled()
+        compose.onNodeWithTag("hub-nav-more").performClick()
+        compose.onNodeWithTag("more-settings").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithTag("hub-back").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("hub-screen-more").assertIsDisplayed()
     }
 
     companion object {
