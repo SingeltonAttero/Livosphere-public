@@ -30,8 +30,7 @@ class ThemeCarouselTest {
         val sets = AuthoredContentCatalog.sets
         sets.forEachIndexed { index, set ->
             if (index == 1) compose.onNodeWithTag("wallpaper-pager").performTouchInput {
-                swipe(start = androidx.compose.ui.geometry.Offset(center.x, height * .55f),
-                    end = androidx.compose.ui.geometry.Offset(center.x, height * .15f), durationMillis = 400)
+                swipeLeft()
             }
             if (index == 2) compose.onNodeWithTag("wallpaper-next").performClick()
             compose.onNodeWithTag("theme-preview-art-${set.preview.wallpaperRef}").assertIsDisplayed()
@@ -42,13 +41,21 @@ class ThemeCarouselTest {
             assertEquals(set.wallpaper.serviceClassName, launches.last().target.component.className)
             compose.runOnIdle { vm.onAction(HubAction.Phone(PhoneWallpaperAction.Returned)) }
         }
-        compose.onNodeWithTag("wallpaper-next").performClick()
+        compose.onNodeWithTag("wallpaper-pager").performTouchInput { swipeRight() }
+        compose.onNodeWithTag("theme-preview-art-${sets[1].preview.wallpaperRef}").assertIsDisplayed()
         compose.onNodeWithTag("theme-primary-action").assertIsEnabled().performClick()
         compose.waitUntil { launches.size == 4 }
+        assertEquals(sets[1].wallpaper.componentId.value, launches.last().target.wallpaperId)
+        compose.runOnIdle { vm.onAction(HubAction.Phone(PhoneWallpaperAction.Returned)) }
+        compose.onNodeWithTag("wallpaper-next").performClick()
+        compose.onNodeWithTag("theme-preview-art-${sets.last().preview.wallpaperRef}").assertIsDisplayed()
+        compose.onNodeWithTag("wallpaper-next").performClick()
+        compose.onNodeWithTag("theme-primary-action").assertIsEnabled().performClick()
+        compose.waitUntil { launches.size == 5 }
         assertEquals(sets.first().wallpaper.componentId.value, launches.last().target.wallpaperId)
     }
 
-    @Test fun widgetFeedInstallsEachWidgetWithoutChangingWallpaper() {
+    @Test fun widgetFeedOpensEachCardWithoutChangingWallpaper() {
         lateinit var vm: HubViewModel
         val installs = mutableListOf<String>()
         compose.setContent {
@@ -58,17 +65,41 @@ class ThemeCarouselTest {
         compose.onNodeWithTag("wallpaper-next").performClick()
         val selectedWallpaper = AuthoredContentCatalog.sets[1].wallpaper.componentId.value
         compose.onNodeWithTag("hub-nav-widgets").performClick().assertIsSelected()
+        compose.onNodeWithText("Установить виджет").assertDoesNotExist()
         AuthoredContentCatalog.sets.forEach { set ->
             val id = set.clockWidget!!.componentId.value
-            compose.onNodeWithTag("hub-screen-widgets").performScrollToNode(hasTestTag("widget-install-$id"))
-            compose.onNodeWithTag("widget-install-$id").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("hub-screen-widgets").performScrollToNode(hasTestTag("widget-$id"))
+            compose.onNodeWithTag("widget-$id").assertIsDisplayed().assertHasClickAction().performClick()
             compose.runOnIdle { assertEquals(id, installs.last()); assertEquals(selectedWallpaper, vm.state.value.phone.target?.wallpaperId) }
         }
         compose.onNodeWithTag("hub-nav-theme").performClick()
         compose.onNodeWithTag("theme-preview-art-${AuthoredContentCatalog.sets[1].preview.wallpaperRef}").assertIsDisplayed()
         compose.onNodeWithTag("hub-nav-widgets").performClick()
         val lastWidget = AuthoredContentCatalog.sets.last().clockWidget!!.componentId.value
-        compose.onNodeWithTag("widget-install-$lastWidget").assertIsDisplayed()
+        compose.onNodeWithTag("widget-$lastWidget").assertIsDisplayed()
+    }
+
+    @Test fun wallpaperCatalogSelectsAnySceneAndBackKeepsSelection() {
+        val launches = mutableListOf<WallpaperLaunchRequest>()
+        lateinit var vm: HubViewModel
+        compose.setContent {
+            vm = rememberCarouselViewModel()
+            HubApp(vm, onExit = {}, wallpaperLauncher = WallpaperLauncher { launches += it; Outcome.Success(Unit) })
+        }
+        AuthoredContentCatalog.sets.reversed().forEachIndexed { index, set ->
+            compose.onNodeWithTag("wallpaper-catalog-open").performClick()
+            compose.onNodeWithTag("hub-nav-theme").assertIsSelected()
+            compose.onNodeWithTag("wallpaper-catalog").performScrollToNode(hasTestTag("wallpaper-catalog-${set.setId.value}"))
+            compose.onNodeWithTag("wallpaper-catalog-${set.setId.value}").performClick()
+            compose.onNodeWithTag("theme-preview-art-${set.preview.wallpaperRef}").assertIsDisplayed()
+            compose.onNodeWithTag("theme-primary-action").assertIsEnabled().performClick()
+            compose.waitUntil { launches.size == index + 1 }
+            assertEquals(set.wallpaper.componentId.value, launches.last().target.wallpaperId)
+            compose.runOnIdle { vm.onAction(HubAction.Phone(PhoneWallpaperAction.Returned)) }
+            compose.onNodeWithTag("wallpaper-catalog-open").performClick()
+            androidx.test.espresso.Espresso.pressBack()
+            compose.onNodeWithTag("theme-preview-art-${set.preview.wallpaperRef}").assertIsDisplayed()
+        }
     }
 
     @Test fun moreOwnsSettingsAndSupportWithBackNavigation() {

@@ -27,7 +27,7 @@ import app.livosphere.hub.HubSurface
 import app.livosphere.widgets.RegistryWidgetCatalog
 
 @Composable
-internal fun WidgetFeed(listState: LazyListState, onInstall: (String) -> Unit) {
+internal fun WidgetFeed(listState: LazyListState, onOpen: (String) -> Unit) {
     val context = LocalContext.current
     val catalog = remember(context) { RegistryWidgetCatalog(context) }
     val sets = remember { AuthoredContentCatalog.sets }
@@ -45,7 +45,8 @@ internal fun WidgetFeed(listState: LazyListState, onInstall: (String) -> Unit) {
             items(sets, key = { it.setId.value }) { set ->
                 val widget = remember(set) { catalog.itemForSet(set.setId.value) }
                 val preview = remember(set) { PreviewAssetResolver.resolve(context, set, HubSurface.WATCH_FACE) }
-                if (widget != null) Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface,
+                if (widget != null) Surface(onClick = { onOpen(widget.widgetId) },
+                    shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface,
                     modifier = Modifier.fillMaxWidth().semantics { testTag = "widget-${widget.widgetId}" }) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (preview != null) Image(painterResource(preview.drawableId), widget.displayName,
@@ -54,10 +55,6 @@ internal fun WidgetFeed(listState: LazyListState, onInstall: (String) -> Unit) {
                         Text(widget.displayName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                         Text(stringResource(R.string.widget_feed_sizes), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Button(onClick = { onInstall(widget.widgetId) }, shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).semantics { testTag = "widget-install-${widget.widgetId}" }) {
-                            Text(stringResource(R.string.widget_install))
-                        }
                     }
                 }
             }

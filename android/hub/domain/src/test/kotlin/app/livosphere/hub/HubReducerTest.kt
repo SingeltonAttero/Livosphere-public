@@ -6,6 +6,17 @@ import org.junit.Test
 
 class HubReducerTest {
     @Test
+    fun `wallpaper catalog owns wallpaper surface and invalidates pending launch`() {
+        val wallpaper = HubState(foreground = true)
+        val catalog = HubReducer.reduce(wallpaper, HubAction.SectionSelected(HubSection.WALLPAPER_CATALOG)).state
+        assertEquals(HubSurface.WALLPAPER, catalog.selectedSurface)
+        assertTrue(catalog.phone.generation > wallpaper.phone.generation)
+        val restored = HubReducer.reduce(HubState(selectedSurface = HubSurface.WATCH_FACE),
+            HubAction.NavigationRestored(HubSection.WALLPAPER_CATALOG)).state
+        assertEquals(HubSurface.WALLPAPER, restored.selectedSurface)
+    }
+
+    @Test
     fun `tabs own their surfaces and returning to wallpaper invalidates old launch`() {
         val widgets = HubReducer.reduce(HubState(), HubAction.SectionSelected(HubSection.WIDGETS)).state
         assertEquals(HubSurface.WATCH_FACE, widgets.selectedSurface)

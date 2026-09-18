@@ -145,8 +145,12 @@
     <string name="wallpaper_next_short">Далее · %1$s</string>
     <string name="wallpaper_previous">Предыдущие обои</string>
     <string name="wallpaper_support">Помощь с установкой</string>
-    <string name="widget_feed_subtitle">Авторские часы для главного экрана</string>
-    <string name="widget_feed_sizes">S / M / L · Устанавливаются отдельно</string>
+    <string name="widget_feed_subtitle">Нажмите на часы, чтобы настроить и установить</string>
+    <string name="widget_feed_sizes">S / M / L · Открыть карточку</string>
+    <string name="wallpaper_catalog_title">Все обои</string>
+    <string name="wallpaper_catalog_subtitle">Выберите обои из всей коллекции</string>
+    <string name="wallpaper_catalog_selected">Выбрано</string>
+    <string name="wallpaper_catalog_view">Открыть обои</string>
     <string name="more_subtitle">Настройки и помощь — всё в одном месте</string>
     <string name="more_settings_summary">Движение обоев и настройки приложения</string>
     <string name="more_installation_summary">Проверить установку и доступность на телефоне</string>

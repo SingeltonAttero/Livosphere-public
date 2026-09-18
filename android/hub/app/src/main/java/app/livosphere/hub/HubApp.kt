@@ -51,6 +51,8 @@ import app.livosphere.hub.navigation.toSection
 import app.livosphere.hub.settings.SettingsScreen
 import app.livosphere.hub.theme.WallpaperFeed
 import app.livosphere.hub.theme.WidgetFeed
+import app.livosphere.hub.theme.WallpaperCatalogScreen
+import app.livosphere.hub.navigation.WallpaperCatalogKey
 import app.livosphere.hub.more.MoreScreen
 import app.livosphere.hub.navigation.MoreKey
 import app.livosphere.hub.navigation.WidgetsKey
@@ -90,6 +92,7 @@ fun HubApp(
     val backStack = rememberNavBackStack(ThemeKey)
     val navigator = remember(backStack) { HubNavigator(backStack) }
     val widgetListState = rememberLazyListState()
+    val wallpaperCatalogState = rememberLazyListState()
     val restoredSection = backStack.lastOrNull().toSection()
     val latestRestoredSection by rememberUpdatedState(restoredSection)
 
@@ -192,7 +195,19 @@ fun HubApp(
                             onSeen = { viewModel.onAction(HubAction.ThemePreviewSeen) },
                             onInstall = { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn)) },
                             onSupport = { viewModel.onAction(HubAction.SectionSelected(HubSection.DEVICES)) },
+                            onCatalog = { viewModel.onAction(HubAction.SectionSelected(HubSection.WALLPAPER_CATALOG)) },
                         )
+                    }
+                    entry<WallpaperCatalogKey> {
+                        NestedScreen(navHeight, goBack) {
+                            WallpaperCatalogScreen(wallpaperCatalogState, state.phone.target?.wallpaperId) { set ->
+                                val target = AndroidWallpaperTarget.resolve(context, set.wallpaper.componentId.value)
+                                if (target != null) {
+                                    viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.TargetSelected(target)))
+                                    viewModel.onAction(HubAction.SectionSelected(HubSection.THEME))
+                                }
+                            }
+                        }
                     }
                     entry<WidgetsKey> {
                         HubContentArea(navHeight) {
@@ -245,6 +260,7 @@ fun HubApp(
             Box(Modifier.align(Alignment.BottomCenter).onSizeChanged { navHeightPx = it.height }) {
                 HubBottomNavigation(
                     selectedSection = when (restoredSection) {
+                        HubSection.WALLPAPER_CATALOG -> HubSection.THEME
                         HubSection.DEVICES, HubSection.SETTINGS -> HubSection.MORE
                         else -> restoredSection
                     },
