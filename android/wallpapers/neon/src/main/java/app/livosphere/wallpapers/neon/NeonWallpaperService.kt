@@ -36,6 +36,7 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
         private var holder: SurfaceHolder? = null
         private var visible = false
         private var valid = false
+        private var screenInteractive = (getSystemService(POWER_SERVICE) as? PowerManager)?.isInteractive == true
         private var mode: WallpaperMotionMode? = null
         private var phase = PhasePolicy().select(Clock.systemUTC(), ZoneId.systemDefault()).phase
         private var previousPhase = phase
@@ -46,6 +47,7 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
         private var surfaceWidth = 0
         private var surfaceHeight = 0
         private val interactions = NeonInteractionController(theme)
+        @Volatile private var lastInteractionFrame = NeonInteractionFrame()
         private val tiltSensor = NeonTiltSensor(this@NeonWallpaperService, handler) {
             interactions.tilt(it, SystemClock.elapsedRealtime())
         }
@@ -60,7 +62,9 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
             }) {
             NeonSceneRenderer(applicationContext, theme, checkNotNull(holder)) {
                 frames++
-                NeonFrame(phase, previousPhase, phaseChangedAt, clock.value(SystemClock.elapsedRealtime()), effective, interactions.frame(SystemClock.elapsedRealtime()))
+                val now = SystemClock.elapsedRealtime()
+                val interaction = interactions.frame(now).also { lastInteractionFrame = it }
+                NeonFrame(phase, previousPhase, phaseChangedAt, clock.value(now), effective, interaction)
             }
         }
         private val phases = PhaseScheduler(Clock.systemUTC(), { ZoneId.systemDefault() },
@@ -78,9 +82,24 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
             }
         private val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
+                val action = intent?.action
                 handler.post {
-                    if (visible && valid) phases.invalidate()
+                    when (action) {
+                        Intent.ACTION_SCREEN_OFF -> {
+                            screenInteractive = false
+                            interactions.cancel()
+                            phases.stop()
+                        }
+                        Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT -> screenInteractive = true
+                    }
+                    if (visible && valid && screenInteractive) {
+                        if (action == Intent.ACTION_SCREEN_ON || action == Intent.ACTION_USER_PRESENT) phases.start()
+                        else phases.invalidate()
+                    }
                     updateMotion()
+                    if (action == Intent.ACTION_USER_PRESENT && !isPreview && !effective.staticFrame) {
+                        interactions.onUnlocked(SystemClock.elapsedRealtime())
+                    }
                 }
             }
         }
@@ -98,6 +117,7 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
             val filter = IntentFilter().apply {
                 addAction(Intent.ACTION_TIME_CHANGED); addAction(Intent.ACTION_TIMEZONE_CHANGED); addAction(Intent.ACTION_DATE_CHANGED)
                 addAction(Intent.ACTION_BATTERY_CHANGED); addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
+                addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_USER_PRESENT)
             }
             try { registerReceiver(receiver, filter); receiverRegistered = true } catch (_: RuntimeException) { }
             try {
@@ -122,23 +142,27 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
             effective = policy.evaluate(NeonScenePolicy.definition, effectLevel, mode ?: WallpaperMotionMode.OFF,
                 reduced, ScenePowerFacts(saver, percent, null))
             updateInteractions()
-            clock.setRunning(visible && valid && !effective.staticFrame, SystemClock.elapsedRealtime())
+            clock.setRunning(visible && valid && screenInteractive && !effective.staticFrame, SystemClock.elapsedRealtime())
             loop.setReducedMotion(effective.staticFrame)
-            if (visible && valid) loop.invalidate()
+            loop.setVisible(visible && screenInteractive)
+            if (visible && valid && screenInteractive) loop.invalidate()
         }
         private fun updateInteractions() {
-            val enabled = visible && valid && interactionsEnabled && !effective.staticFrame
-            interactions.configure(enabled, phase, effectLevel, surfaceWidth, surfaceHeight)
-            tiltSensor.setActive(enabled)
+            val enabled = visible && valid && screenInteractive && !effective.staticFrame
+            // Static/power/screen-off transitions also discard a pending unlock-before-HOME event.
+            if (effective.staticFrame || !screenInteractive) interactions.cancel()
+            interactions.configure(enabled, phase, effectLevel, surfaceWidth, surfaceHeight,
+                SystemClock.elapsedRealtime(), tiltEnabled = interactionsEnabled)
+            tiltSensor.setActive(enabled && interactionsEnabled)
+            if (!enabled) lastInteractionFrame = NeonInteractionFrame()
         }
 
         override fun onVisibilityChanged(isVisible: Boolean) {
             super.onVisibilityChanged(isVisible)
             fence {
                 visible = isVisible
-                if (visible && valid) phases.start() else phases.stop()
+                if (visible && valid && screenInteractive) phases.start() else phases.stop()
                 updateMotion()
-                loop.setVisible(visible)
             }
         }
         override fun onSurfaceChanged(surfaceHolder: SurfaceHolder, format: Int, width: Int, height: Int) {
@@ -150,7 +174,7 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
                 if (surfaceWidth != width || surfaceHeight != height) tiltSensor.recalibrate()
                 surfaceWidth = width; surfaceHeight = height
                 valid = width > 0 && height > 0 && surfaceHolder.surface.isValid
-                if (visible && valid) phases.start()
+                if (visible && valid && screenInteractive) phases.start()
                 updateMotion()
                 loop.setSurfaceValid(valid)
             }
@@ -166,7 +190,7 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
         }
         override fun onSurfaceDestroyed(surfaceHolder: SurfaceHolder) {
             fence {
-                phases.stop(); valid = false; updateInteractions()
+                phases.stop(); valid = false; interactions.cancel(); updateInteractions()
                 clock.setRunning(false, SystemClock.elapsedRealtime())
                 loop.setSurfaceValid(false); holder = null
             }
@@ -182,7 +206,11 @@ abstract class NeonWallpaperService(private val theme: NeonTheme) : WallpaperSer
             engines -= this
             super.onDestroy()
         }
-        fun debugState() = "neon theme=${theme.setId} phase=$phase visible=$visible valid=$valid static=${effective.staticFrame} requested=$effectLevel effective=${effective.effectiveLevel} frames=$frames lights=${NeonScenePolicy.lightsEnabled(phase)} interactions=$interactionsEnabled blinks=${interactions.blinks} sensor=${tiltSensor.sensor?.stringType ?: "none"} sensing=${tiltSensor.active} pulses=${interactions.pulses} blink=${interactions.frame(SystemClock.elapsedRealtime()).blink} shift=${interactions.frame(SystemClock.elapsedRealtime()).cloudOffset} shiftY=${interactions.frame(SystemClock.elapsedRealtime()).cloudOffsetY}"
+        fun debugState(): String {
+            // Dumps read the last rendered value; they must not advance the blink timer off-thread.
+            val frame = lastInteractionFrame
+            return "neon theme=${theme.setId} phase=$phase visible=$visible valid=$valid screenInteractive=$screenInteractive static=${effective.staticFrame} requested=$effectLevel effective=${effective.effectiveLevel} frames=$frames lights=${NeonScenePolicy.lightsEnabled(phase)} interactions=$interactionsEnabled blinks=${interactions.blinks} sensor=${tiltSensor.sensor?.stringType ?: "none"} sensing=${tiltSensor.active} pulses=${interactions.pulses} blink=${frame.blink} shift=${frame.cloudOffset} shiftY=${frame.cloudOffsetY}"
+        }
         private fun fence(action: () -> Unit) {
             val done = CountDownLatch(1)
             if (handler.post { try { action() } finally { done.countDown() } }) await(done)
