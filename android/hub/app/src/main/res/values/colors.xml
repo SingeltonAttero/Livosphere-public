@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Adaptive icon background: глубокий тёмный сине-фиолетовый тон из арта «Живой мир» (pen-design/generated-14.png, V1 2026-09-24). -->
+    <color name="ic_launcher_background">#0C0824</color>
+</resources>
