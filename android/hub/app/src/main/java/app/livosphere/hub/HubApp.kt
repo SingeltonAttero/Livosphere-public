@@ -195,7 +195,7 @@ fun HubApp(
                 popTransitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
                 entryProvider = entryProvider {
                     entry<ThemeKey> {
-                        val selectedSet = app.livosphere.content.AuthoredContentCatalog.sets.singleOrNull {
+                        val selectedSet = app.livosphere.content.AuthoredContentCatalog.wallpaperSets.singleOrNull {
                             it.wallpaper.componentId.value == state.phone.target?.wallpaperId
                         }
                         WallpaperFeed(
@@ -244,7 +244,7 @@ fun HubApp(
                         NestedScreen(navHeight, goBack) {
                             DevicesScreen(settingsFailed = state.settings is Outcome.Failure,
                                 phoneState = state.phone,
-                                wallpaperName = app.livosphere.content.AuthoredContentCatalog.sets
+                                wallpaperName = app.livosphere.content.AuthoredContentCatalog.wallpaperSets
                                     .singleOrNull { it.wallpaper.componentId.value == state.phone.target?.wallpaperId }
                                     ?.let { app.livosphere.hub.theme.PreviewAssetResolver.displayName(context, it) },
                                 widgets = widgetInstances,
@@ -261,10 +261,10 @@ fun HubApp(
                         NestedScreen(navHeight, goBack) {
                             SettingsScreen(
                                 touchReactionsEnabled = wallpaperSettings.touchReactions,
-                                supportsTouchReactions = app.livosphere.content.AuthoredContentCatalog.sets
+                                supportsTouchReactions = app.livosphere.content.AuthoredContentCatalog.wallpaperSets
                                     .singleOrNull { it.wallpaper.componentId.value == state.phone.target?.wallpaperId }
                                     ?.wallpaper?.supportedSettings?.any { it == app.livosphere.contract.SupportedSetting.TAP || it == app.livosphere.contract.SupportedSetting.TILT } == true,
-                                tiltReactions = app.livosphere.content.AuthoredContentCatalog.sets
+                                tiltReactions = app.livosphere.content.AuthoredContentCatalog.wallpaperSets
                                     .singleOrNull { it.wallpaper.componentId.value == state.phone.target?.wallpaperId }
                                     ?.wallpaper?.supportedSettings?.contains(app.livosphere.contract.SupportedSetting.TILT) == true,
                                 onTouchReactionsChanged = viewModel::setTouchReactionsEnabled,
@@ -274,14 +274,14 @@ fun HubApp(
                                 pendingTouch = wallpaperSettings.pendingTouch,
                                 effectLevel = wallpaperSettings.effectLevel,
                                 pendingEffectLevel = wallpaperSettings.pendingEffectLevel,
-                                supportsEffectLevels = app.livosphere.content.AuthoredContentCatalog.sets.any {
+                                supportsEffectLevels = app.livosphere.content.AuthoredContentCatalog.wallpaperSets.any {
                                     it.wallpaper.componentId.value == state.phone.target?.wallpaperId &&
                                         app.livosphere.contract.SupportedSetting.EFFECT_LEVEL in it.wallpaper.supportedSettings
                                 },
                                 onEffectLevelChanged = viewModel::setWallpaperEffectLevel,
                                 onRetryWallpaperSettings = viewModel::retryWallpaperSettings,
                                 onDiscardWallpaperSettings = viewModel::discardWallpaperSettingsDrafts,
-                                wallpaperName = app.livosphere.content.AuthoredContentCatalog.sets
+                                wallpaperName = app.livosphere.content.AuthoredContentCatalog.wallpaperSets
                                     .singleOrNull { it.wallpaper.componentId.value == state.phone.target?.wallpaperId }
                                     ?.let { app.livosphere.hub.theme.PreviewAssetResolver.displayName(context, it) },
                                 onWallpaperMotionChanged = viewModel::setWallpaperMotionMode,

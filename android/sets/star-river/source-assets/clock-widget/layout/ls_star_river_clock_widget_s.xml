@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/clock_widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:padding="4dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+        android:background="@drawable/ls_star_river_clock_widget_background" android:gravity="center"
+        android:orientation="vertical" android:padding="12dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center" android:orientation="horizontal">
+            <TextClock android:id="@+id/clock_widget_time" android:layout_width="wrap_content" android:layout_height="match_parent"
+                android:fontFamily="@font/ls_star_river_clock_widget_bodoni_moda" android:format12Hour="h:mm" android:format24Hour="HH:mm"
+                android:gravity="center_vertical" android:includeFontPadding="false" android:singleLine="true" android:textColor="#354F6C" android:textSize="40sp" />
+            <TextClock android:id="@+id/clock_widget_period" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_gravity="bottom" android:layout_marginStart="2dp" android:layout_marginBottom="8dp"
+                android:fontFamily="sans-serif" android:format12Hour="a" android:format24Hour=" " android:includeFontPadding="false"
+                android:singleLine="true" android:textColor="#354F6C" android:textSize="8sp" />
+        </LinearLayout>
+        <TextView android:layout_width="78dp" android:layout_height="1dp" android:background="#AD8253" />
+    </LinearLayout>
+</FrameLayout>

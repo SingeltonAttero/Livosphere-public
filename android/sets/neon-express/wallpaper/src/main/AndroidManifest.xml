@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <service
+            android:name=".NeonExpressWallpaperService"
+            android:exported="true"
+            android:label="Неоновый экспресс"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter><action android:name="android.service.wallpaper.WallpaperService" /></intent-filter>
+            <meta-data android:name="android.service.wallpaper" android:resource="@xml/ls_neon_express_wallpaper_entrypoint" />
+        </service>
+    </application>
+</manifest>

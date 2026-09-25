@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.livosphere.R
 import app.livosphere.content.AuthoredContentCatalog
+import app.livosphere.contract.DayPhase
 import app.livosphere.contract.SetDescriptor
 import app.livosphere.hub.*
 import app.livosphere.hub.wallpaper.*
@@ -47,7 +48,7 @@ internal fun WallpaperFeed(
     onInstall: () -> Unit,
     onSupport: () -> Unit,
     onCatalog: (() -> Unit)? = null,
-    sets: List<SetDescriptor> = AuthoredContentCatalog.sets,
+    sets: List<SetDescriptor> = AuthoredContentCatalog.wallpaperSets,
 ) {
     if (sets.isEmpty() || sets.none { it.setId.value == setId }) {
         Box(Modifier.fillMaxSize().background(HubArtworkBackdrop), contentAlignment = Alignment.Center) {
@@ -72,7 +73,11 @@ internal fun WallpaperFeed(
     }
     val context = LocalContext.current
     val current = sets[pager.currentPage]
-    val currentAsset = remember(current) { PreviewAssetResolver.resolve(context, current, HubSurface.WALLPAPER) }
+    val previewPhase = remember(current.setId.value) { DayPhase.entries.random() }
+    val currentAsset = remember(current, previewPhase) {
+        PreviewAssetResolver.resolveWallpaperPhase(context, current, previewPhase)
+            ?: PreviewAssetResolver.resolve(context, current, HubSurface.WALLPAPER)
+    }
     val name = remember(current) { PreviewAssetResolver.displayName(context, current) }
     val nextPage = (pager.currentPage + 1) % sets.size
     val next = sets[nextPage]
@@ -95,7 +100,9 @@ internal fun WallpaperFeed(
     }) {
         HorizontalPager(state = pager, key = { sets[it].setId.value }, modifier = Modifier.fillMaxSize().semantics { testTag = "wallpaper-pager" }) { index ->
             val set = sets[index]
-            val asset = remember(set) { PreviewAssetResolver.resolve(context, set, HubSurface.WALLPAPER) }
+            val asset = if (index == pager.currentPage) currentAsset else remember(set) {
+                PreviewAssetResolver.resolve(context, set, HubSurface.WALLPAPER)
+            }
             Box(Modifier.fillMaxSize().then(if (index == pager.currentPage) Modifier else Modifier.clearAndSetSemantics {})) {
                 if (asset != null) Image(painterResource(asset.drawableId), null, Modifier.fillMaxSize().semantics {
                     testTag = "theme-preview-art-${asset.symbolicName}"

@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <service
+            android:name=".MoscowFacetsWallpaperService"
+            android:exported="true"
+            android:label="Москва в гранях"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter><action android:name="android.service.wallpaper.WallpaperService" /></intent-filter>
+            <meta-data android:name="android.service.wallpaper" android:resource="@xml/ls_moscow_facets_wallpaper_entrypoint" />
+        </service>
+    </application>
+</manifest>

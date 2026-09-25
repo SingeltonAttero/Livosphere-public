@@ -54,7 +54,7 @@ object HubSettingsModule {
 
     @Provides @Singleton
     fun wallpaperSettings(repository: SurfaceSettingsRepository): WallpaperSettingsRepository =
-        WallpaperSettingsRepository(repository, AuthoredContentCatalog.sets.firstOrNull()?.wallpaper?.componentId?.value ?: "unavailable-wallpaper") { id ->
-            AuthoredContentCatalog.sets.any { it.wallpaper.componentId.value == id }
+        WallpaperSettingsRepository(repository, AuthoredContentCatalog.wallpaperSets.firstOrNull()?.wallpaper?.componentId?.value ?: "unavailable-wallpaper") { id ->
+            AuthoredContentCatalog.wallpaperSets.any { it.wallpaper.componentId.value == id }
         }
 }

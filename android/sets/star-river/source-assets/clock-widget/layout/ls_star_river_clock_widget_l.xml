@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/clock_widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:padding="4dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+        android:background="@drawable/ls_star_river_clock_widget_background" android:gravity="center"
+        android:orientation="vertical" android:padding="12dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center" android:orientation="horizontal">
+            <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="0.7" android:gravity="center" android:orientation="vertical">
+                <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+                    <TextClock android:id="@+id/clock_widget_time" android:layout_width="match_parent" android:layout_height="match_parent"
+                        android:fontFamily="@font/ls_star_river_clock_widget_bodoni_moda" android:format12Hour="h" android:format24Hour="HH"
+                        android:gravity="center" android:includeFontPadding="false" android:singleLine="true" android:textColor="#354F6C" android:textSize="60sp" />
+                    <TextClock android:id="@+id/clock_widget_period" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_gravity="end|bottom" android:fontFamily="sans-serif" android:format12Hour="a" android:format24Hour=" "
+                        android:includeFontPadding="false" android:singleLine="true" android:textColor="#354F6C" android:textSize="8sp" />
+                </FrameLayout>
+                <TextClock android:id="@+id/clock_widget_minutes" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+                    android:fontFamily="@font/ls_star_river_clock_widget_bodoni_moda" android:format12Hour="mm" android:format24Hour="mm"
+                    android:gravity="center" android:includeFontPadding="false" android:singleLine="true" android:textColor="#354F6C" android:textSize="60sp" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="8dp" android:layout_weight="1.3"
+                android:gravity="center" android:orientation="vertical">
+                <TextClock android:id="@+id/clock_widget_weekday" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif" android:format12Hour="EEEE" android:format24Hour="EEEE" android:includeFontPadding="false"
+                    android:gravity="center" android:singleLine="true" android:textAllCaps="true" android:textColor="#354F6C" android:textSize="11sp" />
+                <TextClock android:id="@+id/clock_widget_day" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+                    android:fontFamily="@font/ls_star_river_clock_widget_bodoni_moda" android:format12Hour="d" android:format24Hour="d"
+                    android:gravity="center" android:includeFontPadding="false" android:singleLine="true" android:textColor="#354F6C" android:textSize="48sp" />
+                <TextClock android:id="@+id/clock_widget_month" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif" android:format12Hour="MMMM" android:format24Hour="MMMM" android:includeFontPadding="false"
+                    android:gravity="center" android:singleLine="true" android:textAllCaps="true" android:textColor="#354F6C" android:textSize="12sp" />
+            </LinearLayout>
+        </LinearLayout>
+        <TextView android:layout_width="180dp" android:layout_height="1dp" android:layout_marginTop="6dp" android:background="#AD8253" />
+    </LinearLayout>
+</FrameLayout>

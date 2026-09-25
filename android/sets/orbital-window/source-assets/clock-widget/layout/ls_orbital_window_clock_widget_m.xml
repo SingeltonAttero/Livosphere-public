@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/clock_widget_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/ls_orbital_window_clock_widget_background" android:padding="8dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:layout_gravity="center"
+        android:gravity="center" android:orientation="horizontal">
+        <AnalogClock android:id="@+id/clock_widget_analog" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="3"
+            android:dial="@drawable/ls_orbital_window_clock_widget_dial"
+            android:hand_hour="@drawable/ls_orbital_window_clock_widget_hour_hand"
+            android:hand_minute="@drawable/ls_orbital_window_clock_widget_minute_hand" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="8dp" android:layout_weight="2"
+            android:gravity="center" android:orientation="vertical">
+            <TextClock android:id="@+id/clock_widget_day" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center"
+                android:fontFamily="@font/ls_orbital_window_clock_widget_manrope" android:format12Hour="d" android:format24Hour="d"
+                android:includeFontPadding="false" android:singleLine="true" android:textColor="#E5F1EF" android:textSize="36sp" />
+            <TextClock android:id="@+id/clock_widget_month" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center"
+                android:layout_marginTop="2dp" android:fontFamily="sans-serif" android:format12Hour="MMMM" android:format24Hour="MMMM"
+                android:includeFontPadding="false" android:singleLine="true" android:textAllCaps="true" android:textColor="#7CBBC0" android:textSize="12sp" />
+            <TextClock android:id="@+id/clock_widget_weekday" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center"
+                android:layout_marginTop="2dp" android:fontFamily="sans-serif" android:format12Hour="EEEE" android:format24Hour="EEEE"
+                android:includeFontPadding="false" android:singleLine="true" android:textAllCaps="true" android:textColor="#E5F1EF" android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

@@ -26,4 +26,20 @@ class WidgetPresentationPolicyTest {
         assertTrue(roomy.dateSp > compact.dateSp)
         assertEquals("d MMMM", roomy.datePattern)
     }
+
+    @Test fun hostBoundsKeepPositivePresentationMetricsForDigitalAndAnalogClocks() {
+        for (analog in listOf(false, true)) {
+            val small = WidgetPresentationPolicy.metrics(WidgetSize.S, 110, 2f, analog, 110)
+            val medium = WidgetPresentationPolicy.metrics(WidgetSize.M, 250, 2f, analog, 110)
+            val large = WidgetPresentationPolicy.metrics(WidgetSize.L, 340, 2f, analog, 300)
+
+            assertTrue(small.timeSp > 0f)
+            assertTrue(medium.timeSp > 0f)
+            assertTrue(large.timeSp > medium.timeSp)
+            assertTrue(medium.dateSp > 0f)
+            assertTrue(large.dateSp > 0f)
+            assertEquals("d MMMM", medium.datePattern)
+            assertEquals("d MMMM", large.datePattern)
+        }
+    }
 }

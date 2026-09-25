@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <service
+            android:name=".SyntheticDawnWallpaperService"
+            android:exported="true"
+            android:label="Синтетический рассвет"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter><action android:name="android.service.wallpaper.WallpaperService" /></intent-filter>
+            <meta-data android:name="android.service.wallpaper" android:resource="@xml/ls_synthetic_dawn_wallpaper_entrypoint" />
+        </service>
+    </application>
+</manifest>

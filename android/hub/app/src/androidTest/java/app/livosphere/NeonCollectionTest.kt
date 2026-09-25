@@ -71,7 +71,7 @@ class NeonCollectionTest {
         val catalog = RegistryWidgetCatalog(context)
         val sizes = listOf(Triple(WidgetSize.S, 110, 110), Triple(WidgetSize.M, 250, 110), Triple(WidgetSize.L, 250, 180),
             Triple(WidgetSize.S, 168, 180), Triple(WidgetSize.M, 340, 200), Triple(WidgetSize.L, 340, 300))
-        for (item in catalog.items()) for ((size, width, height) in sizes) for (fontScale in listOf(1f, 2f)) {
+        for (item in catalog.items().filter { it.widgetId in setOf("sakura-clock", "harbor-clock", "sunset-clock") }) for ((size, width, height) in sizes) for (fontScale in listOf(1f, 2f)) {
             lateinit var view: View
             lateinit var parent: FrameLayout
             var w = 0

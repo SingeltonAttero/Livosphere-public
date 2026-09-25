@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/clock_widget_root"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:padding="4dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+        android:background="@drawable/ls_neon_express_clock_widget_background" android:orientation="horizontal" android:padding="12dp">
+        <TextClock android:id="@+id/clock_widget_time" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:background="@drawable/ls_neon_express_clock_widget_cell"
+            android:fontFamily="@font/ls_neon_express_clock_widget_space_mono_bold" android:format12Hour="h" android:format24Hour="HH"
+            android:gravity="center" android:includeFontPadding="false" android:singleLine="true" android:textColor="#F3C789" android:textSize="36sp" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="8dp"
+            android:layout_weight="1" android:background="@drawable/ls_neon_express_clock_widget_cell">
+            <TextClock android:id="@+id/clock_widget_minutes" android:layout_width="match_parent" android:layout_height="match_parent"
+                android:fontFamily="@font/ls_neon_express_clock_widget_space_mono_bold" android:format12Hour="mm" android:format24Hour="mm"
+                android:gravity="center" android:includeFontPadding="false" android:singleLine="true" android:textColor="#F3C789" android:textSize="36sp" />
+            <TextClock android:id="@+id/clock_widget_period" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_gravity="end|bottom" android:layout_marginEnd="3dp" android:layout_marginBottom="2dp"
+                android:fontFamily="@font/ls_neon_express_clock_widget_space_mono_bold" android:format12Hour="a" android:format24Hour=" "
+                android:includeFontPadding="false" android:singleLine="true" android:textColor="#F3C789" android:textSize="8sp" />
+        </FrameLayout>
+    </LinearLayout>
+</FrameLayout>

@@ -33,6 +33,7 @@ interface WidgetCatalog {
     fun needsConfigurationLayout(context: Context): Int
     fun timeViewId(context: Context): Int
     fun dateViewId(context: Context): Int
+    fun viewId(context: Context, widgetId: String, size: WidgetSize, role: ClockViewRole): Int = 0
 }
 
 object ClockWidgetRuntime {
@@ -76,7 +77,9 @@ object ClockWidgetRuntime {
         val views = RemoteViews(context.packageName, layout)
         val options = manager.getAppWidgetOptions(appWidgetId)
         ClockLayoutAdapter.adapt(context, views, preferences.size, options, catalog, preferences.widgetId)
-        views.setOnClickPendingIntent(catalog.rootViewId(context), routerPendingIntent(context, appWidgetId))
+        val rootId = catalog.viewId(context, preferences.widgetId, preferences.size, ClockViewRole.ROOT)
+            .takeIf { it != 0 } ?: catalog.rootViewId(context)
+        views.setOnClickPendingIntent(rootId, routerPendingIntent(context, appWidgetId))
         return publish(manager, appWidgetId, views)
     }
 
@@ -189,14 +192,66 @@ object ClockLayoutAdapter {
         val analog = catalog.isAnalog(widgetId)
         val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, if (size == WidgetSize.L) 180 else 110)
         val metrics = WidgetPresentationPolicy.metrics(size, width, context.resources.configuration.fontScale, analog, height)
+        val authoredRoles = ClockViewRole.entries.associateWith { role ->
+            catalog.viewId(context, widgetId, size, role)
+        }.filterValues { it != 0 }
+        if (authoredRoles.isEmpty()) adaptLegacy(context, views, size, catalog, analog, metrics)
+        else adaptAuthored(views, size, metrics, authoredRoles)
+    }
+
+    private fun adaptLegacy(
+        context: Context,
+        views: RemoteViews,
+        size: WidgetSize,
+        catalog: WidgetCatalog,
+        analog: Boolean,
+        metrics: ClockLayoutMetrics,
+    ) {
         if (!analog) views.setTextViewTextSize(catalog.timeViewId(context), TypedValue.COMPLEX_UNIT_SP, metrics.timeSp)
+        if (size == WidgetSize.S) return
+        val dateId = catalog.dateViewId(context)
+        views.setTextViewTextSize(dateId, TypedValue.COMPLEX_UNIT_SP, metrics.dateSp)
+        views.setCharSequence(dateId, "setFormat12Hour", metrics.datePattern)
+        views.setCharSequence(dateId, "setFormat24Hour", metrics.datePattern)
+        val weekdayId = context.resources.getIdentifier("clock_widget_weekday", "id", context.packageName)
+        if (weekdayId != 0) views.setTextViewTextSize(weekdayId, TypedValue.COMPLEX_UNIT_SP, metrics.dateSp)
+    }
+
+    private fun adaptAuthored(
+        views: RemoteViews,
+        size: WidgetSize,
+        metrics: ClockLayoutMetrics,
+        roles: Map<ClockViewRole, Int>,
+    ) {
+        fun textSize(role: ClockViewRole, sp: Float) {
+            roles[role]?.let { views.setTextViewTextSize(it, TypedValue.COMPLEX_UNIT_SP, sp) }
+        }
+        fun format(role: ClockViewRole, twelveHour: String, twentyFourHour: String = twelveHour) {
+            roles[role]?.let {
+                views.setCharSequence(it, "setFormat12Hour", twelveHour)
+                views.setCharSequence(it, "setFormat24Hour", twentyFourHour)
+            }
+        }
+
+        textSize(ClockViewRole.TIME, metrics.timeSp)
+        textSize(ClockViewRole.HOURS, metrics.timeSp * 0.82f)
+        textSize(ClockViewRole.MINUTES, metrics.timeSp * 0.82f)
+        textSize(ClockViewRole.PERIOD, metrics.dateSp)
+        format(ClockViewRole.TIME, "h:mm", "HH:mm")
+        format(ClockViewRole.HOURS, "h", "HH")
+        format(ClockViewRole.MINUTES, "mm")
+        format(ClockViewRole.PERIOD, "a", " ")
+
         if (size != WidgetSize.S) {
-            val dateId = catalog.dateViewId(context)
-            views.setTextViewTextSize(dateId, TypedValue.COMPLEX_UNIT_SP, metrics.dateSp)
-            views.setCharSequence(dateId, "setFormat12Hour", metrics.datePattern)
-            views.setCharSequence(dateId, "setFormat24Hour", metrics.datePattern)
-            val weekdayId = context.resources.getIdentifier("clock_widget_weekday", "id", context.packageName)
-            if (weekdayId != 0) views.setTextViewTextSize(weekdayId, TypedValue.COMPLEX_UNIT_SP, metrics.dateSp)
+            textSize(ClockViewRole.DATE, metrics.dateSp)
+            textSize(ClockViewRole.DAY, metrics.timeSp * 0.65f)
+            textSize(ClockViewRole.MONTH, metrics.dateSp)
+            textSize(ClockViewRole.WEEKDAY, metrics.dateSp)
+            val datePattern = if (ClockViewRole.WEEKDAY in roles) metrics.datePattern else "EEE, ${metrics.datePattern}"
+            format(ClockViewRole.DATE, datePattern)
+            format(ClockViewRole.DAY, "d")
+            format(ClockViewRole.MONTH, "MMMM")
+            format(ClockViewRole.WEEKDAY, "EEEE")
         }
     }
 }

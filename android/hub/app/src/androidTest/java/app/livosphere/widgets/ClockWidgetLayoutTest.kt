@@ -13,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.livosphere.MainActivity
 import app.livosphere.R
+import app.livosphere.content.AuthoredContentCatalog
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -96,10 +97,8 @@ class ClockWidgetLayoutTest {
             }
         }
         val catalog = RegistryWidgetCatalog()
-        assertEquals(
-            setOf("sakura-clock", "harbor-clock", "sunset-clock"),
-            catalog.items().map { it.widgetId }.toSet(),
-        )
+        assertEquals(AuthoredContentCatalog.clockSets.map { checkNotNull(it.clockWidget).componentId.value }.toSet(), catalog.items().map { it.widgetId }.toSet())
+        assertTrue(catalog.items().map { it.widgetId }.containsAll(setOf("sakura-clock", "harbor-clock", "sunset-clock")))
         assertEquals("sakura-clock", catalog.itemForSet("night-sakura")?.widgetId)
         assertNotEquals(
             catalog.layoutResource(context, "sakura-clock", WidgetSize.M),

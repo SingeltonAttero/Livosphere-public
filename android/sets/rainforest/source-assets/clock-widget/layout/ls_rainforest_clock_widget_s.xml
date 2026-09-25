@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/clock_widget_root"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:padding="4dp">
+    <FrameLayout android:layout_width="match_parent" android:layout_height="match_parent"
+        android:background="@drawable/ls_rainforest_clock_widget_background" android:padding="12dp">
+        <AnalogClock android:id="@+id/clock_widget_analog" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:dial="@drawable/ls_rainforest_clock_widget_dial" android:hand_hour="@drawable/ls_rainforest_clock_widget_hour_hand"
+            android:hand_minute="@drawable/ls_rainforest_clock_widget_minute_hand" />
+    </FrameLayout>
+</FrameLayout>

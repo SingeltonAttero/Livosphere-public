@@ -21,7 +21,7 @@ import app.livosphere.contract.WidgetSize
 import app.livosphere.widgets.RegistryWidgetCatalog
 
 @Composable
-internal fun WidgetFeed(listState: LazyListState, sets: List<app.livosphere.contract.SetDescriptor> = AuthoredContentCatalog.sets, onOpen: (String) -> Unit) {
+internal fun WidgetFeed(listState: LazyListState, sets: List<app.livosphere.contract.SetDescriptor> = AuthoredContentCatalog.clockSets, onOpen: (String) -> Unit) {
     val context = LocalContext.current
     val catalog = remember(context) { RegistryWidgetCatalog(context) }
     Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {

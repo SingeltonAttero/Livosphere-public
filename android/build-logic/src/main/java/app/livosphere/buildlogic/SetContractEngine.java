@@ -105,9 +105,13 @@ final class SetContractEngine {
     }
 
     private static String descriptorKotlin(SetManifest manifest) {
-        String schemaSpecific = manifest.schemaVersion() == 1
-                ? "watchFace = " + contributionKotlin("WatchFaceContribution", manifest.contributionFor("watchface"))
-                : "clockWidget = " + contributionKotlin("ClockWidgetContribution", manifest.contributionFor("clock-widget"));
+        String schemaSpecific = switch (manifest.schemaVersion()) {
+            case 1 -> "watchFace = " + contributionKotlin("WatchFaceContribution", manifest.contributionFor("watchface"));
+            case 2 -> "clockWidget = " + contributionKotlin("ClockWidgetContribution", manifest.contributionFor("clock-widget"));
+            case 3 -> "clockWidget = null";
+            case 4 -> "clockWidget = " + contributionKotlin("ClockWidgetContribution", manifest.contributionFor("clock-widget"));
+            default -> throw new IllegalArgumentException("Unsupported schema " + manifest.schemaVersion());
+        };
         return """
                 SetDescriptor(
                     schemaVersion = %d,
@@ -158,13 +162,16 @@ final class SetContractEngine {
                     + ", phaseRefs = " + refMap("DayPhase", contribution.phaseRefs())
                     + ", effectsRefs = " + contribution.effectsRefs().stream().map(SetContractEngine::quote)
                             .collect(Collectors.joining(", ", "listOf(", ")"));
-            if (contribution.sceneRef() != null) extra += ", sceneRef = " + quote(contribution.sceneRef()) + ", previewRef = " + quote(contribution.previewRef());
+            if (contribution.sceneRef() != null) extra += ", sceneRef = " + quote(contribution.sceneRef());
+            if (contribution.previewRef() != null) extra += ", previewRef = " + quote(contribution.previewRef());
         }
         if (contribution.wallpaperRef() != null) extra += ", wallpaperRef = " + quote(contribution.wallpaperRef())
                 + ", widgetRefs = " + refMap("WidgetSize", contribution.widgetRefs());
         if (contribution.clockStyle() != null) extra += ", style = ClockStyle." + enumName(contribution.clockStyle())
+                + (contribution.clockDisplayName() == null ? "" : ", displayName = " + quote(contribution.clockDisplayName()))
                 + ", layouts = " + refMap("WidgetSize", contribution.layouts())
-                + ", layoutStatus = WidgetLayoutStatus." + enumName(contribution.layoutStatus());
+                + ", layoutStatus = WidgetLayoutStatus." + enumName(contribution.layoutStatus())
+                + ", viewRoles = " + clockViewRoles(contribution.viewRoles());
         return type + "(componentId = ComponentId(" + quote(contribution.componentId()) + ")"
                 + ", componentRevision = Revision(" + contribution.componentRevision() + ")"
                 + ", resourceRevision = Revision(" + contribution.resourceRevision() + ")"
@@ -175,6 +182,13 @@ final class SetContractEngine {
                 + ", artifact = ArtifactReference(ArtifactId(" + quote(contribution.artifactId()) + "), "
                 + quote(contribution.artifactProject()) + ")"
                 + ", resources = listOf(" + resources + ")" + extra + ")";
+    }
+
+    private static String clockViewRoles(Map<String, Map<String, String>> rolesBySize) {
+        return rolesBySize.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(size ->
+                "WidgetSize." + enumName(size.getKey()) + " to "
+                        + refMap("ClockViewRole", size.getValue()))
+                .collect(Collectors.joining(", ", "mapOf(", ")"));
     }
 
     private static String installRouteName(String value) {

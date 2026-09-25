@@ -43,7 +43,7 @@ internal fun WallpaperCatalogScreen(listState: LazyListState, selectedWallpaperI
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            items(AuthoredContentCatalog.sets, key = { it.setId.value }) { set ->
+            items(AuthoredContentCatalog.wallpaperSets, key = { it.setId.value }) { set ->
                 val preview = remember(set) { PreviewAssetResolver.resolve(context, set, HubSurface.WALLPAPER) }
                 val name = remember(set) { PreviewAssetResolver.displayName(context, set) }
                 val selected = selectedWallpaperId == set.wallpaper.componentId.value

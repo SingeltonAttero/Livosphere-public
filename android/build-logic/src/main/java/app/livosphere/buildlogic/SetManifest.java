@@ -47,8 +47,10 @@ record SetManifest(
             String wallpaperRef,
             Map<String, String> widgetRefs,
             String clockStyle,
+            String clockDisplayName,
             Map<String, String> layouts,
             String layoutStatus,
+            Map<String, Map<String, String>> viewRoles,
             String sceneRef,
             String previewRef) {}
 

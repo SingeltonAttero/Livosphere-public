@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/clock_widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:padding="4dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+        android:background="@drawable/ls_moscow_facets_clock_widget_background" android:gravity="center"
+        android:orientation="vertical" android:padding="8dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextClock android:id="@+id/clock_widget_time" android:layout_width="0dp" android:layout_height="match_parent"
+                android:layout_weight="1" android:background="#173E47" android:fontFamily="@font/ls_moscow_facets_clock_widget_space_grotesk"
+                android:format12Hour="h" android:format24Hour="HH" android:gravity="center" android:includeFontPadding="false"
+                android:singleLine="true" android:textColor="#FFF6E4" android:textSize="36sp" android:textStyle="bold" />
+            <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="4dp" android:layout_weight="1" android:background="#C5793A">
+                <TextClock android:id="@+id/clock_widget_minutes" android:layout_width="match_parent" android:layout_height="match_parent"
+                    android:fontFamily="@font/ls_moscow_facets_clock_widget_space_grotesk" android:format12Hour="mm" android:format24Hour="mm"
+                    android:gravity="center" android:includeFontPadding="false" android:singleLine="true" android:textColor="#FFF6E4"
+                    android:textSize="36sp" android:textStyle="bold" />
+                <TextClock android:id="@+id/clock_widget_period" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_gravity="end|bottom" android:layout_marginEnd="4dp" android:layout_marginBottom="2dp"
+                    android:fontFamily="@font/ls_moscow_facets_clock_widget_space_grotesk" android:format12Hour="a" android:format24Hour=" "
+                    android:includeFontPadding="false" android:singleLine="true" android:textColor="#FFF6E4" android:textSize="8sp" />
+            </FrameLayout>
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="4dp" android:layout_marginTop="6dp" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="4dp" android:layout_weight="1" android:background="#C5793A" />
+            <TextView android:layout_width="0dp" android:layout_height="4dp" android:layout_marginStart="4dp" android:layout_weight="1" android:background="#356C74" />
+            <TextView android:layout_width="0dp" android:layout_height="4dp" android:layout_marginStart="4dp" android:layout_weight="1" android:background="#C95939" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

@@ -190,6 +190,7 @@ private fun validateContribution(
 enum class DayPhase { MORNING, DAY, EVENING, NIGHT }
 enum class WidgetSize { S, M, L }
 enum class ClockStyle { ANALOG, DIGITAL }
+enum class ClockViewRole { ROOT, TIME, HOURS, MINUTES, PERIOD, ANALOG, DATE, DAY, MONTH, WEEKDAY }
 /** A declaration is schema evidence only; NATIVE is not a quality or device attestation. */
 enum class WidgetLayoutStatus { TEST_DECLARATION, NATIVE }
 enum class Distribution { DEBUG_ONLY, PUBLIC }
@@ -213,18 +214,55 @@ data class ClockWidgetContribution(
     val style: ClockStyle,
     val layouts: Map<WidgetSize, String>,
     val layoutStatus: WidgetLayoutStatus,
+    val viewRoles: Map<WidgetSize, Map<ClockViewRole, String>> = emptyMap(),
+    val displayName: String? = null,
 ) : SurfaceContribution {
     init {
         validateContribution("clock-widget", supportedSettings, resources)
         require(compatibility.platform == Platform.ANDROID_PHONE && installRoute == InstallRoute.SystemWidgetPin) {
             "Clock widget requires ANDROID_PHONE with SystemWidgetPin"
         }
+        require(displayName == null || displayName.isNotBlank()) { "clock-widget displayName must not be blank" }
         require(layouts.keys == WidgetSize.entries.toSet()) { "clock-widget layouts require S/M/L" }
         validateReferences("clock-widget layouts", layouts.values, resources)
         require(layouts.values.distinct().size == 3) { "clock-widget requires a separate layout for S/M/L" }
         val directory = if (layoutStatus == WidgetLayoutStatus.TEST_DECLARATION) "raw/" else "layout/"
         require(layouts.values.all { ref -> resources.single { it.symbolicName == ref }.resourcePath.let { it.startsWith(directory) && it.endsWith(".xml") } }) {
             "clock-widget layoutStatus requires $directory resources"
+        }
+        if (viewRoles.isNotEmpty()) {
+            require(viewRoles.keys == WidgetSize.entries.toSet()) { "clock-widget view roles require S/M/L" }
+            viewRoles.forEach { (size, roles) ->
+                require(ClockViewRole.ROOT in roles) { "$size requires ROOT view role" }
+                require(roles.values.distinct().size == roles.size) { "$size view roles require distinct resource ids" }
+                val presentDigitalTimeRoles = roles.keys.intersect(
+                    setOf(ClockViewRole.TIME, ClockViewRole.HOURS, ClockViewRole.MINUTES),
+                )
+                val combinedTime = presentDigitalTimeRoles == setOf(ClockViewRole.TIME)
+                val splitTime = presentDigitalTimeRoles == setOf(ClockViewRole.HOURS, ClockViewRole.MINUTES)
+                if (style == ClockStyle.DIGITAL) {
+                    require(combinedTime.xor(splitTime) && ClockViewRole.ANALOG !in roles) {
+                        "$size digital roles require TIME or HOURS+MINUTES"
+                    }
+                } else {
+                    require(ClockViewRole.ANALOG in roles && presentDigitalTimeRoles.isEmpty() && ClockViewRole.PERIOD !in roles) {
+                        "$size analog roles require ANALOG without digital time roles"
+                    }
+                }
+                val combinedDate = ClockViewRole.DATE in roles && ClockViewRole.WEEKDAY !in roles &&
+                    ClockViewRole.DAY !in roles && ClockViewRole.MONTH !in roles
+                val separateDate = ClockViewRole.DATE in roles && ClockViewRole.WEEKDAY in roles &&
+                    ClockViewRole.DAY !in roles && ClockViewRole.MONTH !in roles
+                val splitDate = ClockViewRole.DAY in roles && ClockViewRole.MONTH in roles &&
+                    ClockViewRole.WEEKDAY in roles && ClockViewRole.DATE !in roles
+                if (size == WidgetSize.S) {
+                    require(listOf(ClockViewRole.DATE, ClockViewRole.DAY, ClockViewRole.MONTH, ClockViewRole.WEEKDAY).none { it in roles }) {
+                        "S view roles forbid date"
+                    }
+                } else require(listOf(combinedDate, separateDate, splitDate).count { it } == 1) {
+                    "$size requires combined, separate, or split date roles"
+                }
+            }
         }
     }
 }
@@ -265,7 +303,7 @@ data class SetDescriptor(
     val approvals: Map<ApprovalStage, ApprovalReference> = emptyMap(),
 ) {
     init {
-        require(schemaVersion in 1..2) { "Unsupported set schema version: $schemaVersion" }
+        require(schemaVersion in 1..4) { "Unsupported set schema version: $schemaVersion" }
         if (schemaVersion == 1) {
             require(distribution == Distribution.DEBUG_ONLY && watchFace != null && clockWidget == null && approvals.isEmpty()) {
                 "schema1 is legacy debug only and requires watchFace without clockWidget"
@@ -273,7 +311,7 @@ data class SetDescriptor(
             require(contentStatus in setOf(ContentStatus.APPROVED_FOR_START, ContentStatus.RELEASE_READY)) {
                 "schema1 requires a legacy content status"
             }
-        } else {
+        } else if (schemaVersion == 2) {
             require(watchFace == null && clockWidget != null) { "schema2 requires clockWidget without watchFace" }
             val requiredApprovals = when (contentStatus) {
                 ContentStatus.IMAGE_APPROVED -> setOf(ApprovalStage.IMAGE)
@@ -300,6 +338,55 @@ data class SetDescriptor(
             require(distribution == Distribution.DEBUG_ONLY || clockWidget.layoutStatus != WidgetLayoutStatus.TEST_DECLARATION) {
                 "test layout declarations are debug only"
             }
+        } else if (schemaVersion == 3) {
+            require(distribution == Distribution.DEBUG_ONLY) { "schema3 wallpaper-only is debug only" }
+            require(watchFace == null && clockWidget == null) { "schema3 wallpaper-only forbids watchFace and clockWidget" }
+            require(contentStatus in setOf(ContentStatus.DRAFT, ContentStatus.IMAGE_APPROVED)) {
+                "schema3 static wallpaper requires draft or image-approved status"
+            }
+            val requiredApprovals = if (contentStatus == ContentStatus.IMAGE_APPROVED) setOf(ApprovalStage.IMAGE) else emptySet()
+            require(approvals.keys == requiredApprovals) { "schema3 approval references must match artistic status" }
+            require(approvals.values.all { it.sourceAssetsRevision.value <= sourceAssetsRevision.value }) {
+                "approval references a future sourceAssetsRevision"
+            }
+            require(wallpaper.phaseRefs.keys == DayPhase.entries.toSet()) { "schema3 requires four wallpaper phase refs" }
+            require(wallpaper.sceneRef == null && wallpaper.effectsRefs.isEmpty()) {
+                "schema3 static wallpaper forbids scene and effects refs"
+            }
+            val wallpaperPreviewRef = preview.wallpaperRef
+            require(wallpaper.previewRef == wallpaperPreviewRef && wallpaperPreviewRef != null) {
+                "schema3 requires matching wallpaper preview ref"
+            }
+            require(preview.widgetRefs.isEmpty()) { "schema3 wallpaper-only forbids widget previews" }
+            validateReferences("preview", listOf(wallpaperPreviewRef), preview.resources)
+            require(preview.resources.single { it.symbolicName == wallpaperPreviewRef }.resourcePath.let {
+                it.startsWith("drawable-nodpi/") && it.endsWith(".png")
+            }) { "schema3 preview requires drawable-nodpi PNG" }
+        } else {
+            require(distribution == Distribution.DEBUG_ONLY) { "schema4 static set is debug only" }
+            require(watchFace == null && clockWidget != null) { "schema4 requires clockWidget without watchFace" }
+            require(contentStatus == ContentStatus.HTML_APPROVED) { "schema4 requires html-approved content" }
+            require(approvals.keys == ApprovalStage.entries.toSet()) { "schema4 requires image and html approvals" }
+            require(approvals.values.all { it.sourceAssetsRevision.value <= sourceAssetsRevision.value }) {
+                "approval references a future sourceAssetsRevision"
+            }
+            require(wallpaper.phaseRefs.keys == DayPhase.entries.toSet()) { "schema4 requires four wallpaper phase refs" }
+            require(wallpaper.sceneRef == null && wallpaper.effectsRefs.isEmpty()) {
+                "schema4 static wallpaper forbids scene and effects refs"
+            }
+            val wallpaperPreviewRef = preview.wallpaperRef
+            require(wallpaper.previewRef == wallpaperPreviewRef && wallpaperPreviewRef != null) {
+                "schema4 requires matching wallpaper preview ref"
+            }
+            require(preview.widgetRefs.keys == WidgetSize.entries.toSet()) { "schema4 requires S/M/L widget previews" }
+            require(clockWidget.viewRoles.keys == WidgetSize.entries.toSet()) { "schema4 requires native S/M/L view roles" }
+            require(clockWidget.layoutStatus == WidgetLayoutStatus.NATIVE) { "schema4 requires native clock layouts" }
+            require(!clockWidget.displayName.isNullOrBlank()) { "schema4 requires clock displayName" }
+            val previewRefs = listOf(wallpaperPreviewRef) + preview.widgetRefs.values
+            validateReferences("preview", previewRefs, preview.resources)
+            require(previewRefs.all { ref -> preview.resources.single { it.symbolicName == ref }.resourcePath.let {
+                it.startsWith("drawable-nodpi/") && it.endsWith(".png")
+            } }) { "schema4 previews require drawable-nodpi PNG" }
         }
         val contributions = listOfNotNull(preview, wallpaper, watchFace, clockWidget)
         require(contributions.map { it.componentId }.distinct().size == contributions.size) { "duplicate component ID" }

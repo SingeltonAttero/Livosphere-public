@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/clock_widget_root"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:padding="4dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent"
+        android:background="@drawable/ls_emerald_cove_clock_widget_background" android:gravity="center" android:orientation="vertical" android:padding="12dp">
+        <TextClock android:id="@+id/clock_widget_time" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+            android:fontFamily="@font/ls_emerald_cove_clock_widget_cormorant_garamond" android:format12Hour="h:mm" android:format24Hour="HH:mm"
+            android:gravity="center" android:includeFontPadding="false" android:letterSpacing="-0.02" android:singleLine="true"
+            android:textColor="#FFF0D1" android:textFontWeight="400" android:textSize="76sp" />
+        <TextView android:layout_width="200dp" android:layout_height="1dp" android:layout_marginTop="6dp" android:background="#8FC3B4" />
+        <TextClock android:id="@+id/clock_widget_date" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="7dp" android:fontFamily="sans-serif" android:format12Hour="EEE, d MMMM" android:format24Hour="EEE, d MMMM"
+            android:gravity="center" android:includeFontPadding="false" android:letterSpacing="0.08" android:singleLine="true"
+            android:textAllCaps="true" android:textColor="#FFF0D1" android:textSize="14sp" />
+    </LinearLayout>
+</FrameLayout>

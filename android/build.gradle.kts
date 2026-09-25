@@ -140,24 +140,48 @@ gradle.taskGraph.whenReady {
 tasks.register("verifyModuleGraph") {
     group = "verification"
     doLast {
-        val expected = mapOf(
+        data class ManifestContribution(val projectPath: String, val surface: String, val schemaVersion: Int)
+
+        val manifestProperties = providers.gradleProperty("livosphere.setManifests").get()
+            .split(',')
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .map { path -> Properties().apply { file(path).inputStream().use(::load) } }
+        val manifestContributions = manifestProperties.flatMap { properties ->
+            val schemaVersion = properties.getProperty("schemaVersion").toInt()
+            properties.getProperty("contributions").split(',').map(String::trim).map { contribution ->
+                ManifestContribution(
+                    projectPath = properties.getProperty("contribution.$contribution.artifactProject"),
+                    surface = properties.getProperty("contribution.$contribution.surface"),
+                    schemaVersion = schemaVersion,
+                )
+            }
+        }
+        val phoneArtifactProjects = manifestContributions
+            .filter { it.surface != "watchface" }
+            .map { it.projectPath }
+            .toSet()
+        val enabledArtifactProjects = manifestContributions
+            .filter { it.surface != "watchface" || legacyProfile }
+            .map { it.projectPath }
+            .toSet()
+
+        val expected = mutableMapOf(
             ":hub:app" to setOf(
                 "implementation" to ":hub:domain",
-                "debugImplementation" to ":wallpapers:contour",
-                "debugImplementation" to ":wallpapers:fixture",
                 "implementation" to ":core:settings",
                 "implementation" to ":wallpapers:engine",
                 "implementation" to ":widgets:runtime",
-                "debugImplementation" to ":sets:fixture:preview",
-                "debugImplementation" to ":sets:fixture:clock-widget",
-                "debugImplementation" to ":sets:contour:preview",
                 "testImplementation" to ":core:testing",
                 "androidTestImplementation" to ":wallpapers:engine",
+                "androidTestImplementation" to ":wallpapers:neon",
             ),
             ":hub:domain" to setOf("api" to ":core:contract"),
             ":core:settings" to setOf("api" to ":core:contract"),
             ":wallpapers:engine" to setOf("api" to ":core:contract"),
             ":widgets:runtime" to setOf("api" to ":core:contract", "implementation" to ":core:settings"),
+            ":wallpapers:static" to setOf("api" to ":wallpapers:engine"),
+            ":wallpapers:neon" to setOf("api" to ":wallpapers:engine", "implementation" to ":core:settings"),
             ":wallpapers:contour" to setOf("implementation" to ":wallpapers:engine", "implementation" to ":core:settings"),
             ":wallpapers:fixture" to setOf("implementation" to ":wallpapers:engine", "implementation" to ":core:settings"),
             ":quality:macrobenchmark" to setOf(
@@ -165,7 +189,20 @@ tasks.register("verifyModuleGraph") {
                 "testedApks" to ":hub:app",
             ),
         )
-        val required = mutableListOf(
+        expected[":hub:app"] = expected.getValue(":hub:app") +
+            phoneArtifactProjects.map { "debugImplementation" to it }
+        manifestContributions.forEach { contribution ->
+            if (contribution.projectPath !in expected) {
+                expected[contribution.projectPath] = when {
+                    contribution.surface == "wallpaper" && contribution.schemaVersion >= 4 ->
+                        setOf("implementation" to ":wallpapers:static")
+                    contribution.surface == "wallpaper" -> setOf("implementation" to ":wallpapers:neon")
+                    else -> emptySet()
+                }
+            }
+        }
+
+        val required = mutableSetOf(
             ":hub:app",
             ":hub:domain",
             ":core:contract",
@@ -175,15 +212,17 @@ tasks.register("verifyModuleGraph") {
             ":sets:fixture:preview",
             ":sets:fixture:clock-widget",
             ":wallpapers:engine",
+            ":wallpapers:static",
+            ":wallpapers:neon",
             ":wallpapers:contour",
             ":widgets:runtime",
             ":sets:contour:preview",
             ":quality:macrobenchmark",
         )
-        if (legacyProfile) required += ":watchfaces:contour-wff"
+        required += enabledArtifactProjects
         check(required.all { findProject(it) != null }) { "Обязательный модуль отсутствует." }
         val configuredModules = subprojects.filter { it.buildFile.isFile }.map { it.path }.toSet()
-        check(configuredModules == required.toSet()) {
+        check(configuredModules == required) {
             "Набор модулей отличается от утверждённого: ${configuredModules.sorted()}"
         }
         required.forEach { path ->
@@ -223,31 +262,25 @@ tasks.register("verifyModuleGraph") {
         val setConsumers = subprojects.filter {
             it.pluginManager.hasPlugin("livosphere.set-consumer")
         }.map { it.path }.toSet()
-        val expectedSetConsumers = mutableSetOf(
-            ":sets:contour:preview",
-            ":wallpapers:contour",
-            ":wallpapers:fixture",
-            ":sets:fixture:preview",
-            ":sets:fixture:clock-widget",
-        )
-        if (legacyProfile) expectedSetConsumers += ":watchfaces:contour-wff"
+        val expectedSetConsumers = enabledArtifactProjects
         check(setConsumers == expectedSetConsumers) { "Set consumer conventions подключены неверно: $setConsumers" }
         check(project(":hub:app").pluginManager.hasPlugin("livosphere.set-registry")) {
             ":hub:app обязан получать registry через livosphere.set-registry"
         }
 
-        val realPackagePredecessors = mutableMapOf(
+        val registryPackagePredecessors = mapOf(
             ":hub:app:assembleDebug" to listOf(":hub:app:validateDebugSetRegistry", ":hub:app:generateDebugSetRegistry"),
-            ":sets:contour:preview:assembleDebug" to listOf(
-                ":sets:contour:preview:validateDebugSetContract", ":sets:contour:preview:generateDebugSetResources"),
-            ":wallpapers:contour:assembleDebug" to listOf(
-                ":wallpapers:contour:validateDebugSetContract", ":wallpapers:contour:generateDebugSetResources"),
         )
-        if (legacyProfile) realPackagePredecessors[":watchfaces:contour-wff:bundleDebug"] = listOf(
-            ":watchfaces:contour-wff:validateDebugSetContract", ":watchfaces:contour-wff:generateDebugSetResources")
-        val fixturePackagePredecessors = listOf(":wallpapers:fixture", ":sets:fixture:preview", ":sets:fixture:clock-widget")
-            .associate { "$it:assembleDebug" to listOf("$it:validateDebugSetContract", "$it:generateDebugSetResources") }
-        (realPackagePredecessors + fixturePackagePredecessors).forEach { (packageTaskPath, requiredTasks) ->
+        val consumerPackagePredecessors = manifestContributions
+            .filter { it.projectPath in enabledArtifactProjects }
+            .associate { contribution ->
+                val packageTask = if (contribution.surface == "watchface") "bundleDebug" else "assembleDebug"
+                "${contribution.projectPath}:$packageTask" to listOf(
+                    "${contribution.projectPath}:validateDebugSetContract",
+                    "${contribution.projectPath}:generateDebugSetResources",
+                )
+            }
+        (registryPackagePredecessors + consumerPackagePredecessors).forEach { (packageTaskPath, requiredTasks) ->
             requiredTasks.forEach { required ->
                 check(required in packageDependencySnapshot.getValue(packageTaskPath)) {
                     "$required обязан быть predecessor реального package path $packageTaskPath"

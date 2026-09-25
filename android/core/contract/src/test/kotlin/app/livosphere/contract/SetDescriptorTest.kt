@@ -2,6 +2,7 @@ package app.livosphere.contract
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SetDescriptorTest {
@@ -194,6 +195,72 @@ class SetDescriptorTest {
         assertEquals(false, legacy.releaseEligible)
         assertThrows(IllegalArgumentException::class.java) { legacy.copy(distribution = Distribution.PUBLIC) }
         assertThrows(IllegalArgumentException::class.java) { legacy.copy(watchFace = null) }
+    }
+
+    @Test
+    fun `static wallpaper only schema requires four phase plates and no clock surfaces`() {
+        val phone = phoneSet()
+        val wallpaper = phone.wallpaper.copy(
+            resources = phone.wallpaper.resources.filterNot { it.symbolicName in setOf("wallpaper-scene", "wallpaper-effects") },
+            effectsRefs = emptyList(),
+            sceneRef = null,
+        )
+        val preview = phone.preview.copy(widgetRefs = emptyMap())
+        val static = phone.copy(schemaVersion = 3, wallpaper = wallpaper, preview = preview, clockWidget = null)
+
+        assertEquals(3, static.schemaVersion)
+        assertEquals(DayPhase.entries.toSet(), static.wallpaper.phaseRefs.keys)
+        assertEquals(null, static.clockWidget)
+        assertEquals(false, static.releaseEligible)
+
+        assertThrows(IllegalArgumentException::class.java) { static.copy(distribution = Distribution.PUBLIC) }
+        assertThrows(IllegalArgumentException::class.java) { static.copy(clockWidget = phone.clockWidget) }
+        assertThrows(IllegalArgumentException::class.java) { static.copy(wallpaper = wallpaper.copy(phaseRefs = emptyMap())) }
+        assertThrows(IllegalArgumentException::class.java) { static.copy(wallpaper = wallpaper.copy(sceneRef = "wallpaper-morning")) }
+        assertThrows(IllegalArgumentException::class.java) { static.copy(preview = preview.copy(widgetRefs = WidgetSize.entries.associateWith { "preview-wallpaper" })) }
+        assertThrows(IllegalArgumentException::class.java) { static.copy(wallpaper = wallpaper.copy(previewRef = "missing")) }
+    }
+
+    @Test
+    fun `schema4 static clock accepts approved native roles and rejects incomplete compositions`() {
+        val phone = phoneSet()
+        val wallpaper = phone.wallpaper.copy(
+            resources = phone.wallpaper.resources.filterNot { it.symbolicName in setOf("wallpaper-scene", "wallpaper-effects") },
+            effectsRefs = emptyList(),
+            sceneRef = null,
+        )
+        val native = phone.clockWidget!!.copy(
+            resources = phone.clockWidget.resources.map { it.copy(resourcePath = it.resourcePath.replace("raw/", "layout/")) },
+            layoutStatus = WidgetLayoutStatus.NATIVE,
+            displayName = "Часы",
+            viewRoles = mapOf(
+                WidgetSize.S to mapOf(ClockViewRole.ROOT to "root", ClockViewRole.TIME to "time"),
+                WidgetSize.M to mapOf(ClockViewRole.ROOT to "root_m", ClockViewRole.TIME to "time_m", ClockViewRole.DATE to "date_m"),
+                WidgetSize.L to mapOf(ClockViewRole.ROOT to "root_l", ClockViewRole.HOURS to "hours_l", ClockViewRole.MINUTES to "minutes_l", ClockViewRole.DAY to "day_l", ClockViewRole.MONTH to "month_l", ClockViewRole.WEEKDAY to "weekday_l"),
+            ),
+        )
+        val approval = ApprovalReference("approvals/image.md", Revision(1), Revision(1), "a".repeat(64))
+        val staticClock = phone.copy(
+            schemaVersion = 4,
+            wallpaper = wallpaper,
+            clockWidget = native,
+            contentStatus = ContentStatus.HTML_APPROVED,
+            approvals = mapOf(ApprovalStage.IMAGE to approval, ApprovalStage.HTML to approval.copy(record = "approvals/html.md")),
+        )
+
+        assertEquals(4, staticClock.schemaVersion)
+        assertEquals(WidgetLayoutStatus.NATIVE, staticClock.clockWidget!!.layoutStatus)
+        assertTrue(ClockViewRole.DATE in staticClock.clockWidget!!.viewRoles.getValue(WidgetSize.M).keys)
+
+        assertThrows(IllegalArgumentException::class.java) { staticClock.copy(distribution = Distribution.PUBLIC) }
+        assertThrows(IllegalArgumentException::class.java) { staticClock.copy(approvals = emptyMap()) }
+        assertThrows(IllegalArgumentException::class.java) { staticClock.copy(wallpaper = wallpaper.copy(sceneRef = "wallpaper-morning")) }
+        assertThrows(IllegalArgumentException::class.java) { staticClock.copy(preview = staticClock.preview.copy(widgetRefs = emptyMap())) }
+        assertThrows(IllegalArgumentException::class.java) { staticClock.copy(clockWidget = native.copy(layoutStatus = WidgetLayoutStatus.TEST_DECLARATION)) }
+        assertThrows(IllegalArgumentException::class.java) { staticClock.copy(clockWidget = native.copy(displayName = "")) }
+        assertThrows(IllegalArgumentException::class.java) {
+            staticClock.copy(clockWidget = native.copy(viewRoles = native.viewRoles + (WidgetSize.S to mapOf(ClockViewRole.ROOT to "root", ClockViewRole.TIME to "time", ClockViewRole.HOURS to "hours"))))
+        }
     }
 
     private fun phoneSet(): SetDescriptor {
