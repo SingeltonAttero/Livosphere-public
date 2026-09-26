@@ -335,6 +335,9 @@ data class SetDescriptor(
             require(previewRefs.all { ref -> preview.resources.single { it.symbolicName == ref }.resourcePath.let { it.startsWith("drawable-nodpi/") && it.endsWith(".png") } }) {
                 "schema2 previews require drawable-nodpi PNG"
             }
+            require(distribution == Distribution.DEBUG_ONLY || contentStatus == ContentStatus.HTML_APPROVED) {
+                "public distribution requires html-approved content"
+            }
             require(distribution == Distribution.DEBUG_ONLY || clockWidget.layoutStatus != WidgetLayoutStatus.TEST_DECLARATION) {
                 "test layout declarations are debug only"
             }
@@ -363,7 +366,6 @@ data class SetDescriptor(
                 it.startsWith("drawable-nodpi/") && it.endsWith(".png")
             }) { "schema3 preview requires drawable-nodpi PNG" }
         } else {
-            require(distribution == Distribution.DEBUG_ONLY) { "schema4 static set is debug only" }
             require(watchFace == null && clockWidget != null) { "schema4 requires clockWidget without watchFace" }
             require(contentStatus == ContentStatus.HTML_APPROVED) { "schema4 requires html-approved content" }
             require(approvals.keys == ApprovalStage.entries.toSet()) { "schema4 requires image and html approvals" }
@@ -400,7 +402,8 @@ data class SetDescriptor(
 
     /** Candidate composition only; physical, native-quality and publication gates remain external. */
     val releaseEligible: Boolean
-        get() = schemaVersion == 2 && distribution == Distribution.PUBLIC && contentStatus == ContentStatus.HTML_APPROVED
+        get() = (schemaVersion == 2 || schemaVersion == 4) &&
+            distribution == Distribution.PUBLIC && contentStatus == ContentStatus.HTML_APPROVED
 }
 
 interface SetRegistry {

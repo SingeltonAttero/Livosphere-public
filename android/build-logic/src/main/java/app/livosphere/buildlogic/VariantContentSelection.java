@@ -17,7 +17,7 @@ record VariantContentSelection(String buildType, List<SetManifest> selected, Lis
 
     void requireNonEmpty() {
         if (selected.isEmpty()) throw new GradleException("Variant " + buildType
-                + ": empty public content closure; requires schema2 public + html-approved. No candidate may be packaged.");
+                + ": empty public content closure; requires schema2/schema4 public + html-approved. No candidate may be packaged.");
     }
 
     Set<String> projects() { return projects(selected); }

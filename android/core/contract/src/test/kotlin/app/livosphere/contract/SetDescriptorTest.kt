@@ -171,6 +171,12 @@ class SetDescriptorTest {
             approvals = mapOf(ApprovalStage.IMAGE to approval, ApprovalStage.HTML to approval.copy(record = "approvals/html.md")),
         )
         assertEquals(true, candidate.releaseEligible)
+        assertThrows(IllegalArgumentException::class.java) {
+            candidate.copy(contentStatus = ContentStatus.IMAGE_APPROVED, approvals = mapOf(ApprovalStage.IMAGE to approval))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            candidate.copy(contentStatus = ContentStatus.DRAFT, approvals = emptyMap())
+        }
         assertThrows(IllegalArgumentException::class.java) { candidate.copy(approvals = emptyMap()) }
         assertThrows(IllegalArgumentException::class.java) { candidate.copy(sourceAssetsRevision = Revision(1), approvals = candidate.approvals.mapValues { it.value.copy(sourceAssetsRevision = Revision(3)) }) }
         assertThrows(IllegalArgumentException::class.java) { approval.copy(record = "../outside.md") }
@@ -252,7 +258,9 @@ class SetDescriptorTest {
         assertEquals(WidgetLayoutStatus.NATIVE, staticClock.clockWidget!!.layoutStatus)
         assertTrue(ClockViewRole.DATE in staticClock.clockWidget!!.viewRoles.getValue(WidgetSize.M).keys)
 
-        assertThrows(IllegalArgumentException::class.java) { staticClock.copy(distribution = Distribution.PUBLIC) }
+        val publicStaticClock = staticClock.copy(distribution = Distribution.PUBLIC)
+        assertEquals(true, publicStaticClock.releaseEligible)
+        assertEquals(false, staticClock.releaseEligible)
         assertThrows(IllegalArgumentException::class.java) { staticClock.copy(approvals = emptyMap()) }
         assertThrows(IllegalArgumentException::class.java) { staticClock.copy(wallpaper = wallpaper.copy(sceneRef = "wallpaper-morning")) }
         assertThrows(IllegalArgumentException::class.java) { staticClock.copy(preview = staticClock.preview.copy(widgetRefs = emptyMap())) }

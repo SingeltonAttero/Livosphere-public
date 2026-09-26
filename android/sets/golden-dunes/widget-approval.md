@@ -5,3 +5,5 @@
 Native-реализация использует системные `TextClock`: раздельные строки часов и минут в S, цельное курсивное время в M/L, системную дату в M/L и период для 12-часового формата. Cormorant Garamond Regular/Italic включён из официального каталога Google Fonts под SIL Open Font License 1.1.
 
 Объём: `AP-HTML` для debug-only Android AppWidget S/M/L. Физическая проверка и `AP-native` остаются за владельцем.
+
+2026-09-26: владелец расширил объём этой приёмки на public phone release — часы S/M/L входят в принятый состав release candidate (13 наборов: 10 Pencil + 3 neon). Физическая проверка, `AP-native` на устройстве и публикация остаются отдельными gates Epic 14 и здесь не подтверждаются.

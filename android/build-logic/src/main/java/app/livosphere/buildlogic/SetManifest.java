@@ -17,7 +17,7 @@ record SetManifest(
         List<Contribution> contributions) {
 
     boolean releaseEligible() {
-        return schemaVersion == 2 && distribution.equals("public") && contentStatus.equals("html-approved");
+        return (schemaVersion == 2 || schemaVersion == 4) && distribution.equals("public") && contentStatus.equals("html-approved");
     }
 
     Contribution contributionFor(String surface) {

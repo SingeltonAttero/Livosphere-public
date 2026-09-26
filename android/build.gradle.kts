@@ -140,7 +140,12 @@ gradle.taskGraph.whenReady {
 tasks.register("verifyModuleGraph") {
     group = "verification"
     doLast {
-        data class ManifestContribution(val projectPath: String, val surface: String, val schemaVersion: Int)
+        data class ManifestContribution(
+            val projectPath: String,
+            val surface: String,
+            val schemaVersion: Int,
+            val releaseEligible: Boolean,
+        )
 
         val manifestProperties = providers.gradleProperty("livosphere.setManifests").get()
             .split(',')
@@ -149,16 +154,24 @@ tasks.register("verifyModuleGraph") {
             .map { path -> Properties().apply { file(path).inputStream().use(::load) } }
         val manifestContributions = manifestProperties.flatMap { properties ->
             val schemaVersion = properties.getProperty("schemaVersion").toInt()
+            val releaseEligible = (schemaVersion == 2 || schemaVersion == 4) &&
+                properties.getProperty("distribution") == "public" &&
+                properties.getProperty("contentStatus") == "html-approved"
             properties.getProperty("contributions").split(',').map(String::trim).map { contribution ->
                 ManifestContribution(
                     projectPath = properties.getProperty("contribution.$contribution.artifactProject"),
                     surface = properties.getProperty("contribution.$contribution.surface"),
                     schemaVersion = schemaVersion,
+                    releaseEligible = releaseEligible,
                 )
             }
         }
         val phoneArtifactProjects = manifestContributions
             .filter { it.surface != "watchface" }
+            .map { it.projectPath }
+            .toSet()
+        val releaseArtifactProjects = manifestContributions
+            .filter { it.releaseEligible && it.surface != "watchface" }
             .map { it.projectPath }
             .toSet()
         val enabledArtifactProjects = manifestContributions
@@ -190,7 +203,10 @@ tasks.register("verifyModuleGraph") {
             ),
         )
         expected[":hub:app"] = expected.getValue(":hub:app") +
-            phoneArtifactProjects.map { "debugImplementation" to it }
+            phoneArtifactProjects.map { "debugImplementation" to it } +
+            releaseArtifactProjects.flatMap {
+                listOf("releaseImplementation" to it, "benchmarkImplementation" to it)
+            }
         manifestContributions.forEach { contribution ->
             if (contribution.projectPath !in expected) {
                 expected[contribution.projectPath] = when {

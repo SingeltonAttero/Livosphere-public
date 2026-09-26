@@ -75,8 +75,6 @@ final class SetManifestReader {
         require(schemaVersion != 1 || distribution.equals("debug-only"), normalizedManifest, "distribution", "schema1 разрешена только как legacy debug-only");
         require(schemaVersion != 3 || distribution.equals("debug-only"), normalizedManifest, "distribution",
                 "schema3 wallpaper-only пока разрешена только как debug-only");
-        require(schemaVersion != 4 || distribution.equals("debug-only"), normalizedManifest, "distribution",
-                "schema4 static set пока разрешена только как debug-only");
         String setId = lowerKebab(required(values, consumed, normalizedManifest, "setId"), normalizedManifest, "setId");
         int setRevision = positiveInt(required(values, consumed, normalizedManifest, "setRevision"), normalizedManifest, "setRevision");
         int sourceAssetsRevision = positiveInt(
@@ -88,7 +86,10 @@ final class SetManifestReader {
                         ? Set.of("draft", "image-approved", "html-approved")
                         : schemaVersion == 3 ? Set.of("draft", "image-approved") : Set.of("html-approved");
         require(contentStatuses.contains(contentStatus), normalizedManifest, "contentStatus",
-                "status не поддерживается schemaVersion=" + schemaVersion + ": " + contentStatus);
+                "status не поддерживается schemaVersion=" + schemaVersion + ": " + contentStatus
+                        + "; допустимые: " + String.join(", ", contentStatuses));
+        require(!distribution.equals("public") || contentStatus.equals("html-approved"), normalizedManifest, "distribution",
+                "distribution=public требует contentStatus=html-approved");
         Map<String, SetManifest.Approval> approvals = new LinkedHashMap<>();
         List<String> approvalStages = contentStatus.equals("html-approved") ? List.of("image", "html")
                 : contentStatus.equals("image-approved") ? List.of("image") : List.of();

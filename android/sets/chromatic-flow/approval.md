@@ -5,3 +5,5 @@
 Полная запись решения и известного ограничения геометрии: `_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/chromatic-flow/approval.md`.
 
 Объём приёмки: AP-IMAGE для статичного debug-импорта. Public/release, физическое устройство, OEM LOCK и будущая анимация не приняты.
+
+2026-09-26: владелец расширил объём этой приёмки на public phone release — обои входят в принятый состав release candidate (13 наборов: 10 Pencil + 3 neon). Физическая производительность, батарея, OEM LOCK, магазинные проверки и публикация остаются отдельными gates Epic 14 и здесь не подтверждаются.

@@ -40,22 +40,40 @@ public class VariantSelectionUnitTest {
     @Test public void nonDebugSelectsOnlyPublicHtmlApprovedSet() throws Exception {
         Path root = temporary.newFolder().toPath();
         Path debug = PhoneSetFixture.create(root, "debug-set");
-        Path imageOnly = imageApprovedPublic(root, "image-only");
+        Path imageOnly = imageApprovedDebug(root, "image-only");
         Path publicSet = PhoneSetFixture.createPublic(root, "public-set");
+        Path staticPublic = PhoneSetFixture.createStatic(root, "static-public", true);
 
-        VariantContentSelection release = SetContractEngine.select(List.of(debug, imageOnly, publicSet), "release");
-        VariantContentSelection benchmark = SetContractEngine.select(List.of(debug, imageOnly, publicSet), "benchmark");
+        VariantContentSelection release = SetContractEngine.select(List.of(debug, imageOnly, publicSet, staticPublic), "release");
+        VariantContentSelection benchmark = SetContractEngine.select(List.of(debug, imageOnly, publicSet, staticPublic), "benchmark");
 
-        assertEquals(Set.of("public-set"), ids(release));
-        assertEquals(Set.of("public-set"), ids(benchmark));
+        assertEquals(Set.of("public-set", "static-public"), ids(release));
+        assertEquals(Set.of("public-set", "static-public"), ids(benchmark));
         assertEquals(Set.of("debug-set", "image-only"),
                 release.excluded().stream().map(SetManifest::setId).collect(Collectors.toSet()));
+    }
+
+    @Test public void publicDistributionRequiresHtmlApprovedContent() throws Exception {
+        Path root = temporary.newFolder().toPath();
+        Path draft = PhoneSetFixture.create(root, "draft-public");
+        replace(draft, "distribution=debug-only", "distribution=public");
+        GradleException draftError = assertThrows(GradleException.class,
+                () -> SetContractEngine.validate(List.of(draft)));
+        assertTrue(draftError.getMessage().contains("distribution=public требует contentStatus=html-approved"));
+
+        Path imageOnly = PhoneSetFixture.create(root, "image-public");
+        replace(imageOnly, "contentStatus=draft", "contentStatus=image-approved");
+        PhoneSetFixture.approval(imageOnly, "image");
+        replace(imageOnly, "distribution=debug-only", "distribution=public");
+        GradleException imageError = assertThrows(GradleException.class,
+                () -> SetContractEngine.validate(List.of(imageOnly)));
+        assertTrue(imageError.getMessage().contains("distribution=public требует contentStatus=html-approved"));
     }
 
     @Test public void emptyPublicSelectionRefusesCandidate() throws Exception {
         Path root = temporary.newFolder().toPath();
         VariantContentSelection selection = SetContractEngine.select(
-                List.of(PhoneSetFixture.create(root, "debug-set"), imageApprovedPublic(root, "image-only")),
+                List.of(PhoneSetFixture.create(root, "debug-set"), imageApprovedDebug(root, "image-only")),
                 "release");
 
         GradleException error = assertThrows(GradleException.class, selection::requireNonEmpty);
@@ -79,14 +97,17 @@ public class VariantSelectionUnitTest {
         assertFalse(source.contains("debug-set"));
     }
 
-    private static Path imageApprovedPublic(Path root, String setId) throws Exception {
-        Path manifest = PhoneSetFixture.createPublic(root, setId);
-        List<String> lines = Files.readAllLines(manifest).stream()
-                .filter(line -> !line.startsWith("approval.html."))
-                .map(line -> line.equals("contentStatus=html-approved") ? "contentStatus=image-approved" : line)
-                .toList();
-        Files.write(manifest, lines);
+    private static Path imageApprovedDebug(Path root, String setId) throws Exception {
+        Path manifest = PhoneSetFixture.create(root, setId);
+        replace(manifest, "contentStatus=draft", "contentStatus=image-approved");
+        PhoneSetFixture.approval(manifest, "image");
         return manifest;
+    }
+
+    private static void replace(Path file, String from, String to) throws Exception {
+        String content = Files.readString(file);
+        assertTrue("Fixture did not contain replacement source: " + from, content.contains(from));
+        Files.writeString(file, content.replace(from, to));
     }
 
     private static Set<String> ids(VariantContentSelection selection) {

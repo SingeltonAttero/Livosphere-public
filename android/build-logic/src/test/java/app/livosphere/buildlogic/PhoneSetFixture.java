@@ -140,6 +140,55 @@ final class PhoneSetFixture {
         return manifest;
     }
 
+    /**
+     * Schema4 static phone set built on the public fixture: no scene/effects, native clock with view roles.
+     * Explicit test declaration only; not a content pack and not owner's approval evidence.
+     */
+    static Path createStatic(Path root, String setId, boolean publicDistribution) throws Exception {
+        Path manifest = createPublic(root, setId);
+        String wallpaperRefs = setId + "-entrypoint," + setId + "-scene," + setId + "-phase-morning," + setId + "-phase-day,"
+                + setId + "-phase-evening," + setId + "-phase-night," + setId + "-effects";
+        String staticRefs = setId + "-entrypoint," + setId + "-phase-morning," + setId + "-phase-day,"
+                + setId + "-phase-evening," + setId + "-phase-night";
+        List<String> lines = Files.readAllLines(manifest).stream()
+                .filter(line -> !line.startsWith("contribution.wallpaper-main.effectsRefs="))
+                .filter(line -> !line.startsWith("contribution.wallpaper-main.sceneRef="))
+                .filter(line -> !line.startsWith("asset." + setId + "-scene."))
+                .filter(line -> !line.startsWith("asset." + setId + "-effects."))
+                .map(line -> line.equals("schemaVersion=2") ? "schemaVersion=4" : line)
+                .map(line -> !publicDistribution && line.equals("distribution=public") ? "distribution=debug-only" : line)
+                .map(line -> line.equals("contribution.wallpaper-main.assetRefs=" + wallpaperRefs)
+                        ? "contribution.wallpaper-main.assetRefs=" + staticRefs : line)
+                .toList();
+        Files.write(manifest, lines);
+        Files.writeString(manifest, "\n"
+                + "contribution.clock-main.displayName=Часы\n"
+                + "contribution.clock-main.viewRoles.s.keys=root,time\n"
+                + "contribution.clock-main.viewRoles.s.root=clock_widget_root\n"
+                + "contribution.clock-main.viewRoles.s.time=clock_widget_time\n"
+                + "contribution.clock-main.viewRoles.m.keys=root,time,date\n"
+                + "contribution.clock-main.viewRoles.m.root=clock_widget_root\n"
+                + "contribution.clock-main.viewRoles.m.time=clock_widget_time\n"
+                + "contribution.clock-main.viewRoles.m.date=clock_widget_date\n"
+                + "contribution.clock-main.viewRoles.l.keys=root,time,date\n"
+                + "contribution.clock-main.viewRoles.l.root=clock_widget_root\n"
+                + "contribution.clock-main.viewRoles.l.time=clock_widget_time\n"
+                + "contribution.clock-main.viewRoles.l.date=clock_widget_date\n",
+                java.nio.file.StandardOpenOption.APPEND);
+        Path source = manifest.getParent().getParent().resolve("source-assets");
+        String resourcePrefix = "ls_" + setId.replace('-', '_') + "_wallpaper_";
+        Files.deleteIfExists(source.resolve("wallpaper/raw/" + resourcePrefix + "scene.xml"));
+        Files.deleteIfExists(source.resolve("wallpaper/raw/" + resourcePrefix + "effects.xml"));
+        List<String> declared = Files.readAllLines(manifest).stream()
+                .filter(line -> line.startsWith("asset.") && line.contains(".path="))
+                .map(line -> line.substring(line.indexOf('=') + 1))
+                .toList();
+        List<String> checksums = new ArrayList<>();
+        for (String relative : declared) checksums.add(hash(source.resolve(relative)) + "  " + relative);
+        Files.write(source.resolve("checksums.sha256"), checksums);
+        return manifest;
+    }
+
     private static Map<String, String> properties(Path manifest) throws Exception {
         Map<String, String> values = new LinkedHashMap<>();
         for (String line : Files.readAllLines(manifest)) {
