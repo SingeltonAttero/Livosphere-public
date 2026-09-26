@@ -128,4 +128,30 @@ class ClockWidgetConfigurationTest {
         assertEquals(0, pinCalls)
         assertNull(ClockWidgetRuntime.sizeForProvider("foreign.Provider"))
     }
+
+    @Test fun hookExceptionsKeepConfigurationActionAvailable() {
+        ClockActivityHooks.ownProvider = { ctx, _ -> ComponentName(ctx, SmallClockWidgetProvider::class.java) }
+        ClockActivityHooks.loadPreferences = { _, _ -> throw IllegalStateException("load fixture") }
+        ClockActivityHooks.configure = { _, _, _, _, _ -> throw IllegalStateException("configure fixture") }
+        ActivityScenario.launch<ClockWidgetConfigurationActivity>(
+            Intent(context, ClockWidgetConfigurationActivity::class.java)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 903),
+        ).use {
+            compose.onNodeWithText("Не удалось загрузить прежние настройки. Проверьте выбранные значения перед сохранением или отмените настройку.")
+                .assertIsDisplayed()
+            compose.onNodeWithText("Повторить").performClick()
+            compose.onNodeWithText(
+                "Не удалось обновить часы и восстановить прежние настройки. Откройте настройку экземпляра снова и проверьте выбранные значения.",
+            ).assertIsDisplayed()
+            compose.onNodeWithText("Повторить").assertIsEnabled()
+        }
+        ClockActivityHooks.pin = { _, _, _, _ -> throw IllegalStateException("pin fixture") }
+        ActivityScenario.launch<ClockWidgetPrePinActivity>(
+            ClockWidgetRuntime.prePinIntent(context, RegistryWidgetCatalog(context).items().first().widgetId),
+        ).use {
+            compose.onNodeWithText("Установить виджет").performScrollTo().performClick()
+            compose.onNodeWithText("Перейти на главный экран").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Повторить").assertIsEnabled()
+        }
+    }
 }

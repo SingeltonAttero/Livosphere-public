@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="app.livosphere.widgets.ClockWidgetConfigurationActivity"
+    android:previewImage="@drawable/ls_night_sakura_preview_m"
+    android:previewLayout="@layout/ls_night_sakura_clock_widget_m"
+    android:initialLayout="@layout/clock_widget_needs_configuration"
+    android:minWidth="250dp" android:minHeight="110dp"
+    android:targetCellWidth="4" android:targetCellHeight="2"
+    android:resizeMode="horizontal|vertical" android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable" />

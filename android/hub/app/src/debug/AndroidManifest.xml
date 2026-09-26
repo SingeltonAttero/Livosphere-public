@@ -29,49 +29,5 @@
                 android:resource="@xml/clock_probe_analog_info" />
         </receiver>
 
-        <receiver
-            android:name="app.livosphere.widgets.runtime.SmallClockWidgetProvider"
-            android:enabled="true"
-            android:exported="false"
-            android:label="@string/clock_widget_small_name">
-            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/clock_widget_small_info" />
-        </receiver>
-        <receiver
-            android:name="app.livosphere.widgets.runtime.MediumClockWidgetProvider"
-            android:enabled="true"
-            android:exported="false"
-            android:label="@string/clock_widget_medium_name">
-            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/clock_widget_medium_info" />
-        </receiver>
-        <receiver
-            android:name="app.livosphere.widgets.runtime.LargeClockWidgetProvider"
-            android:enabled="true"
-            android:exported="false"
-            android:label="@string/clock_widget_large_name">
-            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/clock_widget_large_info" />
-        </receiver>
-        <receiver
-            android:name="app.livosphere.widgets.runtime.WidgetPinCallbackReceiver"
-            android:enabled="true"
-            android:exported="false" />
-
-        <activity
-            android:name="app.livosphere.widgets.ClockWidgetConfigurationActivity"
-            android:exported="true"
-            android:excludeFromRecents="true"
-            android:theme="@style/Theme.Livosphere" />
-        <activity
-            android:name="app.livosphere.widgets.ClockWidgetPrePinActivity"
-            android:exported="false"
-            android:excludeFromRecents="true"
-            android:theme="@style/Theme.Livosphere" />
-        <activity
-            android:name="app.livosphere.widgets.ClockLaunchRouterActivity"
-            android:exported="false"
-            android:excludeFromRecents="true"
-            android:theme="@style/Theme.Livosphere" />
     </application>
 </manifest>

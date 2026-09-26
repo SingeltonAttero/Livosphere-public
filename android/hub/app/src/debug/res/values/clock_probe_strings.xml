@@ -2,10 +2,4 @@
 <resources>
     <string name="clock_probe_digital_name">Контур: цифровые часы (probe)</string>
     <string name="clock_probe_analog_name">Контур: аналоговые часы (probe)</string>
-    <string name="clock_widget_small_name">Livosphere: маленькие часы</string>
-    <string name="clock_widget_medium_name">Livosphere: средние часы</string>
-    <string name="clock_widget_large_name">Livosphere: крупные часы</string>
-    <string name="clock_widget_time_description">Текущее время</string>
-    <string name="clock_widget_date_description">Текущая дата</string>
-    <string name="clock_widget_configure">Настроить часы</string>
 </resources>
