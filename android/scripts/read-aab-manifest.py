@@ -78,19 +78,25 @@ def walk_element(node):
     return name, attributes, children
 
 
-def main(path):
+def xml_tree(payload):
+    """Return an AAB protobuf XML tree as (element, attributes, children)."""
+    for number, wire, value in fields(payload):
+        if number == 1 and wire == 2:
+            return walk_element(value)
+    raise ValueError("protobuf XML has no root element")
+
+
+def read_xml(path, entry):
     with zipfile.ZipFile(path) as archive:
         if archive.testzip() is not None:
             raise ValueError("AAB archive is corrupt")
-        names = set(archive.namelist())
-        if "base/manifest/AndroidManifest.xml" not in names:
-            raise ValueError("AAB has no base manifest")
-        payload = archive.read("base/manifest/AndroidManifest.xml")
-    root = None
-    for number, wire, value in fields(payload):
-        if number == 1 and wire == 2:
-            root = walk_element(value)
-            break
+        if entry not in archive.namelist():
+            raise ValueError(f"AAB has no {entry}")
+        return xml_tree(archive.read(entry))
+
+
+def main(path):
+    root = read_xml(path, "base/manifest/AndroidManifest.xml")
     if not root or root[0] != "manifest":
         raise ValueError("AAB base manifest root is not manifest")
     package = root[1].get("package")

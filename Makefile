@@ -22,7 +22,7 @@ export JAVA_HOME := $(LIVOSPHERE_JAVA_HOME)
 endif
 export ANDROID_SDK_ROOT
 
-.PHONY: doctor assets-check phone watchfaces check device-check offline-smoke verify validate-wff benchmark benchmark-sp06 protocol-sp07 wff-sp02-preflight protocol-sp02 evidence-validator-check release-pipeline-test contour-wff-assets-test candidate signed-candidate release legacy-release
+.PHONY: doctor assets-check phone watchfaces check device-check offline-smoke verify validate-wff benchmark benchmark-sp06 protocol-sp07 wff-sp02-preflight protocol-sp02 evidence-validator-check release-pipeline-test phone-v2-pipeline-test contour-wff-assets-test candidate signed-candidate phone-v2-candidate phone-v2-validate release legacy-release
 
 doctor:
 	$(DOCTOR_SCRIPT)
@@ -69,8 +69,15 @@ signed-candidate:
 	./android/scripts/build-release-candidate.sh signed-candidate
 
 release:
-	@echo "Livosphere phone release: NOT_READY — новый pipeline запланирован на Epic 14." >&2
-	@exit 64
+	@[ -n "$${LIVOSPHERE_RELEASE_RUN_DIR:-}" ] || { echo "phone-v2: NOT_READY — set LIVOSPHERE_RELEASE_RUN_DIR" >&2; exit 64; }
+	@python3 android/scripts/phone-v2-release.py gate "$$LIVOSPHERE_RELEASE_RUN_DIR"
+
+phone-v2-candidate:
+	@python3 android/scripts/phone-v2-release.py build
+
+phone-v2-validate:
+	@[ -n "$${LIVOSPHERE_RELEASE_RUN_DIR:-}" ] || { echo "phone-v2: NOT_READY — set LIVOSPHERE_RELEASE_RUN_DIR" >&2; exit 64; }
+	@python3 android/scripts/phone-v2-release.py validate "$$LIVOSPHERE_RELEASE_RUN_DIR"
 
 legacy-release:
 	LIVOSPHERE_RELEASE_RUN_DIR="$${LIVOSPHERE_RELEASE_RUN_DIR:-}" \
@@ -99,6 +106,10 @@ evidence-validator-check:
 release-pipeline-test: doctor
 	$(LEGACY_GRADLE) :hub:app:assembleDebug :hub:app:bundleDebug :watchfaces:contour-wff:assembleDebug :watchfaces:contour-wff:bundleDebug
 	./android/scripts/test-release-pipeline.sh
+
+phone-v2-pipeline-test:
+	@unset LIVOSPHERE_RELEASE_KEYSTORE LIVOSPHERE_RELEASE_STORE_PASSWORD LIVOSPHERE_RELEASE_KEY_ALIAS LIVOSPHERE_RELEASE_KEY_PASSWORD; $(PHONE_GRADLE) --offline :hub:app:assembleRelease :hub:app:bundleRelease
+	python3 android/scripts/test_phone_v2_release.py
 
 contour-wff-assets-test:
 	./android/scripts/test-contour-wff-assets.sh
