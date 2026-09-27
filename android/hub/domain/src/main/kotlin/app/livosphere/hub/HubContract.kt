@@ -20,7 +20,7 @@ enum class HubSection {
 
 enum class HubSurface {
     WALLPAPER,
-    WATCH_FACE,
+    CLOCK_WIDGET,
 }
 
 data class HubState(
@@ -174,7 +174,7 @@ object HubReducer {
 
     private fun surfaceFor(section: HubSection, previous: HubSurface): HubSurface = when (section) {
         HubSection.THEME, HubSection.WALLPAPER_CATALOG -> HubSurface.WALLPAPER
-        HubSection.WIDGETS -> HubSurface.WATCH_FACE
+        HubSection.WIDGETS -> HubSurface.CLOCK_WIDGET
         else -> previous
     }
 

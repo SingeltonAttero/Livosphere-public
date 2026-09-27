@@ -5,8 +5,7 @@ import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 
 enum BuildProfile {
-    PHONE,
-    LEGACY;
+    PHONE;
 
     static final String PROPERTY = "livosphere.buildProfile";
 
@@ -14,9 +13,8 @@ enum BuildProfile {
         String normalized = value == null || value.isBlank() ? "phone" : value.trim().toLowerCase(Locale.ROOT);
         return switch (normalized) {
             case "phone" -> PHONE;
-            case "legacy" -> LEGACY;
             default -> throw new GradleException("Gradle property '" + PROPERTY
-                    + "' supports only phone or legacy, got: " + value);
+                    + " supports only phone, got: " + value);
         };
     }
 
@@ -28,7 +26,4 @@ enum BuildProfile {
         return name().toLowerCase(Locale.ROOT);
     }
 
-    boolean requiresPhysicalAssets(String surface) {
-        return this == LEGACY || !surface.equals("watchface");
-    }
 }

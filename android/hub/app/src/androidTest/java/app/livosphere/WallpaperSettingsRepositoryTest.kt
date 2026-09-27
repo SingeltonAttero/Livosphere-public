@@ -46,8 +46,8 @@ class WallpaperSettingsRepositoryTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         org.junit.Assert.assertSame(app.livosphere.settings.ApplicationSurfaceSettings.get(context),
             app.livosphere.settings.ApplicationSurfaceSettings.get(context.applicationContext))
-        val hubRepository = WallpaperSettingsRepository(fixture.settings, "contour-wallpaper")
-        val serviceRepository = WallpaperSettingsRepository(fixture.settings, "contour-wallpaper")
+        val hubRepository = WallpaperSettingsRepository(fixture.settings, "night-sakura-wallpaper")
+        val serviceRepository = WallpaperSettingsRepository(fixture.settings, "night-sakura-wallpaper")
         val original = requireNotNull(hubRepository.touchReactionsEnabled.first())
         try {
             hubRepository.setTouchReactionsEnabled(false)
@@ -61,8 +61,8 @@ class WallpaperSettingsRepositoryTest {
 
     @Test fun productionViewModelSwitchWriteIsObservedByIndependentServiceRepository() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val hubRepository = WallpaperSettingsRepository(fixture.settings, "contour-wallpaper")
-        val serviceRepository = WallpaperSettingsRepository(fixture.settings, "contour-wallpaper")
+        val hubRepository = WallpaperSettingsRepository(fixture.settings, "night-sakura-wallpaper")
+        val serviceRepository = WallpaperSettingsRepository(fixture.settings, "night-sakura-wallpaper")
         val original = requireNotNull(hubRepository.touchReactionsEnabled.first())
         val store = ViewModelStore()
         val history = object : HubSettingsRepository {
@@ -90,8 +90,8 @@ class WallpaperSettingsRepositoryTest {
 
     @Test fun motionModesPersistIndependentlyFromExistingTouchPreference() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val writer = WallpaperSettingsRepository(fixture.settings, "contour-wallpaper")
-        val observer = WallpaperSettingsRepository(fixture.settings, "contour-wallpaper")
+        val writer = WallpaperSettingsRepository(fixture.settings, "night-sakura-wallpaper")
+        val observer = WallpaperSettingsRepository(fixture.settings, "night-sakura-wallpaper")
         val originalTouch = requireNotNull(writer.touchReactionsEnabled.first())
         val originalMode = requireNotNull(writer.motionMode.first())
         try {
@@ -109,7 +109,7 @@ class WallpaperSettingsRepositoryTest {
 
     @Test fun failedProductionSwitchWriteReturnsUiStateToUnavailable() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val unavailable = object : WallpaperSettingsRepository(fixture.settings, "contour-wallpaper") {
+        val unavailable = object : WallpaperSettingsRepository(fixture.settings, "night-sakura-wallpaper") {
             override val settings = MutableStateFlow<SettingsOutcome<WallpaperPreferences>>(SettingsOutcome.Success(WallpaperPreferences()))
             override suspend fun setTouchReactionsEnabled(enabled: Boolean) {
                 // Simulate a stale replay after the failed edit; it must not restore a fake switch.
@@ -139,7 +139,7 @@ class WallpaperSettingsRepositoryTest {
     @Test fun delayedSuccessForALeavesBFailedWriteUnavailable() = runBlocking {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        val aTarget = checkNotNull(AndroidWallpaperTarget.resolve(context, "contour-wallpaper"))
+        val aTarget = checkNotNull(AndroidWallpaperTarget.resolve(context, "night-sakura-wallpaper"))
         val bTarget = checkNotNull(AndroidWallpaperTarget.resolve(context, "isolation-fixture-wallpaper"))
         val aEntered = CompletableDeferred<Unit>()
         val finishA = CompletableDeferred<Unit>()
@@ -196,7 +196,7 @@ class WallpaperSettingsRepositoryTest {
     @Test fun delayedMotionFailureFromPreviousASelectionCannotEraseCurrentASetting() = runBlocking {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        val a = checkNotNull(AndroidWallpaperTarget.resolve(context, "contour-wallpaper"))
+        val a = checkNotNull(AndroidWallpaperTarget.resolve(context, "night-sakura-wallpaper"))
         val b = checkNotNull(AndroidWallpaperTarget.resolve(context, "isolation-fixture-wallpaper"))
         val entered = CompletableDeferred<Unit>()
         val finishOld = CompletableDeferred<Unit>()

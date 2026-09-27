@@ -11,7 +11,7 @@ class HubReducerTest {
         val catalog = HubReducer.reduce(wallpaper, HubAction.SectionSelected(HubSection.WALLPAPER_CATALOG)).state
         assertEquals(HubSurface.WALLPAPER, catalog.selectedSurface)
         assertTrue(catalog.phone.generation > wallpaper.phone.generation)
-        val restored = HubReducer.reduce(HubState(selectedSurface = HubSurface.WATCH_FACE),
+        val restored = HubReducer.reduce(HubState(selectedSurface = HubSurface.CLOCK_WIDGET),
             HubAction.NavigationRestored(HubSection.WALLPAPER_CATALOG)).state
         assertEquals(HubSurface.WALLPAPER, restored.selectedSurface)
     }
@@ -19,7 +19,7 @@ class HubReducerTest {
     @Test
     fun `tabs own their surfaces and returning to wallpaper invalidates old launch`() {
         val widgets = HubReducer.reduce(HubState(), HubAction.SectionSelected(HubSection.WIDGETS)).state
-        assertEquals(HubSurface.WATCH_FACE, widgets.selectedSurface)
+        assertEquals(HubSurface.CLOCK_WIDGET, widgets.selectedSurface)
         val wallpaper = HubReducer.reduce(widgets, HubAction.SectionSelected(HubSection.THEME)).state
         assertEquals(HubSurface.WALLPAPER, wallpaper.selectedSurface)
         assertTrue(wallpaper.phone.generation > widgets.phone.generation)
@@ -28,11 +28,11 @@ class HubReducerTest {
     @Test
     fun `restored widget tab and foreground keep widget surface`() {
         val restored = HubReducer.reduce(HubState(), HubAction.NavigationRestored(HubSection.WIDGETS)).state
-        assertEquals(HubSurface.WATCH_FACE, restored.selectedSurface)
+        assertEquals(HubSurface.CLOCK_WIDGET, restored.selectedSurface)
         val foreground = HubReducer.reduce(HubState(), HubAction.ForegroundStarted(HubSection.WIDGETS)).state
-        assertEquals(HubSurface.WATCH_FACE, foreground.selectedSurface)
+        assertEquals(HubSurface.CLOCK_WIDGET, foreground.selectedSurface)
         val support = HubReducer.reduce(restored, HubAction.SectionSelected(HubSection.SETTINGS)).state
-        assertEquals(HubSurface.WATCH_FACE, support.selectedSurface)
+        assertEquals(HubSurface.CLOCK_WIDGET, support.selectedSurface)
     }
 
     @Test
@@ -85,26 +85,26 @@ class HubReducerTest {
     fun `surface selection is immediate and never emits a command`() {
         val transition = HubReducer.reduce(
             state = HubState(selectedSurface = HubSurface.WALLPAPER),
-            action = HubAction.SurfaceSelected(HubSurface.WATCH_FACE),
+            action = HubAction.SurfaceSelected(HubSurface.CLOCK_WIDGET),
         )
 
-        assertEquals(HubSurface.WATCH_FACE, transition.state.selectedSurface)
+        assertEquals(HubSurface.CLOCK_WIDGET, transition.state.selectedSurface)
         assertTrue(transition.commands.isEmpty())
     }
 
     @Test
     fun `latest rapid surface selection wins without a command queue`() {
         val actions = listOf(
-            HubAction.SurfaceSelected(HubSurface.WATCH_FACE),
+            HubAction.SurfaceSelected(HubSurface.CLOCK_WIDGET),
             HubAction.SurfaceSelected(HubSurface.WALLPAPER),
-            HubAction.SurfaceSelected(HubSurface.WATCH_FACE),
+            HubAction.SurfaceSelected(HubSurface.CLOCK_WIDGET),
         )
 
         val final = actions.fold(HubTransition(HubState())) { transition, action ->
             HubReducer.reduce(transition.state, action)
         }
 
-        assertEquals(HubSurface.WATCH_FACE, final.state.selectedSurface)
+        assertEquals(HubSurface.CLOCK_WIDGET, final.state.selectedSurface)
         assertTrue(final.commands.isEmpty())
     }
 

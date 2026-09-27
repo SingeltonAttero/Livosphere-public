@@ -83,7 +83,7 @@ public class StaticSetManifestTest {
         assertEquals(2, descriptor.schemaVersion());
         assertEquals("test-declaration", descriptor.contributionFor("clock-widget").layoutStatus());
         assertEquals(BuildProfile.PHONE, BuildProfile.parse("phone"));
-        assertEquals(BuildProfile.LEGACY, BuildProfile.parse("legacy"));
+        org.junit.Assert.assertThrows(GradleException.class, () -> BuildProfile.parse("legacy"));
     }
 
     private void assertInvalid(String directory, String target, String replacement, String field, String reason) throws Exception {

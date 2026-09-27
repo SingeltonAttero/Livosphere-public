@@ -142,8 +142,8 @@ internal fun ensureFixtureActive(context: Context): FixtureRuntimeSnapshot {
         } else {
             applyWallpaper(
                 context,
-                ComponentName(context.packageName, "app.livosphere.wallpapers.contour.ContourWallpaperService"),
-                "app.livosphere/app.livosphere.wallpapers.contour.ContourWallpaperService",
+                ComponentName(context.packageName, "app.livosphere.sets.night_sakura.wallpaper.SceneWallpaperService"),
+                "app.livosphere/app.livosphere.sets.night_sakura.wallpaper.SceneWallpaperService",
             )
         }
     }

@@ -46,13 +46,13 @@ class OwnedSettingsHubAppTest {
             override suspend fun claimInvitation(now: Instant) = Outcome.Success(InvitationClaim.Suppressed)
         }
         val gateway = object : PhoneWallpaperGateway {
-            override val initialBrowsingTarget = checkNotNull(AndroidWallpaperTarget.resolve(context, "contour-wallpaper"))
+            override val initialBrowsingTarget = checkNotNull(AndroidWallpaperTarget.resolve(context, "night-sakura-wallpaper"))
             override val snapshots = MutableStateFlow<PhoneWallpaperSnapshot?>(null)
             override suspend fun refresh(target: WallpaperTarget): PhoneWallpaperSnapshot = error("No system probe")
         }
         lateinit var vm: HubViewModel
         instrumentation.runOnMainSync {
-            vm = HubViewModel(history, gateway, Clock.systemUTC(), fixture.repository("contour-wallpaper")).also { models.put("hub", it) }
+            vm = HubViewModel(history, gateway, Clock.systemUTC(), fixture.repository("night-sakura-wallpaper")).also { models.put("hub", it) }
         }
         try {
             compose.setContent { LivosphereTheme { HubApp(vm, onExit = {}) } }

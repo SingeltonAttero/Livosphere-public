@@ -64,7 +64,7 @@ class PhoneFactsViewportTest(private val width: Int, private val height: Int, pr
         composeRule.onNodeWithText("Изменение разрешено: нет").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("hub-nav-settings").assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("hub-nav-theme").assertIsDisplayed().performClick()
-        composeRule.onNodeWithTag("theme-surface-watchface").performScrollTo().performClick()
+        composeRule.onNodeWithTag("theme-surface-clock-widget").performScrollTo().performClick()
         composeRule.onNodeWithTag("theme-primary-action").performScrollTo().assertIsDisplayed().assertIsNotEnabled()
         composeRule.onNodeWithTag("phone-recovery").assertDoesNotExist()
     }

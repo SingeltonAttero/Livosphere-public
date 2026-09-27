@@ -24,7 +24,6 @@ record VariantContentSelection(String buildType, List<SetManifest> selected, Lis
     Set<String> excludedProjects() { return projects(excluded); }
     private static Set<String> projects(List<SetManifest> manifests) {
         return manifests.stream().flatMap(m -> m.contributions().stream())
-                .filter(c -> !c.surface().equals("watchface"))
                 .map(SetManifest.Contribution::artifactProject).collect(Collectors.toSet());
     }
 }

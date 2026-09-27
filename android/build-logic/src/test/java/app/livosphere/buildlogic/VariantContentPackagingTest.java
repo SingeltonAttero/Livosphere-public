@@ -374,11 +374,6 @@ public class VariantContentPackagingTest {
         Path layout = write(root.resolve("safe.xml"), "<FrameLayout xmlns:android=\"http://schemas.android.com/apk/res/android\" android:background=\"@drawable/excluded\" android:id=\"@+id/local\"/>");
         SetContentInventory inventory = new SetContentInventory(); inventory.resource(layout, "layout/safe.xml");
         assertTrue(inventory.references.contains("drawable/excluded")); assertTrue(inventory.resources.contains("id/local"));
-        SetManifest legacy = SetContractEngine.validate(List.of(Path.of(System.getProperty("livosphere.contourManifest")))).get(0);
-        SetContentInventory excluded = new SetContentInventory();
-        legacy.contributions().forEach(c -> excluded.contribution(legacy, c));
-        assertTrue(excluded.resources.contains("raw/watchface"));
-        assertTrue(excluded.resources.contains("xml/watch_face_info"));
     }
 
     Path packagingProject() throws Exception {

@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <service android:name="app.livosphere.wallpapers.fixture.FixtureWallpaperService" android:enabled="false" />
-        <service android:name="app.livosphere.wallpapers.contour.ContourWallpaperService" android:enabled="false" />
         <receiver
             android:name="app.livosphere.widgets.runtime.DigitalClockProbeProvider"
             android:enabled="false"

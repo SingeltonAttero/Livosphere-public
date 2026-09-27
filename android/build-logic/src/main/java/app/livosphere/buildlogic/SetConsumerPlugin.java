@@ -10,7 +10,7 @@ import org.gradle.api.Task;
 import org.gradle.api.tasks.TaskProvider;
 
 public final class SetConsumerPlugin implements Plugin<Project> {
-    private static final Set<String> SURFACES = Set.of("preview", "wallpaper", "clock-widget", "watchface");
+    private static final Set<String> SURFACES = Set.of("preview", "wallpaper", "clock-widget");
 
     @Override
     public void apply(Project project) {

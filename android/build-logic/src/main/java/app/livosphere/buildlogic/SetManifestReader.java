@@ -24,7 +24,6 @@ import org.gradle.api.GradleException;
 final class SetManifestReader {
     private static final Pattern LOWER_KEBAB = Pattern.compile("^[a-z0-9]+(?:-[a-z0-9]+)*$");
     private static final Pattern SHA_256 = Pattern.compile("^[0-9a-f]{64}$");
-    private static final List<String> LEGACY_SURFACES = List.of("preview", "wallpaper", "watchface");
     private static final List<String> PHONE_SURFACES = List.of("preview", "wallpaper", "clock-widget");
     private static final List<String> WALLPAPER_ONLY_SURFACES = List.of("preview", "wallpaper");
     private static final List<String> PHASES = List.of("morning", "day", "evening", "night");
@@ -33,26 +32,21 @@ final class SetManifestReader {
             "root", "time", "hours", "minutes", "period", "analog", "date", "day", "month", "weekday");
     private static final Pattern RESOURCE_ID = Pattern.compile("^[a-z][a-z0-9_]*$");
     private static final Pattern CLASS_NAME = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$");
-    private static final Set<String> PLATFORMS = Set.of("android-phone", "wear-os");
+    private static final Set<String> PLATFORMS = Set.of("android-phone");
     private static final Set<String> INSTALL_ROUTES = Set.of(
-            "embedded-preview", "system-wallpaper-preview", "system-widget-pin", "separate-watchface-package");
+            "embedded-preview", "system-wallpaper-preview", "system-widget-pin");
     private static final Set<String> SETTINGS = Set.of(
             "none", "time-of-day", "battery-level", "charging", "tap", "tilt", "swipe", "reduced-motion", "effect-level");
     private static final Map<String, String> CONTENT_STATUS_ENUMS = Map.of(
-            "approved-for-start", "APPROVED_FOR_START",
-            "release-ready", "RELEASE_READY", "draft", "DRAFT", "image-approved", "IMAGE_APPROVED", "html-approved", "HTML_APPROVED");
+            "draft", "DRAFT", "image-approved", "IMAGE_APPROVED", "html-approved", "HTML_APPROVED");
     private static final Pattern RESOURCE_DIRECTORY = Pattern.compile(
             "^(?:drawable|mipmap|raw|values|xml|font|color|layout)(?:-[a-z0-9]+)*$");
     private static final Pattern RESOURCE_FILE = Pattern.compile("^[a-z][a-z0-9_]*\\.[a-z0-9]+$");
-    private static final String PREVIEW_WALLPAPER_ROLE = "preview-wallpaper-";
-    private static final String PREVIEW_WATCHFACE_ROLE = "preview-watchface-";
-    private static final String WFF_ENTRYPOINT = "watchface/raw/watchface.xml";
-    private static final String WFF_METADATA = "watchface/xml/watch_face_info.xml";
 
     private SetManifestReader() {}
 
     static SetManifest read(Path manifestPath) {
-        return read(manifestPath, BuildProfile.LEGACY);
+        return read(manifestPath, BuildProfile.PHONE);
     }
 
     static SetManifest read(Path manifestPath, BuildProfile profile) {
@@ -61,18 +55,15 @@ final class SetManifestReader {
         Set<String> consumed = new HashSet<>();
 
         int schemaVersion = positiveInt(required(values, consumed, normalizedManifest, "schemaVersion"), normalizedManifest, "schemaVersion");
-        require(schemaVersion >= 1 && schemaVersion <= 4, normalizedManifest, "schemaVersion", "поддерживаются только schemaVersion=1,2,3,4");
+        require(schemaVersion >= 2 && schemaVersion <= 4, normalizedManifest, "schemaVersion", "поддерживаются только schemaVersion=2,3,4");
         List<String> surfaces = switch (schemaVersion) {
-            case 1 -> LEGACY_SURFACES;
             case 2 -> PHONE_SURFACES;
             case 3 -> WALLPAPER_ONLY_SURFACES;
             case 4 -> PHONE_SURFACES;
             default -> throw new IllegalStateException();
         };
-        String distribution = values.containsKey("distribution") || schemaVersion >= 2
-                ? required(values, consumed, normalizedManifest, "distribution") : "debug-only";
+        String distribution = required(values, consumed, normalizedManifest, "distribution");
         require(Set.of("debug-only", "public").contains(distribution), normalizedManifest, "distribution", "неизвестный distribution");
-        require(schemaVersion != 1 || distribution.equals("debug-only"), normalizedManifest, "distribution", "schema1 разрешена только как legacy debug-only");
         require(schemaVersion != 3 || distribution.equals("debug-only"), normalizedManifest, "distribution",
                 "schema3 wallpaper-only пока разрешена только как debug-only");
         String setId = lowerKebab(required(values, consumed, normalizedManifest, "setId"), normalizedManifest, "setId");
@@ -80,9 +71,7 @@ final class SetManifestReader {
         int sourceAssetsRevision = positiveInt(
                 required(values, consumed, normalizedManifest, "sourceAssetsRevision"), normalizedManifest, "sourceAssetsRevision");
         String contentStatus = required(values, consumed, normalizedManifest, "contentStatus");
-        Set<String> contentStatuses = schemaVersion == 1
-                ? Set.of("approved-for-start", "release-ready")
-                : schemaVersion == 2
+        Set<String> contentStatuses = schemaVersion == 2
                         ? Set.of("draft", "image-approved", "html-approved")
                         : schemaVersion == 3 ? Set.of("draft", "image-approved") : Set.of("html-approved");
         require(contentStatuses.contains(contentStatus), normalizedManifest, "contentStatus",
@@ -261,13 +250,11 @@ final class SetManifestReader {
                 validateResourceName(normalizedManifest, setId, surface, resourcePath, assetPrefix + "resourcePath");
                 rejectGeneratedCollision(normalizedManifest, setId, surface, resourcePath);
 
-                if (profile.requiresPhysicalAssets(surface)) {
-                    Path assetFile = sourceFile(sourceAssetsRoot, relativePath, normalizedManifest, assetPrefix + "path");
-                    require(Files.isRegularFile(assetFile), normalizedManifest, assetPrefix + "path",
-                            "asset отсутствует: " + relativePath);
-                    require(sha256(assetFile).equals(sha256), normalizedManifest, assetPrefix + "sha256",
-                            "checksum mismatch для " + relativePath);
-                }
+                Path assetFile = sourceFile(sourceAssetsRoot, relativePath, normalizedManifest, assetPrefix + "path");
+                require(Files.isRegularFile(assetFile), normalizedManifest, assetPrefix + "path",
+                        "asset отсутствует: " + relativePath);
+                require(sha256(assetFile).equals(sha256), normalizedManifest, assetPrefix + "sha256",
+                        "checksum mismatch для " + relativePath);
                 assets.add(new SetManifest.Asset(assetId, relativePath, resourcePath, sha256, revision, provenance));
             }
 
@@ -295,7 +282,6 @@ final class SetManifestReader {
             require(count == 1, normalizedManifest, "contributions",
                     "ожидалась ровно одна contribution surface=" + surface + ", найдено " + count);
         }
-        if (schemaVersion == 1) requirePreviewRoles(normalizedManifest, contributions);
         requireEntryPoints(normalizedManifest, setId, contributions, schemaVersion);
         if (schemaVersion >= 2) {
             SetManifest.Contribution wallpaper = contributions.stream().filter(c -> c.surface().equals("wallpaper")).findFirst().orElseThrow();
@@ -313,7 +299,7 @@ final class SetManifestReader {
     }
 
     static List<SetManifest> readAll(List<Path> manifestPaths) {
-        return readAll(manifestPaths, BuildProfile.LEGACY);
+        return readAll(manifestPaths, BuildProfile.PHONE);
     }
 
     static List<SetManifest> readAll(List<Path> manifestPaths, BuildProfile profile) {
@@ -388,13 +374,7 @@ final class SetManifestReader {
             String checksumsFile,
             List<SetManifest.Contribution> contributions,
             BuildProfile profile) {
-        Set<String> ignored = contributions.stream()
-                .filter(contribution -> !profile.requiresPhysicalAssets(contribution.surface()))
-                .flatMap(contribution -> contribution.assets().stream())
-                .map(SetManifest.Asset::relativePath)
-                .collect(Collectors.toCollection(TreeSet::new));
         Set<String> declared = contributions.stream()
-                .filter(contribution -> profile.requiresPhysicalAssets(contribution.surface()))
                 .flatMap(contribution -> contribution.assets().stream())
                 .map(SetManifest.Asset::relativePath)
                 .collect(Collectors.toCollection(TreeSet::new));
@@ -403,7 +383,7 @@ final class SetManifestReader {
             actual = paths.filter(Files::isRegularFile)
                     .map(sourceRoot::relativize)
                     .map(path -> path.toString().replace('\\', '/'))
-                    .filter(path -> !path.equals(provenanceFile) && !path.equals(checksumsFile) && !ignored.contains(path))
+                    .filter(path -> !path.equals(provenanceFile) && !path.equals(checksumsFile))
                     .collect(Collectors.toCollection(TreeSet::new));
         } catch (IOException error) {
             throw failure(manifest, "source-assets", "не удалось перечислить assets", error);
@@ -446,10 +426,6 @@ final class SetManifestReader {
                 "недопустимый Android resource directory: " + resourcePath);
         require(RESOURCE_FILE.matcher(parts[1]).matches(), manifest, field,
                 "resource filename и extension должны быть lowercase Android-compatible: " + resourcePath);
-        if (surface.equals("watchface")
-                && (resourcePath.equals("raw/watchface.xml") || resourcePath.equals("xml/watch_face_info.xml"))) {
-            return;
-        }
         String fileName = parts[1];
         String prefix = "ls_" + setId.replace('-', '_') + "_" + surface.replace('-', '_') + "_";
         require(fileName.startsWith(prefix), manifest, field,
@@ -580,10 +556,6 @@ final class SetManifestReader {
                 expectedPlatform = "android-phone";
                 expectedRoute = "system-widget-pin";
             }
-            case "watchface" -> {
-                expectedPlatform = "wear-os";
-                expectedRoute = "separate-watchface-package";
-            }
             default -> throw new IllegalStateException(surface);
         }
         require(platform.equals(expectedPlatform), manifest, prefix + "platform",
@@ -600,38 +572,6 @@ final class SetManifestReader {
                         && asset.resourcePath().equals("xml/ls_" + setId.replace('-', '_') + "_wallpaper_entrypoint.xml")),
                 manifest, "contribution." + wallpaper.key() + ".assetRefs",
                 "обязателен entrypoint " + wallpaperSource);
-        if (schemaVersion >= 2) return;
-        SetManifest.Contribution watchface = contributions.stream()
-                .filter(value -> value.surface().equals("watchface")).findFirst().orElseThrow();
-        require(watchface.assets().stream().anyMatch(asset -> asset.relativePath().equals(WFF_ENTRYPOINT)
-                        && asset.resourcePath().equals("raw/watchface.xml")),
-                manifest, "contribution." + watchface.key() + ".assetRefs",
-                "обязателен entrypoint " + WFF_ENTRYPOINT);
-        require(watchface.assets().stream().anyMatch(asset -> asset.relativePath().equals(WFF_METADATA)
-                        && asset.resourcePath().equals("xml/watch_face_info.xml")),
-                manifest, "contribution." + watchface.key() + ".assetRefs",
-                "обязателен metadata " + WFF_METADATA);
-    }
-
-    private static void requirePreviewRoles(Path manifest, List<SetManifest.Contribution> contributions) {
-        SetManifest.Contribution preview = contributions.stream()
-                .filter(value -> value.surface().equals("preview")).findFirst().orElseThrow();
-        require(preview.assets().size() == 2, manifest, "contribution." + preview.key() + ".assetRefs",
-                "preview schema v1 требует ровно два role refs");
-        requireSinglePreviewRole(manifest, preview, PREVIEW_WALLPAPER_ROLE);
-        requireSinglePreviewRole(manifest, preview, PREVIEW_WATCHFACE_ROLE);
-    }
-
-    private static void requireSinglePreviewRole(
-            Path manifest, SetManifest.Contribution preview, String rolePrefix) {
-        List<SetManifest.Asset> matches = preview.assets().stream()
-                .filter(asset -> asset.id().startsWith(rolePrefix)).toList();
-        require(matches.size() == 1, manifest, "contribution." + preview.key() + ".assetRefs",
-                "ожидался ровно один schema-v1 role " + rolePrefix + "*, найдено " + matches.size());
-        String resourcePath = matches.get(0).resourcePath();
-        require(resourcePath.startsWith("drawable-nodpi/") && resourcePath.endsWith(".png"),
-                manifest, "asset." + matches.get(0).id() + ".resourcePath",
-                "preview role обязан ссылаться на drawable-nodpi PNG");
     }
 
     private static void rejectGeneratedCollision(Path manifest, String setId, String surface, String resourcePath) {

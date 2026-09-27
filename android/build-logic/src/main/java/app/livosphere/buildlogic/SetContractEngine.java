@@ -106,7 +106,6 @@ final class SetContractEngine {
 
     private static String descriptorKotlin(SetManifest manifest) {
         String schemaSpecific = switch (manifest.schemaVersion()) {
-            case 1 -> "watchFace = " + contributionKotlin("WatchFaceContribution", manifest.contributionFor("watchface"));
             case 2 -> "clockWidget = " + contributionKotlin("ClockWidgetContribution", manifest.contributionFor("clock-widget"));
             case 3 -> "clockWidget = null";
             case 4 -> "clockWidget = " + contributionKotlin("ClockWidgetContribution", manifest.contributionFor("clock-widget"));
@@ -195,7 +194,6 @@ final class SetContractEngine {
         return switch (value) {
             case "embedded-preview" -> "EmbeddedPreview";
             case "system-wallpaper-preview" -> "SystemWallpaperPreview";
-            case "separate-watchface-package" -> "SeparateWatchFacePackage";
             case "system-widget-pin" -> "SystemWidgetPin";
             default -> throw new IllegalArgumentException(value);
         };

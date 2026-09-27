@@ -30,12 +30,9 @@ internal object PreviewAssetResolver {
         descriptor ?: return null
         val roleRef = when (surface) {
             HubSurface.WALLPAPER -> descriptor.preview.wallpaperRef
-            HubSurface.WATCH_FACE -> descriptor.preview.widgetRefs[widgetSize]
+            HubSurface.CLOCK_WIDGET -> descriptor.preview.widgetRefs[widgetSize]
         }
-        val reference = if (roleRef != null) descriptor.preview.resources.singleOrNull { it.symbolicName == roleRef }
-            else if (descriptor.schemaVersion == 1 && surface == HubSurface.WALLPAPER) descriptor.preview.resources.singleOrNull {
-                it.symbolicName.startsWith(if (surface == HubSurface.WALLPAPER) "preview-wallpaper-" else "preview-watchface-")
-            } else null
+        val reference = roleRef?.let { ref -> descriptor.preview.resources.singleOrNull { it.symbolicName == ref } }
         reference ?: return null
         val directory = reference.resourcePath.substringBefore('/')
         val fileName = reference.resourcePath.substringAfter('/')

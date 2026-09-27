@@ -43,7 +43,7 @@ data class StoredHubSettings(
     }
 }
 
-/** Hub-only visual preference; it never changes the wallpaper service or a watch face. */
+/** Hub-only visual preference; it never changes the wallpaper service or a clock widget. */
 @Serializable
 enum class HubMotionMode { NORMAL, REDUCED }
 

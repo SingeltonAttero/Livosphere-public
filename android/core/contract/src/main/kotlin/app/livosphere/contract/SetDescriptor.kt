@@ -73,7 +73,6 @@ data class ArtifactReference(
 
 enum class Platform {
     ANDROID_PHONE,
-    WEAR_OS,
 }
 
 enum class SupportedSetting {
@@ -92,7 +91,6 @@ sealed interface InstallRoute {
     data object EmbeddedPreview : InstallRoute
     data object SystemWallpaperPreview : InstallRoute
     data object SystemWidgetPin : InstallRoute
-    data object SeparateWatchFacePackage : InstallRoute
 }
 
 sealed interface SurfaceContribution {
@@ -155,24 +153,6 @@ data class WallpaperContribution(
     }
 }
 
-data class WatchFaceContribution(
-    override val componentId: ComponentId,
-    override val componentRevision: Revision,
-    override val resourceRevision: Revision,
-    override val compatibility: Compatibility,
-    override val installRoute: InstallRoute,
-    override val supportedSettings: Set<SupportedSetting>,
-    override val artifact: ArtifactReference,
-    override val resources: List<ResourceReference>,
-) : SurfaceContribution {
-    init {
-        validateContribution("watchface", supportedSettings, resources)
-        require(compatibility.platform == Platform.WEAR_OS && installRoute == InstallRoute.SeparateWatchFacePackage) {
-            "Watch face requires WEAR_OS with SeparateWatchFacePackage"
-        }
-    }
-}
-
 private fun validateContribution(
     surface: String,
     supportedSettings: Set<SupportedSetting>,
@@ -195,8 +175,6 @@ enum class ClockViewRole { ROOT, TIME, HOURS, MINUTES, PERIOD, ANALOG, DATE, DAY
 enum class WidgetLayoutStatus { TEST_DECLARATION, NATIVE }
 enum class Distribution { DEBUG_ONLY, PUBLIC }
 enum class ContentStatus {
-    APPROVED_FOR_START,
-    RELEASE_READY,
     DRAFT,
     IMAGE_APPROVED,
     HTML_APPROVED,
@@ -297,22 +275,14 @@ data class SetDescriptor(
     val contentStatus: ContentStatus,
     val preview: PreviewContribution,
     val wallpaper: WallpaperContribution,
-    val watchFace: WatchFaceContribution? = null,
     val clockWidget: ClockWidgetContribution? = null,
     val distribution: Distribution = Distribution.DEBUG_ONLY,
     val approvals: Map<ApprovalStage, ApprovalReference> = emptyMap(),
 ) {
     init {
-        require(schemaVersion in 1..4) { "Unsupported set schema version: $schemaVersion" }
-        if (schemaVersion == 1) {
-            require(distribution == Distribution.DEBUG_ONLY && watchFace != null && clockWidget == null && approvals.isEmpty()) {
-                "schema1 is legacy debug only and requires watchFace without clockWidget"
-            }
-            require(contentStatus in setOf(ContentStatus.APPROVED_FOR_START, ContentStatus.RELEASE_READY)) {
-                "schema1 requires a legacy content status"
-            }
-        } else if (schemaVersion == 2) {
-            require(watchFace == null && clockWidget != null) { "schema2 requires clockWidget without watchFace" }
+        require(schemaVersion in 2..4) { "Unsupported set schema version: $schemaVersion" }
+        if (schemaVersion == 2) {
+            require(clockWidget != null) { "schema2 requires clockWidget" }
             val requiredApprovals = when (contentStatus) {
                 ContentStatus.IMAGE_APPROVED -> setOf(ApprovalStage.IMAGE)
                 ContentStatus.HTML_APPROVED -> ApprovalStage.entries.toSet()
@@ -343,7 +313,7 @@ data class SetDescriptor(
             }
         } else if (schemaVersion == 3) {
             require(distribution == Distribution.DEBUG_ONLY) { "schema3 wallpaper-only is debug only" }
-            require(watchFace == null && clockWidget == null) { "schema3 wallpaper-only forbids watchFace and clockWidget" }
+            require(clockWidget == null) { "schema3 wallpaper-only forbids clockWidget" }
             require(contentStatus in setOf(ContentStatus.DRAFT, ContentStatus.IMAGE_APPROVED)) {
                 "schema3 static wallpaper requires draft or image-approved status"
             }
@@ -366,7 +336,7 @@ data class SetDescriptor(
                 it.startsWith("drawable-nodpi/") && it.endsWith(".png")
             }) { "schema3 preview requires drawable-nodpi PNG" }
         } else {
-            require(watchFace == null && clockWidget != null) { "schema4 requires clockWidget without watchFace" }
+            require(clockWidget != null) { "schema4 requires clockWidget" }
             require(contentStatus == ContentStatus.HTML_APPROVED) { "schema4 requires html-approved content" }
             require(approvals.keys == ApprovalStage.entries.toSet()) { "schema4 requires image and html approvals" }
             require(approvals.values.all { it.sourceAssetsRevision.value <= sourceAssetsRevision.value }) {
@@ -390,7 +360,7 @@ data class SetDescriptor(
                 it.startsWith("drawable-nodpi/") && it.endsWith(".png")
             } }) { "schema4 previews require drawable-nodpi PNG" }
         }
-        val contributions = listOfNotNull(preview, wallpaper, watchFace, clockWidget)
+        val contributions = listOfNotNull(preview, wallpaper, clockWidget)
         require(contributions.map { it.componentId }.distinct().size == contributions.size) { "duplicate component ID" }
         val resources = contributions.flatMap { it.resources }
         require(resources.map { it.symbolicName }.distinct().size == resources.size) { "duplicate resource ID" }

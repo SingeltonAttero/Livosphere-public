@@ -59,7 +59,7 @@ class NeonCollectionTest {
         @Suppress("DEPRECATION")
         val all = context.packageManager.queryIntentServices(Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER), 0)
         val flags = PackageManager.MATCH_DISABLED_COMPONENTS
-        for (name in listOf("app.livosphere.wallpapers.fixture.FixtureWallpaperService", "app.livosphere.wallpapers.contour.ContourWallpaperService")) {
+        for (name in listOf("app.livosphere.wallpapers.fixture.FixtureWallpaperService")) {
             assertFalse(context.packageManager.getServiceInfo(ComponentName(context, name), flags).enabled)
         }
         for (name in listOf("DigitalClockProbeProvider", "AnalogClockProbeProvider")) {

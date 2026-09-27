@@ -27,7 +27,7 @@ import org.junit.Test
 internal fun phoneUiSnapshot() = PhoneWallpaperSnapshot(Instant.now(), WallpaperComponent("app.livosphere", "ContourService"), 29, 34,
     WallpaperFact.Known(true), WallpaperFact.Known(true), WallpaperFact.Known(true), WallpaperFact.Known(WallpaperPresence.AVAILABLE),
     WallpaperFact.Known(true), WallpaperFact.Known(true), WallpaperFact.Unknown(UnknownReason.NO_COMPONENT_INFO),
-    WallpaperFact.Unknown(UnknownReason.LEGACY_API), "contour-wallpaper")
+    WallpaperFact.Unknown(UnknownReason.LEGACY_API), "night-sakura-wallpaper")
 
 class PhoneWallpaperUiTest {
     @get:Rule val composeRule = createComposeRule()
@@ -59,7 +59,7 @@ class PhoneWallpaperUiTest {
         @Suppress("DEPRECATION")
         val component = intents[0].getParcelableExtra<ComponentName>(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT)
         assertEquals(AndroidWallpaperTarget.component(checkNotNull(AndroidWallpaperTarget.initialBrowsingTarget(context))), component)
-        assertEquals("app.livosphere.wallpapers.contour.ContourWallpaperService", component?.className)
+        assertEquals("app.livosphere.sets.night_sakura.wallpaper.SceneWallpaperService", component?.className)
         launcher.launch(WallpaperLaunchRequest(2, 1, WallpaperRoute.CHOOSER, checkNotNull(AndroidWallpaperTarget.initialBrowsingTarget(context))))
         assertEquals(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER, intents[1].action)
         assertFalse(intents[1].hasExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT))
@@ -109,7 +109,7 @@ class PhoneWallpaperUiTest {
         composeRule.runOnIdle { viewModel.onAction(HubAction.Phone(PhoneWallpaperAction.Returned)) }
         composeRule.onNodeWithTag("theme-primary-action").assertIsEnabled()
         composeRule.runOnIdle { assertEquals(ApplicationKnowledge.Unknown, viewModel.state.value.knowledge) }
-        composeRule.onNodeWithTag("theme-surface-watchface").performScrollTo().performClick()
+        composeRule.onNodeWithTag("theme-surface-clock-widget").performScrollTo().performClick()
         composeRule.onNodeWithTag("theme-primary-action").performScrollTo().assertIsNotEnabled()
         assertEquals(1, launches.size)
         composeRule.onNodeWithTag("theme-surface-wallpaper").performScrollTo().performClick()
@@ -153,7 +153,7 @@ class PhoneWallpaperUiTest {
         }
         composeRule.onNodeWithTag("theme-primary-action").performScrollTo().performClick()
         composeRule.waitUntil { entered.isCompleted }
-        composeRule.onNodeWithTag("theme-surface-watchface").performScrollTo().performClick()
+        composeRule.onNodeWithTag("theme-surface-clock-widget").performScrollTo().performClick()
         composeRule.runOnIdle { acknowledgement.complete(Unit) }
         composeRule.waitUntil { !vm.state.value.phone.busy }
         assertTrue(launches.isEmpty())

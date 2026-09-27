@@ -15,12 +15,6 @@ plugins {
     alias(libs.plugins.hilt) apply false
 }
 
-val buildProfile = providers.gradleProperty("livosphere.buildProfile").orElse("phone").get()
-check(buildProfile == "phone" || buildProfile == "legacy") {
-    "Gradle property 'livosphere.buildProfile' supports only phone or legacy, got: $buildProfile"
-}
-val legacyProfile = buildProfile == "legacy"
-
 private fun doctorErrors(javaFeature: Int, sdkRoot: File): List<String> = buildList {
     if (javaFeature != 17) {
         add("Требуется JDK 17, обнаружен JDK $javaFeature. Укажите JAVA_HOME на JDK 17.")
@@ -78,14 +72,6 @@ tasks.register("verifyProductRelease") {
             ":hub:app versionName=${phoneConfig.versionName} не совпадает с livosphere.productRelease=$productRelease"
         }
         check(phoneConfig.versionCode != null) { "Phone обязан сохранять собственный versionCode" }
-        if (legacyProfile) {
-            val watchConfig = project(":watchfaces:contour-wff").extensions
-                .getByType(ApplicationExtension::class.java).defaultConfig
-            check(watchConfig.versionName == productRelease) {
-                ":watchfaces:contour-wff versionName=${watchConfig.versionName} не совпадает с livosphere.productRelease=$productRelease"
-            }
-            check(watchConfig.versionCode != null) { "WFF обязан сохранять собственный versionCode" }
-        }
     }
 }
 
@@ -94,13 +80,10 @@ tasks.register("assetsCheck") {
     description = "Проверяет manifest-driven contracts и assets выбранного build profile."
     val selectedTasks = mutableListOf(
         ":hub:app:validateSetRegistry",
-        ":sets:contour:preview:validateSetContract",
-        ":wallpapers:contour:validateSetContract",
         ":wallpapers:fixture:validateSetContract",
         ":sets:fixture:preview:validateSetContract",
         ":sets:fixture:clock-widget:validateSetContract",
     )
-    if (legacyProfile) selectedTasks += ":watchfaces:contour-wff:validateSetContract"
     dependsOn(selectedTasks)
 }
 
@@ -109,13 +92,10 @@ tasks.register("generateSetContracts") {
     description = "Восстанавливает generated registry и resources всех surfaces."
     val selectedTasks = mutableListOf(
         ":hub:app:generateSetRegistry",
-        ":sets:contour:preview:generateSetResources",
-        ":wallpapers:contour:generateSetResources",
         ":wallpapers:fixture:generateSetResources",
         ":sets:fixture:preview:generateSetResources",
         ":sets:fixture:clock-widget:generateSetResources",
     )
-    if (legacyProfile) selectedTasks += ":watchfaces:contour-wff:generateSetResources"
     dependsOn(selectedTasks)
 }
 
@@ -167,15 +147,13 @@ tasks.register("verifyModuleGraph") {
             }
         }
         val phoneArtifactProjects = manifestContributions
-            .filter { it.surface != "watchface" }
             .map { it.projectPath }
             .toSet()
         val releaseArtifactProjects = manifestContributions
-            .filter { it.releaseEligible && it.surface != "watchface" }
+            .filter { it.releaseEligible }
             .map { it.projectPath }
             .toSet()
         val enabledArtifactProjects = manifestContributions
-            .filter { it.surface != "watchface" || legacyProfile }
             .map { it.projectPath }
             .toSet()
 
@@ -195,7 +173,6 @@ tasks.register("verifyModuleGraph") {
             ":widgets:runtime" to setOf("api" to ":core:contract", "implementation" to ":core:settings"),
             ":wallpapers:static" to setOf("api" to ":wallpapers:engine"),
             ":wallpapers:neon" to setOf("api" to ":wallpapers:engine", "implementation" to ":core:settings"),
-            ":wallpapers:contour" to setOf("implementation" to ":wallpapers:engine", "implementation" to ":core:settings"),
             ":wallpapers:fixture" to setOf("implementation" to ":wallpapers:engine", "implementation" to ":core:settings"),
             ":quality:macrobenchmark" to setOf(
                 "compileOnly" to ":hub:app",
@@ -230,9 +207,7 @@ tasks.register("verifyModuleGraph") {
             ":wallpapers:engine",
             ":wallpapers:static",
             ":wallpapers:neon",
-            ":wallpapers:contour",
             ":widgets:runtime",
-            ":sets:contour:preview",
             ":quality:macrobenchmark",
         )
         required += enabledArtifactProjects
@@ -290,7 +265,7 @@ tasks.register("verifyModuleGraph") {
         val consumerPackagePredecessors = manifestContributions
             .filter { it.projectPath in enabledArtifactProjects }
             .associate { contribution ->
-                val packageTask = if (contribution.surface == "watchface") "bundleDebug" else "assembleDebug"
+                val packageTask = "assembleDebug"
                 "${contribution.projectPath}:$packageTask" to listOf(
                     "${contribution.projectPath}:validateDebugSetContract",
                     "${contribution.projectPath}:generateDebugSetResources",
@@ -366,12 +341,5 @@ tasks.named("check") {
         ":sets:fixture:clock-widget:lintDebug",
         ":wallpapers:engine:testDebugUnitTest",
         ":wallpapers:engine:lintDebug",
-        ":wallpapers:contour:testDebugUnitTest",
-        ":wallpapers:contour:lintDebug",
-        ":sets:contour:preview:lintDebug",
-    )
-    if (legacyProfile) dependsOn(
-        ":watchfaces:contour-wff:check",
-        ":watchfaces:contour-wff:verifyWffResourceOnly",
     )
 }

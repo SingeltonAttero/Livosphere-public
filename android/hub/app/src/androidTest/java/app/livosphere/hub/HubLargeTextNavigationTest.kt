@@ -57,7 +57,7 @@ class HubLargeTextNavigationTest(private val width: Int, private val fontScale: 
         }
         listOf(
             "wallpaper" to R.string.hub_surface_wallpaper,
-            "watchface" to R.string.hub_surface_watchface,
+            "clock-widget" to R.string.hub_surface_widget,
         ).forEach { (surface, label) ->
             composeRule.onNodeWithTag("theme-surface-$surface")
                 .assertIsDisplayed()

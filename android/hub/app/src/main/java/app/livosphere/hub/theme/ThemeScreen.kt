@@ -436,11 +436,10 @@ private fun ArtworkStage(
         else -> "idle"
     }
     val accessibleDescription = if (
-        selectedSurface == HubSurface.WATCH_FACE && targetAsset == null && widgetDisplayName != null
-    ) stringResource(R.string.preview_watchface_named, widgetDisplayName)
+        selectedSurface == HubSurface.CLOCK_WIDGET && targetAsset == null && widgetDisplayName != null
+    ) stringResource(R.string.preview_widget_named, widgetDisplayName)
         else if (targetAsset == null || displayName == null) stringResource(R.string.theme_preview_unavailable)
-        else if (setId == "contour-draft") stringResource(selectedSurface.previewDescriptionResource)
-        else stringResource(if (selectedSurface == HubSurface.WALLPAPER) R.string.preview_wallpaper_named else R.string.preview_watchface_named, displayName)
+        else stringResource(if (selectedSurface == HubSurface.WALLPAPER) R.string.preview_wallpaper_named else R.string.preview_widget_named, displayName)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -500,7 +499,7 @@ private fun PreviewImage(
     widgetDisplayName: String?,
 ) {
     if (asset == null) {
-        if (surface == HubSurface.WATCH_FACE && widgetDisplayName != null) {
+        if (surface == HubSurface.CLOCK_WIDGET && widgetDisplayName != null) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("12:34", color = MaterialTheme.colorScheme.onSurface, fontSize = 44.sp, fontWeight = FontWeight.SemiBold)
                 Text(widgetDisplayName, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
@@ -521,7 +520,7 @@ private fun PreviewImage(
                 .semantics { testTag = artTag },
         )
 
-        HubSurface.WATCH_FACE -> BoxWithConstraints(
+        HubSurface.CLOCK_WIDGET -> BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
@@ -599,29 +598,29 @@ private fun TryOnAction(surface: HubSurface, phoneState: PhoneWallpaperState?, w
 private val HubSurface.labelResource: Int
     get() = when (this) {
         HubSurface.WALLPAPER -> R.string.hub_surface_wallpaper
-        HubSurface.WATCH_FACE -> R.string.hub_surface_watchface
+        HubSurface.CLOCK_WIDGET -> R.string.hub_surface_widget
     }
 
 private val HubSurface.previewDescriptionResource: Int
     get() = when (this) {
         HubSurface.WALLPAPER -> R.string.hub_wallpaper_preview_description
-        HubSurface.WATCH_FACE -> R.string.hub_watchface_preview_description
+        HubSurface.CLOCK_WIDGET -> R.string.hub_widget_preview_description
     }
 
 private val HubSurface.actionLabelResource: Int
     get() = when (this) {
         HubSurface.WALLPAPER -> R.string.hub_wallpaper_action
-        HubSurface.WATCH_FACE -> R.string.hub_watchface_action
+        HubSurface.CLOCK_WIDGET -> R.string.hub_widget_action
     }
 
 private val HubSurface.actionExplanationResource: Int
     get() = when (this) {
         HubSurface.WALLPAPER -> R.string.hub_wallpaper_action_explanation
-        HubSurface.WATCH_FACE -> R.string.hub_watchface_action_explanation
+        HubSurface.CLOCK_WIDGET -> R.string.hub_widget_action_explanation
     }
 
 private val HubSurface.testName: String
     get() = when (this) {
         HubSurface.WALLPAPER -> "wallpaper"
-        HubSurface.WATCH_FACE -> "watchface"
+        HubSurface.CLOCK_WIDGET -> "clock-widget"
     }

@@ -43,8 +43,7 @@ public abstract class AuditSetApkTask extends AbstractSetTask {
         Set<String> excludedModules = graph.excludedProjects();
         SetContentInventory allowed = new SetContentInventory();
         SetContentInventory excluded = new SetContentInventory();
-        selection.selected().forEach(m -> m.contributions().stream().filter(c -> !c.surface().equals("watchface"))
-                .forEach(c -> allowed.contribution(m, c)));
+        selection.selected().forEach(m -> m.contributions().forEach(c -> allowed.contribution(m, c)));
         selection.excluded().forEach(m -> m.contributions().forEach(c -> excluded.contribution(m, c)));
         for (String module : runtimeProjects) inventoryModule(allowed, module, graph.projectVariants(), true);
         // Excluded contributions can have release/fallback source sets too.  Inventory the

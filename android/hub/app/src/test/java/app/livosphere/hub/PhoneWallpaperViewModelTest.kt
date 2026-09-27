@@ -102,14 +102,14 @@ class PhoneWallpaperViewModelTest {
         requests[0].complete(facts)
         runCurrent()
         vm.onAction(HubAction.GoToTheme)
-        vm.onAction(HubAction.SurfaceSelected(HubSurface.WATCH_FACE))
+        vm.onAction(HubAction.SurfaceSelected(HubSurface.CLOCK_WIDGET))
         runCurrent()
         val beforeWatchTryOn = requests.size
         vm.onAction(HubAction.Phone(PhoneWallpaperAction.TryOn))
         runCurrent()
         assertEquals(beforeWatchTryOn, requests.size)
         assertNull(vm.state.value.phone.readyRequest)
-        assertEquals(HubSurface.WATCH_FACE, vm.state.value.selectedSurface)
+        assertEquals(HubSurface.CLOCK_WIDGET, vm.state.value.selectedSurface)
     }
 
     @Test fun failedProbeDropsActiveAndManualRefreshRecovers() = runTest(dispatcher) {

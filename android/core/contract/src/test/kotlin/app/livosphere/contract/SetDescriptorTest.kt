@@ -9,7 +9,7 @@ class SetDescriptorTest {
     @Test
     fun `content status exposes both declared manifest states`() {
         assertEquals(
-            setOf(ContentStatus.APPROVED_FOR_START, ContentStatus.RELEASE_READY, ContentStatus.DRAFT, ContentStatus.IMAGE_APPROVED, ContentStatus.HTML_APPROVED),
+            setOf(ContentStatus.DRAFT, ContentStatus.IMAGE_APPROVED, ContentStatus.HTML_APPROVED),
             ContentStatus.entries.toSet(),
         )
     }
@@ -63,9 +63,6 @@ class SetDescriptorTest {
     @Test
     fun `surface constructors enforce platform route settings and resources`() {
         assertThrows(IllegalArgumentException::class.java) {
-            preview(Compatibility(Platform.WEAR_OS, 33), InstallRoute.EmbeddedPreview, setOf(SupportedSetting.NONE), resources())
-        }
-        assertThrows(IllegalArgumentException::class.java) {
             preview(Compatibility(Platform.ANDROID_PHONE, 29), InstallRoute.SystemWallpaperPreview, setOf(SupportedSetting.NONE), resources())
         }
         assertThrows(IllegalArgumentException::class.java) {
@@ -82,23 +79,12 @@ class SetDescriptorTest {
         assertThrows(IllegalArgumentException::class.java) {
             preview(Compatibility(Platform.ANDROID_PHONE, 29), InstallRoute.EmbeddedPreview, emptySet(), resources())
         }
-        assertThrows(IllegalArgumentException::class.java) {
-            WatchFaceContribution(
-                ComponentId("watchface"), Revision(1), Revision(1),
-                Compatibility(Platform.ANDROID_PHONE, 29), InstallRoute.SeparateWatchFacePackage,
-                setOf(SupportedSetting.NONE), ArtifactReference(ArtifactId("watchface"), ":watchfaces:example"), resources(),
-            )
-        }
     }
 
     @Test
     fun `wallpaper rejects each invalid platform route or setting with a valid service identity`() {
         val valid = phoneSet().wallpaper
         assertEquals("test.phone.WallpaperService", valid.serviceClassName)
-        val invalidPlatform = assertThrows(IllegalArgumentException::class.java) {
-            valid.copy(compatibility = Compatibility(Platform.WEAR_OS, 33))
-        }
-        assertEquals("Wallpaper requires ANDROID_PHONE with SystemWallpaperPreview", invalidPlatform.message)
         val invalidRoute = assertThrows(IllegalArgumentException::class.java) {
             valid.copy(installRoute = InstallRoute.EmbeddedPreview)
         }
@@ -129,9 +115,8 @@ class SetDescriptorTest {
     }
 
     @Test
-    fun `complete phone declaration has independent wallpaper and widget references without watchface`() {
+    fun `complete phone declaration has independent wallpaper and widget references`() {
         val set = phoneSet()
-        assertEquals(null, set.watchFace)
         assertEquals(WidgetSize.entries.toSet(), set.clockWidget!!.layouts.keys)
         assertEquals(DayPhase.entries.toSet(), set.wallpaper.phaseRefs.keys)
         assertEquals("test.phone.WallpaperService", set.wallpaper.serviceClassName)
@@ -143,7 +128,7 @@ class SetDescriptorTest {
         val set = phoneSet()
         assertThrows(IllegalArgumentException::class.java) { set.copy(schemaVersion = 3) }
         assertThrows(IllegalArgumentException::class.java) { set.copy(clockWidget = null) }
-        assertThrows(IllegalArgumentException::class.java) { set.copy(contentStatus = ContentStatus.RELEASE_READY) }
+        assertThrows(IllegalArgumentException::class.java) { set.copy(contentStatus = ContentStatus.HTML_APPROVED) }
         assertThrows(IllegalArgumentException::class.java) { set.copy(wallpaper = set.wallpaper.copy(phaseRefs = emptyMap())) }
         assertThrows(IllegalArgumentException::class.java) { set.copy(wallpaper = set.wallpaper.copy(effectsRefs = emptyList())) }
         assertThrows(IllegalArgumentException::class.java) { set.copy(wallpaper = set.wallpaper.copy(sceneRef = null)) }
@@ -182,25 +167,6 @@ class SetDescriptorTest {
         assertThrows(IllegalArgumentException::class.java) { approval.copy(record = "../outside.md") }
         assertThrows(IllegalArgumentException::class.java) { approval.copy(record = "source-assets/approval.md") }
         assertThrows(IllegalArgumentException::class.java) { approval.copy(sha256 = "bad") }
-    }
-
-    @Test
-    fun `legacy schema is explicit debug only and cannot claim phone completeness`() {
-        val phone = phoneSet()
-        val legacy = phone.copy(
-            schemaVersion = 1,
-            contentStatus = ContentStatus.RELEASE_READY,
-            clockWidget = null,
-            watchFace = WatchFaceContribution(
-                ComponentId("legacy-watchface"), Revision(1), Revision(1), Compatibility(Platform.WEAR_OS, 33),
-                InstallRoute.SeparateWatchFacePackage, setOf(SupportedSetting.NONE),
-                ArtifactReference(ArtifactId("legacy-watchface"), ":watchfaces:legacy"),
-                listOf(ResourceReference("legacy-watchface", "raw/watchface.xml", "a".repeat(64), Revision(1), "legacy fixture")),
-            ),
-        )
-        assertEquals(false, legacy.releaseEligible)
-        assertThrows(IllegalArgumentException::class.java) { legacy.copy(distribution = Distribution.PUBLIC) }
-        assertThrows(IllegalArgumentException::class.java) { legacy.copy(watchFace = null) }
     }
 
     @Test
