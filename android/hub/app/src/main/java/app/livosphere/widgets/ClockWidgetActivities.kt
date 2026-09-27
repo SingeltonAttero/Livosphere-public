@@ -245,7 +245,7 @@ private fun ClockConfiguration(
                     color = MaterialTheme.colorScheme.error,
                 )
                 SaveResult.PIN_UNAVAILABLE, SaveResult.PIN_REJECTED -> {
-                    Text("Автоматическое добавление недоступно. На главном экране удерживайте свободное место, откройте «Виджеты» и выберите Livosphere.")
+                    Text("Автоматическое добавление недоступно. На главном экране удерживайте свободное место, откройте «Виджеты» и найдите «Живые обои Livosphere».")
                     OutlinedButton(onClick = onOpenHome, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                         Text("Перейти на главный экран")
                     }

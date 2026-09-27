@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Livosphere</string>
+    <string name="app_name">Живые обои Livosphere</string>
     <string name="hub_section_theme">Обои</string>
     <string name="hub_section_devices">Устройства</string>
     <string name="hub_section_settings">Настройки</string>
