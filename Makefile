@@ -19,8 +19,9 @@ ifneq ($(strip $(LIVOSPHERE_JAVA_HOME)),)
 export JAVA_HOME := $(LIVOSPHERE_JAVA_HOME)
 endif
 export ANDROID_SDK_ROOT
+export PHONE_RUN_DIR PHONE_SERIAL
 
-.PHONY: doctor assets-check phone check device-check offline-smoke verify benchmark benchmark-sp06 protocol-sp07 evidence-validator-check phone-v2-pipeline-test phone-v2-candidate phone-v2-validate release
+.PHONY: doctor assets-check phone check device-check offline-smoke verify benchmark benchmark-sp06 protocol-sp07 evidence-validator-check phone-v2-pipeline-test phone-v2-candidate phone-v2-validate phone-install release
 
 doctor:
 	$(DOCTOR_SCRIPT)
@@ -55,6 +56,9 @@ phone-v2-candidate:
 
 phone-v2-validate:
 	@python3 android/scripts/phone-v2-release.py validate
+
+phone-install:
+	@python3 android/scripts/install-phone.py
 
 benchmark-sp06:
 	$(GRADLE) :quality:macrobenchmark:verifySp06Setup
