@@ -41,6 +41,20 @@ def main():
 
     with tempfile.TemporaryDirectory(prefix="phone-v2-test-") as temp_name:
         temp = Path(temp_name)
+        env_file = temp / ".env"
+        env_file.write_text("LIVOSPHERE_RELEASE_STORE_PASSWORD=literal$#= value\nPHONE_VERSION_CODE=1\n")
+        env_file.chmod(0o600)
+        with mock.patch.dict(os.environ, {}, clear=True):
+            phone.load_local_env(env_file)
+            assert os.environ["LIVOSPHERE_RELEASE_STORE_PASSWORD"] == "literal$#= value"
+            assert os.environ["PHONE_VERSION_CODE"] == "1"
+        env_file.chmod(0o644)
+        expect_failure(lambda: phone.load_local_env(env_file), ".env must be readable only by its owner")
+        env_file.chmod(0o600)
+        with mock.patch.dict(os.environ, {"PHONE_VERSION_CODE": "2"}, clear=True):
+            expect_failure(lambda: phone.load_local_env(env_file), ".env conflicts with environment")
+        print("PASS: local .env literal values, permissions and CI conflict")
+
         repo = temp / "repo"
         repo.mkdir()
         command(["git", "init", "-q"], cwd=repo)
@@ -81,6 +95,10 @@ def main():
                  "--key-pass", "pass:testpass", "--ks-key-alias", "test", str(apk)])
         apk.with_name(apk.name + ".idsig").unlink(missing_ok=True)
         command(["jarsigner", "-keystore", str(key), "-storepass", "testpass", "-keypass", "testpass", str(aab), "test"])
+        phone.verify_signatures(cert, apk, aab)
+        expect_failure(lambda: phone.verify_signatures("0" * 64, apk, aab),
+                       "artifact signature or owner certificate mismatch")
+        print("PASS: signed APK/AAB match owner certificate; foreign certificate rejected")
         package, code, product = phone.apk_meta(apk)
         assert package == "app.livosphere"
         phone.package_check(apk, aab, code, product)

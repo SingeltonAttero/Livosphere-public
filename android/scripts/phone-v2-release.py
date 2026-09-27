@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import zipfile
@@ -25,6 +26,13 @@ SET_IDS = frozenset({
 })
 GATES = ("functional", "physicalPerformance", "battery", "storeDelivery", "ownerApproval")
 WIDGETS = {"Small": "small", "Medium": "medium", "Large": "large"}
+LOCAL_ENV_KEYS = frozenset({
+    "LIVOSPHERE_RELEASE_KEYSTORE", "LIVOSPHERE_RELEASE_STORE_PASSWORD",
+    "LIVOSPHERE_RELEASE_KEY_ALIAS", "LIVOSPHERE_RELEASE_KEY_PASSWORD",
+    "LIVOSPHERE_RELEASE_CERT_SHA256", "LIVOSPHERE_OWNER_KEY_CONFIRMED",
+    "PRODUCT_RELEASE", "PHONE_PREVIOUS_VERSION_CODE", "PHONE_VERSION_CODE",
+    "LIVOSPHERE_RELEASE_RUN_DIR", "LIVOSPHERE_PREVIOUS_PHONE_V2_MANIFEST",
+})
 
 _aab_spec = importlib.util.spec_from_file_location("livosphere_aab_manifest", SCRIPT / "read-aab-manifest.py")
 _aab_xml = importlib.util.module_from_spec(_aab_spec)
@@ -33,6 +41,29 @@ _aab_spec.loader.exec_module(_aab_xml)
 
 def fail(message):
     raise SystemExit(f"phone-v2: {message}")
+
+
+def load_local_env(path=None):
+    """Read the ignored local file as literal KEY=value lines; CI can use env only."""
+    path = ROOT / ".env" if path is None else Path(path)
+    if not path.exists() and not path.is_symlink():
+        return
+    regular(path)
+    if path.stat().st_mode & (stat.S_IRWXG | stat.S_IRWXO):
+        fail(".env must be readable only by its owner (chmod 600 .env)")
+    seen = set()
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line or line.startswith("#"):
+            continue
+        key, separator, value = line.partition("=")
+        if not separator or key not in LOCAL_ENV_KEYS or key in seen:
+            fail(f"invalid .env entry at line {number}")
+        if not value:
+            fail(f".env value missing: {key} (line {number})")
+        if key in os.environ and os.environ[key] != value:
+            fail(f".env conflicts with environment: {key}")
+        os.environ[key] = value
+        seen.add(key)
 
 
 def run(args, **kwargs):
@@ -220,8 +251,19 @@ def verify_signatures(cert, apk, aab):
     if not re.fullmatch(r"[0-9a-fA-F]{64}", cert):
         fail("owner certificate fingerprint must be SHA-256")
     try:
-        run([str(SCRIPT / "verify-release-signatures.sh"), cert, str(apk), str(aab)], capture_output=True)
-    except subprocess.CalledProcessError:
+        apk_result = run([tool("apksigner"), "verify", "--print-certs", str(apk)], capture_output=True)
+        aab_result = run(["jarsigner", "-verify", "-verbose", str(aab)], capture_output=True)
+        aab_cert = run(["keytool", "-printcert", "-jarfile", str(aab)], capture_output=True)
+    except (subprocess.CalledProcessError, OSError):
+        fail("artifact signature or owner certificate mismatch")
+    apk_fingerprints = {value.lower() for value in re.findall(
+        r"(?m)^(?:Signer #\d+|V[0-9.]+ Signer:).*certificate SHA-256 digest: ([0-9a-fA-F]{64})$",
+        apk_result.stdout)}
+    aab_fingerprints = {value.replace(":", "").lower() for value in re.findall(
+        r"(?m)^\s*SHA256:\s*((?:[0-9a-fA-F]{2}:){31}[0-9a-fA-F]{2})\s*$",
+        aab_cert.stdout)}
+    if "jar verified." not in aab_result.stdout or apk_fingerprints != {cert.lower()} or \
+            aab_fingerprints != {cert.lower()}:
         fail("artifact signature or owner certificate mismatch")
 
 
@@ -518,10 +560,14 @@ def validate(run_dir, gate=False):
 
 
 def main():
+    load_local_env()
     if len(sys.argv) == 2 and sys.argv[1] == "build":
         build()
-    elif len(sys.argv) == 3 and sys.argv[1] in ("validate", "gate"):
-        validate(Path(sys.argv[2]), sys.argv[1] == "gate")
+    elif len(sys.argv) in (2, 3) and sys.argv[1] in ("validate", "gate"):
+        run_dir = sys.argv[2] if len(sys.argv) == 3 else os.environ.get("LIVOSPHERE_RELEASE_RUN_DIR")
+        if not run_dir:
+            fail("set LIVOSPHERE_RELEASE_RUN_DIR in .env or pass RUN_DIR")
+        validate(Path(run_dir), sys.argv[1] == "gate")
     else:
         fail("usage: phone-v2-release.py build|validate RUN_DIR|gate RUN_DIR")
 

@@ -48,15 +48,13 @@ verify: phone check offline-smoke
 benchmark: benchmark-sp06
 
 release:
-	@[ -n "$${LIVOSPHERE_RELEASE_RUN_DIR:-}" ] || { echo "phone-v2: NOT_READY — set LIVOSPHERE_RELEASE_RUN_DIR" >&2; exit 64; }
-	@python3 android/scripts/phone-v2-release.py gate "$$LIVOSPHERE_RELEASE_RUN_DIR"
+	@python3 android/scripts/phone-v2-release.py gate
 
 phone-v2-candidate:
 	@python3 android/scripts/phone-v2-release.py build
 
 phone-v2-validate:
-	@[ -n "$${LIVOSPHERE_RELEASE_RUN_DIR:-}" ] || { echo "phone-v2: NOT_READY — set LIVOSPHERE_RELEASE_RUN_DIR" >&2; exit 64; }
-	@python3 android/scripts/phone-v2-release.py validate "$$LIVOSPHERE_RELEASE_RUN_DIR"
+	@python3 android/scripts/phone-v2-release.py validate
 
 benchmark-sp06:
 	$(GRADLE) :quality:macrobenchmark:verifySp06Setup

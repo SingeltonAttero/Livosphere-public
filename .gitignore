@@ -9,6 +9,7 @@ local.properties
 *.keystore
 .env
 .env.*
+!.env.example
 
 # Android / Gradle
 .gradle/
