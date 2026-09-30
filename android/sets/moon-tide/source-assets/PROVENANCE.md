@@ -1,6 +1,6 @@
 # Лунный прилив source provenance
 
-The four runtime plates are byte-identical copies from `_bmad-output/implementation-artifacts/source/pencil-2026-09-24/assets/`.
+Исходные кадры сохранены в редактируемом дизайне `pen-design/Дизайн Живых обоев.pen`; файлы для сборки находятся в этой папке.
 
 - morning: `generated-76.png`, Pencil node `VV3nl`
 - day: `generated-74.png`, Pencil node `PPd7V`

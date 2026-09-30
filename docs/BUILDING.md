@@ -1,48 +1,62 @@
-# Building and testing
+# Сборка и команды
 
-## Prerequisites
+Команды выполняются из корня репозитория на macOS или Linux. Для сборки нужны JDK 17, Python 3.9+, Make и Android SDK. В Android Studio → SDK Manager установите Platform 37, Build-Tools 36.0.0 и Platform-Tools. Первая сборка скачивает Gradle и зависимости.
 
-- JDK 17 (`JAVA_HOME`); the preflight intentionally checks this version.
-- Android SDK Platform 37 and Android build tools, platform-tools/adb.
-- `ANDROID_SDK_ROOT` or `ANDROID_HOME` pointing at your SDK.
-- Python 3 and `make` for repository scripts.
-
-On macOS, Make discovers JDK 17 and the standard SDK location. On Linux, set `JAVA_HOME` and `ANDROID_SDK_ROOT` explicitly. Keep any `android/local.properties` local. The Gradle wrapper and version catalogue pin the project's toolchain; do not silently upgrade them.
+На macOS скрипт ищет установленный JDK 17 и SDK в `~/Library/Android/sdk`. Если `JAVA_HOME` указывает на более новый JDK Android Studio, скрипт ищет JDK 17. На Linux используются `JAVA_HOME` и SDK из `~/Android/Sdk` либо заданных переменных. Для явного выбора:
 
 ```sh
+export LIVOSPHERE_JAVA_HOME=/path/to/jdk-17
+export ANDROID_SDK_ROOT=/path/to/android-sdk
 make doctor
 make phone
 ```
 
-Run from the repository root. `make phone` validates assets and builds `android/hub/app/build/outputs/apk/debug/app-debug.apk`. First use needs network access to resolve the wrapper and dependencies. `make offline-smoke` requires those dependencies to be cached.
+SDK также можно задать через `sdk.dir` в локальном `android/local.properties`. Если файл и переменные окружения указывают на разные каталоги, команда объяснит конфликт. `local.properties` не коммитится.
 
-Install on your selected device without owner signing credentials:
+Результат: `android/hub/app/build/outputs/apk/debug/app-debug.apk`. Минимальная ОС — Android 10 / API 29; compileSdk 37, targetSdk 36. Ключ владельца для debug-сборки не нужен.
+
+## Установка и проверка
 
 ```sh
-adb devices
-adb -s DEVICE_SERIAL install -r android/hub/app/build/outputs/apk/debug/app-debug.apk
+./scripts/android-env.sh adb devices
+make phone-install PHONE_SERIAL=DEVICE_SERIAL
+make check
+make scripts-check
 ```
 
-If the installed app has a different signing certificate, update installation will fail. Use a separate test device/profile or deliberately remove the old installation after preserving any needed state; uninstalling loses app data.
+`make phone-install` устанавливает уже собранный **debug APK**, без `.env` и записей подписанного кандидата. Если подключено ровно одно авторизованное устройство, `PHONE_SERIAL` можно опустить. Эмулятор подходит для разработки. Подключите физический телефон, включите USB debugging и подтвердите доступ на экране.
 
-The current app module uses minSdk 29 (Android 10), compileSdk 37 and targetSdk 36.
+Ошибка подписи при обновлении означает, что установленная версия подписана другим ключом. Скрипт не удаляет приложение автоматически. Используйте отдельное тестовое устройство/профиль либо удалите старую установку осознанно: её настройки будут потеряны.
 
-## Checks
-
-| Command | Purpose |
+| Команда | Что делает |
 | --- | --- |
-| `make assets-check` | Validate selected content assets |
-| `make check` | Gradle checks for the phone profile |
-| `make device-check` | Instrumentation on an attached emulator/device |
-| `make offline-smoke` | Cached build and checks |
-| `make verify` | Debug build, checks, offline smoke and artifact verification |
-| `make phone-v2-pipeline-test` | Unsigned release build and candidate fixtures with a temporary test key, no owner key |
-| `python3 android/scripts/test_install_phone.py` | Installer fixtures, no physical device |
+| `make help` | Краткая справка |
+| `make doctor` | Проверяет JDK и SDK |
+| `make phone` | Проверяет ресурсы и собирает debug APK |
+| `make assets-check` | Проверяет описания коллекций, ресурсы и контрольные суммы |
+| `make check` | Unit-тесты, lint и проверки модулей |
+| `make scripts-check` | Тесты окружения и установщиков без устройства |
+| `make verify` | Сборка, проверки и проверка APK |
+| `make device-check` | Instrumentation-тесты; нужно одно устройство или эмулятор |
+| `make offline-smoke` | Сборка и проверки без сети; зависимости должны быть скачаны |
+| `make benchmark-build` | Собирает profileable APK для измерений; замеры не запускает |
+| `make release-test` | Проверяет release-инструменты на временном тестовом ключе |
 
-For a focused change, run the affected test selectors and module build instead of the full suite. Inspect the concrete commands in `Makefile` before running them. Do not present old test counts as current results.
+Все вспомогательные скрипты находятся в `scripts/`. Обычной разработке достаточно `make phone`, `make phone-install` и `make check`. Подписанная сборка описана отдельно в [RELEASE](RELEASE.md).
 
-## Signing and release
+## После изменения кода
 
-Debug builds use the development signing path; they do not use the owner's permanent key. `.env.example` lists the owner inputs for a signed candidate. Copy it to an ignored `.env` only when you own the appropriate signing materials. Never publish that file or a keystore. Candidate creation requires clean Git state and exact owner inputs.
+Например, поменяйте текст в `android/hub/app/src/main/res/values/strings.xml`:
 
-`make release` checks release readiness; it does not publish to RuStore. Candidate evidence lives locally under `.local/evidence/phone-v2/`. Existing private runs under `_bmad-output/implementation-artifacts/evidence/phone-v2/` remain intact; select them by an explicit run path rather than moving or rebuilding them. `LIVOSPHERE_EVIDENCE_DIR` can choose another evidence directory for candidate creation; `LIVOSPHERE_RELEASE_RUN_DIR` selects an exact run for validation; `PHONE_RUN_DIR` or `--run-dir` selects one for installation. Store publication, device checks and artwork permission remain separate from compiling the application.
+```sh
+make phone
+make phone-install PHONE_SERIAL=DEVICE_SERIAL
+```
+
+Откройте Livosphere и проверьте изменённый экран. Для изменения логики выполните тесты затронутого модуля, например:
+
+```sh
+./scripts/android-env.sh ./scripts/gradle.sh :hub:domain:test
+```
+
+В Android Studio откройте каталог `android/`. На Windows используйте Gradle wrapper и `adb` из Android Studio; Make и shell-скрипты рассчитаны на POSIX-среду.

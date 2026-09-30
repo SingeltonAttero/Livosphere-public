@@ -1,6 +1,6 @@
 # Окно на орбиту source provenance
 
-The four runtime plates are byte-identical copies from `_bmad-output/implementation-artifacts/source/pencil-2026-09-24/assets/`.
+Исходные кадры сохранены в редактируемом дизайне `pen-design/Дизайн Живых обоев.pen`; файлы для сборки находятся в этой папке.
 
 - morning: `generated-65.png`, Pencil node `wxPlr`
 - day: `generated-64.png`, Pencil node `lxBLq`

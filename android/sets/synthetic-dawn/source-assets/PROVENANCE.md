@@ -1,6 +1,6 @@
 # Synthetic Dawn source provenance
 
-Current source revision 2 is the fixed V1 series 04 in `pen-design/Дизайн Живых обоев.pen`, verified through Pencil MCP on 2026-09-24. Reproducible copies are stored in `_bmad-output/implementation-artifacts/source/pencil-v1-art-replacement-2026-09-24/`.
+Current source revision 2 is the fixed V1 series 04 in `pen-design/Дизайн Живых обоев.pen`, verified through Pencil MCP on 2026-09-24.
 
 - morning: `generated-6.png`, Pencil node `DxjfK`
 - day: `generated-7.png`, Pencil node `n00QA`
@@ -8,7 +8,6 @@ Current source revision 2 is the fixed V1 series 04 in `pen-design/Дизай�
 - night: `generated-8.png`, Pencil node `ji5yP`
 - preview: reduced PNG from hero node `kZVr5`, whose image fill is `generated-7.png`
 
-All four source files are JPEG-encoded and use `.jpg` Android resource names without changing bytes. The immutable source revision 1 remains at `_bmad-output/implementation-artifacts/source/pencil-2026-09-24/` and describes the previous debug APK. Owner approval for revision 2: `android/sets/synthetic-dawn/approval.md`.
 
 ## Clock widget source revision 3
 

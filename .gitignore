@@ -55,6 +55,11 @@ node_modules/
 /.local/
 *.log
 
-# Intentionally tracked: .agents/skills/, scripts/, docs/, Android source assets,
+# Intentionally tracked: scripts/, docs/, Android source assets,
 # Gradle wrapper, dependency/version files, licenses and .env.example.
-# New shareable design/decision records belong in docs/content/ and docs/decisions/.
+# Editable design belongs in pen-design/.
+
+# Developer-selected agent tools are local, not application dependencies
+/.agents/
+/.claude/
+/.codex/

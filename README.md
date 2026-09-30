@@ -4,7 +4,7 @@ Live wallpapers and clock widgets for Android, created by **Yakov Weber (Веб�
 
 Browse a local collection of illustrated worlds, apply a wallpaper, and add clocks in S, M or L. Wallpapers and widgets work independently: mix them across collections or use either on its own.
 
-[Русский](README.ru.md) · [Build](docs/BUILDING.md) · [Architecture](docs/architecture/README.md) · [Requirements & design](docs/README.md) · [Contribute](CONTRIBUTING.md)
+[Русский](README.ru.md) · [Build](docs/BUILDING.md) · [Architecture](docs/architecture/README.md) · [Screen specifications](docs/README.md) · [Contribute](CONTRIBUTING.md)
 
 ## A look inside
 
@@ -28,7 +28,7 @@ These are existing RuStore promotional compositions made from app screenshots an
 - System wallpaper preview and widget pin/picker flows.
 - Reduced/off effect policies and lifecycle-aware rendering.
 
-The current manifests select 13 public collections. The product targets Android phones; Wear OS is outside its scope. Launcher behaviour, lock-screen support and battery results depend on the device and need separate validation.
+The current manifests select 13 public collections. The product targets Android phones. Launcher behaviour, lock-screen support and battery results depend on the device and need separate validation.
 
 ## Get the app
 
@@ -47,18 +47,19 @@ Install JDK 17 and Android SDK Platform 37, then run from the repository root:
 ```sh
 make doctor
 make phone
+make phone-install PHONE_SERIAL=DEVICE_SERIAL
 ```
 
+Enable USB debugging and authorize the selected device before installation.
+
 Debug APK: `android/hub/app/build/outputs/apk/debug/app-debug.apk`.
-No owner signing key or BMAD installation is required for this build. The first build downloads Gradle and Maven dependencies. See [building and testing](docs/BUILDING.md) for prerequisites, checks and device installation.
+No owner signing key is required for this build. The first build downloads Gradle and Maven dependencies. See [building and testing](docs/BUILDING.md) for prerequisites, checks and device installation.
 
 ## For developers
 
 Kotlin, Jetpack Compose, Hilt, DataStore, Android WallpaperService and AppWidget/RemoteViews. Versions are pinned in `android/gradle/libs.versions.toml` and the Gradle wrapper.
 
-[Architecture](docs/architecture/README.md) explains the modules and system boundaries. [Content development](docs/CONTENT.md) covers manifests, assets and approvals. [Developer handoff](docs/HANDOFF.md) records the current baseline and remaining release checks.
-
-Project skills and their support files are included under `.agents/skills/`. They are optional for building the app. To restore the pinned BMAD runtime on another machine and continue agent-assisted work, follow [agent setup](docs/AGENTS-SETUP.md).
+[Screen specifications](docs/README.md) describe what each screen does and where to change it. [Architecture](docs/architecture/README.md) explains the modules and system boundaries. [Content development](docs/CONTENT.md) covers manifests, assets and approvals. [Device testing](docs/TESTING.md) gives a manual check route.
 
 ## License and artwork
 

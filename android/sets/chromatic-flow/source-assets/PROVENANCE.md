@@ -1,6 +1,6 @@
 # Хроматический поток source provenance
 
-The four runtime plates are byte-identical copies from `_bmad-output/implementation-artifacts/source/pencil-2026-09-24/assets/`.
+Исходные кадры сохранены в редактируемом дизайне `pen-design/Дизайн Живых обоев.pen`; файлы для сборки находятся в этой папке.
 
 - morning: `generated-81.png`, Pencil node `AGi9b`
 - day: `generated-33.png`, Pencil node `wA9Ib`

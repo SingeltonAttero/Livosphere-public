@@ -1,6 +1,6 @@
 # Звёздная река source provenance
 
-The four runtime plates are byte-identical copies from `_bmad-output/implementation-artifacts/source/pencil-2026-09-24/assets/`.
+Исходные кадры сохранены в редактируемом дизайне `pen-design/Дизайн Живых обоев.pen`; файлы для сборки находятся в этой папке.
 
 - morning: `generated-84.png`, Pencil node `Htlxo`
 - day: `generated-77.png`, Pencil node `BScey`

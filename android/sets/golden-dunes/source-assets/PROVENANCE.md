@@ -1,6 +1,6 @@
 # Золотые барханы source provenance
 
-The four runtime plates are byte-identical copies from `_bmad-output/implementation-artifacts/source/pencil-2026-09-24/assets/`.
+Исходные кадры сохранены в редактируемом дизайне `pen-design/Дизайн Живых обоев.pen`; файлы для сборки находятся в этой папке.
 
 - morning: `generated-73.png`, Pencil node `O7nTkG`
 - day: `generated-26.png`, Pencil node `w4BpaE`

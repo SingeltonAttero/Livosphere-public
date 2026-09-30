@@ -36,6 +36,6 @@ Wallpaper engines work without an Activity, follow local time, and stop or reduc
 
 The local manifest is the source for contribution selection and generated resources. Do not hand-edit generated registries. Use accepted revisions, asset provenance and the validator when adding content. [Content guide](../CONTENT.md).
 
-Kotlin, Compose, Hilt, DataStore and their versions are pinned in the repository. There is no runtime catalogue download or backend in the current scope. Phone packaging must not include Wear OS components. Release evidence is bound to exact artifact bytes; rebuilding changes the candidate and cannot inherit previous device results automatically.
+Kotlin, Compose, Hilt, DataStore and their versions are pinned in the repository. There is no runtime catalogue download or backend in the current scope. Release evidence is bound to exact artifact bytes; rebuilding changes the candidate and cannot inherit previous device results automatically.
 
-This document summarizes the accepted phone architecture and is usable without the private BMAD archive. The implementation and tests determine current behaviour; unresolved differences require an explicit decision rather than a silent rewrite of the contract.
+UI behaviour is documented in [screen specifications](../README.md). Build and installation commands are in [BUILDING](../BUILDING.md).

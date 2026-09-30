@@ -1,30 +1,26 @@
-# Content development
+# Добавление обоев и часов
 
-A collection links independently usable wallpaper and clock contributions. Current schemas and checks are implemented in `android/core/contract`, `android/build-logic`, and the manifests under `android/sets/`. Read the parser and a current neighbouring set before adding fields; this guide does not substitute a new schema for the code.
+Коллекция объединяет обои, часы и превью. Пользователь использует обои и часы независимо. Формат описания находится в `android/sets/<id>/manifest/set.properties`; его читает `android/build-logic`.
 
-## Workflow
+## Состав коллекции
 
-1. Define the surface: `hub`, `wallpapers/<id>`, `widgets/<id>` or the relationship `sets/<id>`.
-2. Record a brief, source rights and a revision in `docs/content/<surface>/<id>/`. Reuse an existing workspace if present.
-3. For wallpaper artwork, obtain approval of the static composition before its dependent motion prototype. For clocks, review S/M/L and legibility. Keep each surface's design and experience separate.
-4. Review the applicable HTML behaviour and obtain approval of the exact revision before native integration. HTML is a model, not an installed WallpaperService or AppWidget.
-5. Add accepted assets and contributions through the manifest. Preserve source provenance and font licenses. Never mark fixtures public or bypass validation.
-6. Run checks chosen for the changed boundary, build the affected modules, review the diff independently and provide a device verification path.
+- `manifest/set.properties` — ID, версии, состав, ресурсы и допустимые настройки.
+- `source-assets/` — изображения, layout, шрифты, `checksums.sha256` и сведения об источниках.
+- `wallpaper/`, `clock-widget/`, `preview/` — Android-модули соответствующих частей.
+- `approval.md`, `widget-approval.md` — запись принятого оформления; её SHA-256 связан с описанием коллекции.
 
-New live wallpaper work describes four local-time environments, object-level motion, triggers, interruption and reduced/off behaviour where applicable. Widget work describes native host geometry, S/M/L, current time and per-instance configuration. Runtime synchronisation between wallpaper and clock is not implied by their artistic relationship.
+Для примера четырёхфазных обоев и стрелочных часов используйте `rainforest`, для цифровых часов — `neon-express`, для анимированной сцены — `electric-harbor`.
 
-Shared mechanisms must serve an accepted concrete need; do not expand to an unlimited renderer or network marketplace by default. A missing standalone packaging capability must be implemented and tested, rather than hidden with a dummy companion contribution.
+## Порядок изменения
 
-## Where to start
+1. Выберите существующую коллекцию или новый устойчивый ID. Сохраните исходный арт, права и лицензию шрифта.
+2. Согласуйте с автором новую композицию и её поведение. Рабочий дизайн находится в `pen-design/`.
+3. Добавьте ресурсы, описание и Android-модули. Новая коллекция подключается в `android/settings.gradle.kts` и `livosphere.setManifests` в `android/gradle.properties`.
+4. Пересчитайте контрольные суммы изменённых ресурсов и документов, указанные в manifest. Реестр и Android-resources генерируются автоматически.
+5. Выполните `make assets-check`, тесты затронутого runtime и `make phone`. Проверьте превью, системную установку и часы на launcher.
 
-- `android/core/contract/src/main/kotlin/app/livosphere/contract/SetDescriptor.kt`: descriptors.
-- `android/sets/<id>/manifest/set.properties`: contributions and revisions.
-- `android/sets/<id>/approval.md`, `source-assets/PROVENANCE.md`: acceptance and source records.
-- `android/hub/app`: catalogue and system-flow adapters.
-- `android/widgets/runtime`: clocks.
-- `android/wallpapers/engine`: shared phase and lifecycle policies.
-- `.agents/skills/livosphere-content/SKILL.md`: project workflow and templates.
+Debug fixture используется для тестирования изоляции и не включается в release. Не меняйте его статус на public и не подставляйте фиктивную часть коллекции для обхода validator.
 
-Keep new decisions and source records in these public workspaces so another checkout can continue the work. Historical private design references document origins only; they are not required inputs to the current build. Bundled artwork is covered by [separate terms](../ASSET-LICENSE.md).
+В новом эффекте обоев опишите работу в каждой фазе, реакции, остановку и уменьшенное/выключенное движение. Для часов нужны S/M/L, размеры host, актуальное время и независимость экземпляров. Макет сам по себе не подтверждает работу WallpaperService или AppWidget.
 
-Current planning and accepted UX workspaces are indexed in [docs/README.md](README.md). Reuse the existing surface workspace before creating a new one; editable pen.dev sources and local dependencies are in [pen-design](../pen-design/README.md). Changes to documented behavior or design follow the [MR documentation rule](process/change-documentation.md).
+Схемы и ограничения проверяет `SetManifestReader.java`. Новый формат самостоятельного контента сначала требует изменения этого контракта и его тестов. Исходный арт регулируется [отдельной лицензией](../ASSET-LICENSE.md).

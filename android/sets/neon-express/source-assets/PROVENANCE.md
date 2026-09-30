@@ -1,6 +1,6 @@
 # Неоновый экспресс source provenance
 
-Current source revision 2 is the fixed V1 F05 series in `pen-design/Дизайн Живых обоев.pen`, verified through Pencil MCP on 2026-09-24. Reproducible copies are stored in `_bmad-output/implementation-artifacts/source/pencil-v1-art-replacement-2026-09-24/`.
+Current source revision 2 is the fixed V1 F05 series in `pen-design/Дизайн Живых обоев.pen`, verified through Pencil MCP on 2026-09-24.
 
 - morning: `generated-9.webp`, Pencil node `s2TWS`
 - day: `generated-10.webp`, Pencil node `AY06L`
@@ -8,7 +8,6 @@ Current source revision 2 is the fixed V1 F05 series in `pen-design/Дизай
 - night: `generated-8.webp`, Pencil node `CVikA`
 - preview: reduced PNG from separate hero node `Z2xvGi`, whose image fill is `generated-10.png`
 
-All four runtime phase files are WebP. The separate fifth hero is preview-only and is not part of the phase schedule. The immutable source revision 1 remains at `_bmad-output/implementation-artifacts/source/pencil-2026-09-24/` and describes the previous debug APK. Owner approval for revision 2: `android/sets/neon-express/approval.md`.
 
 ## Clock widget source revision 3
 

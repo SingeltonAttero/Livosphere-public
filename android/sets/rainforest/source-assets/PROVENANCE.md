@@ -1,6 +1,6 @@
 # Лес после дождя source provenance
 
-The four runtime plates are byte-identical copies from `_bmad-output/implementation-artifacts/source/pencil-2026-09-24/assets/`.
+Исходные кадры сохранены в редактируемом дизайне `pen-design/Дизайн Живых обоев.pen`; файлы для сборки находятся в этой папке.
 
 - morning: `generated-85.png`, Pencil node `eOUcx`
 - day: `generated-19.png`, Pencil node `cE7TM`
