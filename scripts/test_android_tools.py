@@ -80,20 +80,27 @@ class ToolsTest(unittest.TestCase):
         self.assertEqual(Path(result.stdout.splitlines()[0]).resolve(), (self.root / "android").resolve())
         self.assertEqual(result.stdout.splitlines()[-2:], ["assetsCheck", ":hub:app:assembleDebug"])
 
-    def install(self, devices, argv, failure=None):
+    def install(self, devices, argv, failure=None, launch=None):
         apk = self.root / "debug.apk"
         apk.touch()
         with mock.patch.object(installer, "APK", apk), mock.patch.object(sys, "argv", ["install-debug.py", *argv]), \
              mock.patch.dict(os.environ, {}, clear=True), mock.patch.object(installer.shutil, "which", return_value="adb"), \
              mock.patch.object(installer.subprocess, "run") as run:
-            run.side_effect = [subprocess.CompletedProcess([], 0, stdout=devices), failure or subprocess.CompletedProcess([], 0)]
-            installer.main()
+            run.side_effect = [subprocess.CompletedProcess([], 0, stdout=devices), failure or subprocess.CompletedProcess([], 0),
+                               launch or subprocess.CompletedProcess([], 0, stdout="Status: ok\n", stderr="")]
+            try:
+                installer.main()
+            finally:
+                self.adb_calls = run.call_args_list
             return run.call_args_list
 
     def test_debug_installer_uses_selected_serial_and_never_uninstalls(self):
         calls = self.install("List of devices attached\na device\nb device\n", ["--serial", "b"])
         self.assertEqual(calls[1].args[0][:5], ["adb", "-s", "b", "install", "-r"])
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[2].args[0], ["adb", "-s", "b", "shell", "am", "start", "-W", "-n",
+                                         "app.livosphere/.MainActivity", "-a", "android.intent.action.MAIN",
+                                         "-c", "android.intent.category.LAUNCHER"])
+        self.assertEqual(len(calls), 3)
 
     def test_debug_installer_rejects_ambiguity_unauthorized_and_empty_serial(self):
         for devices, args in [("a device\nb device", []), ("a unauthorized", []), ("a device", ["--serial", ""])]:
@@ -103,6 +110,15 @@ class ToolsTest(unittest.TestCase):
     def test_debug_installer_reports_failed_install(self):
         with self.assertRaises(subprocess.CalledProcessError):
             self.install("a device", [], subprocess.CalledProcessError(1, ["adb", "install"]))
+        self.assertEqual(len(self.adb_calls), 2)
+
+    def test_launch_errors_do_not_report_success_after_installation(self):
+        for launch in [subprocess.CalledProcessError(1, ["adb", "shell", "am"]),
+                       subprocess.TimeoutExpired(["adb", "shell", "am"], 30),
+                       subprocess.CompletedProcess([], 0, stdout="Error type 3\nActivity does not exist\n", stderr=""),
+                       subprocess.CompletedProcess([], 0, stdout="", stderr="")]:
+            with self.subTest(launch=launch), self.assertRaisesRegex(SystemExit, "APK installed, but MainActivity"):
+                self.install("a device", [], launch=launch)
 
 
 if __name__ == "__main__":

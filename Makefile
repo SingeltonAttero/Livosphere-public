@@ -4,7 +4,7 @@ GRADLE := $(ANDROID_ENV) ./scripts/gradle.sh
 .PHONY: help doctor phone assets-check check scripts-check verify phone-install device-check offline-smoke benchmark-build release-candidate release-check candidate-install release-test
 
 help:
-	@printf '%s\n' 'make doctor          Check JDK and Android SDK' 'make phone           Build debug APK' 'make check           Unit tests, lint and module checks' 'make scripts-check   Test repository tools without a device' 'make verify          Build, tests and APK checks' 'make phone-install   Install debug APK (PHONE_SERIAL=serial)' 'make device-check    Instrumentation tests on one connected device' 'make offline-smoke   Build and test using cached dependencies' 'make benchmark-build Build profileable measurement APK' 'make release-test    Test candidate tooling with a temporary key'
+	@printf '%s\n' 'make doctor          Check JDK and Android SDK' 'make phone           Build debug APK' 'make check           Unit tests, lint and module checks' 'make scripts-check   Test repository tools without a device' 'make verify          Build, tests and APK checks' 'make phone-install   Install and launch debug APK (PHONE_SERIAL=serial)' 'make device-check    Instrumentation tests on one connected device' 'make offline-smoke   Build and test using cached dependencies' 'make benchmark-build Build profileable measurement APK' 'make release-test    Test candidate tooling with a temporary key'
 
 doctor:
 	$(ANDROID_ENV) ./scripts/doctor.sh

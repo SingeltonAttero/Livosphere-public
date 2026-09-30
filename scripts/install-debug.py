@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the existing debug APK on one selected Android device."""
+"""Install the existing debug APK and launch MainActivity on the selected device."""
 import argparse
 import os
 from pathlib import Path
@@ -33,7 +33,19 @@ def main():
     else:
         raise SystemExit("Connect one authorized device or specify PHONE_SERIAL. See adb devices.")
     subprocess.run([adb, "-s", serial, "install", "-r", str(APK)], check=True, timeout=180)
-    print("Debug APK installed. Open Livosphere and follow docs/TESTING.md.")
+    print("Debug APK installed. Starting Livosphere...", flush=True)
+    try:
+        launch = subprocess.run(
+            [adb, "-s", serial, "shell", "am", "start", "-W", "-n", "app.livosphere/.MainActivity",
+             "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER"],
+            check=True, capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise SystemExit(f"APK installed, but MainActivity launch failed: {error}") from error
+    output = launch.stdout + launch.stderr
+    if any(line.lstrip().startswith("Error") for line in output.splitlines()) or "Status: ok" not in output:
+        raise SystemExit(f"APK installed, but MainActivity launch was not confirmed:\n{output.strip()}")
+    print("Livosphere started. Follow docs/TESTING.md.")
 
 
 if __name__ == "__main__":
