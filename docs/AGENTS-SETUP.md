@@ -10,13 +10,13 @@ Prerequisites: Node.js 20.12+ with npm/npx, Python 3, and `uv` for BMAD's Python
 ./scripts/setup-agents.sh
 ```
 
-The script installs **bmad-method 6.11.0** in a temporary directory, then copies only `_bmad/` support into the checkout. It validates an existing runtime before returning, refuses an incomplete or different-version installation, and stages new support before an atomic rename. It preserves tracked `.agents/skills/`, `AGENTS.md`, project documentation and existing BMAD workspaces. The installer may advertise a newer version; do not accept an upgrade implicitly. Network access is required on first installation. Review the pinned installer if you need an offline package cache.
+The script installs **bmad-method 6.11.0** in a temporary directory, then copies only `_bmad/` support into the checkout. It validates an existing runtime before returning, refuses an incomplete or different-version installation, and stages new support before an atomic rename. It refreshes local `_bmad/custom/config.toml` from tracked `.agents/bmad/config.toml`: planning points to `docs/planning`, implementation to `docs/development`, and project knowledge to `docs`. Personal user overrides remain separate and are preserved. It preserves tracked `.agents/skills/`, `AGENTS.md`, project documentation and existing BMAD workspaces. The installer may advertise a newer version; do not accept an upgrade implicitly. Network access is required on first installation. Review the pinned installer if you need an offline package cache.
 
 Generated runtime and historical `_bmad-output/` files are ignored. Do not commit them to reintroduce the private archive. New shareable decisions and content workspaces belong in `docs/decisions/` and `docs/content/`. Preserve relevant context in a checked-in handoff, not only in chat or personal memory.
 
 ## Continue a change
 
-Read `AGENTS.md`, `docs/HANDOFF.md`, the relevant public guide and current implementation. Ask the agent to use `bmad-help` for orientation, then `bmad-build` for a concrete change or `livosphere-content` for a content cycle. Provide the user outcome, affected area and selected checks. Do not bootstrap a new greenfield product or invent accepted stories to fill an empty local BMAD workspace.
+Read `AGENTS.md`, `docs/HANDOFF.md`, the relevant public guide and current implementation. Ask the agent to use `bmad-help` for orientation, then `bmad-build` for a concrete change or `livosphere-content` for a content cycle. Provide the user outcome, affected area and selected checks. The accepted documents and canonical sprint state are already under `docs/`. Read `docs/README.md`; do not bootstrap a greenfield product or invent historical stories.
 
 `ui-ux-pro-max` is self-contained and uses Python 3 with its bundled data. Example:
 

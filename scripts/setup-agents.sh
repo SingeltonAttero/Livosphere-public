@@ -12,9 +12,19 @@ valid_runtime() {
     [ -f "$1/_config/manifest.yaml" ] &&
     grep -q '^  version: 6\.11\.0$' "$1/_config/manifest.yaml"
 }
+apply_project_paths() {
+    source_config="$repo_root/.agents/bmad/config.toml"
+    [ -f "$source_config" ] || { echo "Missing tracked .agents/bmad/config.toml" >&2; return 1; }
+    target_dir="$repo_root/_bmad/custom"
+    mkdir -p "$target_dir"
+    if ! cmp -s "$source_config" "$target_dir/config.toml"; then
+        cp "$source_config" "$target_dir/config.toml"
+    fi
+}
 if [ -e "$repo_root/_bmad" ] || [ -L "$repo_root/_bmad" ]; then
     valid_runtime "$repo_root/_bmad" || { echo "Existing BMAD support is incomplete or differs from 6.11.0. Preserve it and repair explicitly; no files changed." >&2; exit 1; }
-    echo "BMAD 6.11.0 support already exists; leaving it and bundled skills untouched."
+    apply_project_paths
+    echo "BMAD 6.11.0 support ready; shared paths refreshed, bundled skills and personal overrides preserved."
     exit 0
 fi
 command -v npx >/dev/null 2>&1 || { echo "Install Node.js 20.12+ and npm/npx first." >&2; exit 1; }
@@ -43,4 +53,5 @@ valid_runtime "$setup_dir/_bmad" || { echo "Pinned installer did not produce exp
 cp -R "$setup_dir/_bmad" "$stage_dir/_bmad"
 [ ! -e "$repo_root/_bmad" ] && [ ! -L "$repo_root/_bmad" ] || { echo "BMAD directory appeared during setup; leaving it untouched." >&2; exit 1; }
 mv "$stage_dir/_bmad" "$repo_root/_bmad"
+apply_project_paths
 echo "BMAD 6.11.0 support restored. Read docs/HANDOFF.md before starting work."

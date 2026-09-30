@@ -45,7 +45,12 @@ node_modules/
 # Private owner workspace, restored agent runtime and raw evidence
 /_bmad/
 /_bmad-output/
-/pen-design/
+/pen-design/.working/
+/pen-design/backups/
+/pen-design/exports/
+/pen-design/tmp/
+/pen-design/*.backup*.pen
+/pen-design/*.bak
 /design-system/
 /.local/
 *.log

@@ -1,0 +1,107 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when its first story starts (via build's sprint sync)
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; the status view surfaces open ones
+generated: 09-02-2026 19:52
+last_updated: '2026-09-26'
+project: Livosphere
+project_key: NOKEY
+tracking_system: file-system
+story_location: docs/development
+development_status:
+  epic-8: done
+  8-1-описать-и-валидировать-телефонные-комплекты: done
+  8-2-разделить-системные-компоненты-обоев: done
+  8-3-изолировать-настройки-поверхностей-и-выполнить-миграцию: done
+  8-4-собирать-выбранные-наборы-с-безопасной-фильтрацией: done
+  8-5-проверять-телефонную-сборку-независимо-от-wear: done
+  epic-8-retrospective: optional
+
+  epic-9: done
+  9-1-выбирать-встроенные-наборы-в-витрине: done
+  9-2-примерять-обои-и-добавлять-часы-из-карточки: done
+  9-3-управлять-фактами-и-экземплярами-в-устройствах: done
+  9-4-обновить-знакомство-настройки-и-локальную-помощь: done
+  9-5-проверить-адаптивность-и-независимое-движение-хаба: done
+  epic-9-retrospective: optional
+
+  epic-10: done
+  10-1-показывать-четыре-фазы-по-времени-телефона: done
+  10-2-оживить-отдельные-объекты-сцены: done
+  10-3-выбирать-насыщенность-с-безопасным-снижением-движения: done
+  10-4-реагировать-на-tap-swipe-и-зарядку-по-возможностям-темы: done
+  10-5-подтвердить-автономную-работу-scene-runtime: done
+  epic-10-retrospective: optional
+
+  epic-11: done
+  11-1-проверить-native-часы-на-debug-контуре: done
+  11-2-отображать-часы-в-трёх-размерных-вариантах: done
+  11-3-добавлять-и-настраивать-экземпляр-через-pin-или-picker: done
+  11-4-сохранять-независимые-экземпляры-и-восстанавливаться: done
+  11-5-открывать-выбранное-приложение-часов: done
+  11-6-проверить-home-и-доступный-lock-screen-host: done
+  epic-11-retrospective: optional
+
+  epic-12: done
+  12-1-оформить-навык-создания-контента: done
+  12-2-подготовить-применимые-шаблоны-контента: done
+  12-3-подтвердить-процесс-на-реальных-продуктах: done
+  epic-12-retrospective: optional
+
+  epic-13: done
+  13-1-согласовать-замысел-первого-авторского-виджета: done
+  13-2-согласовать-html-первого-авторского-виджета: done
+  13-3-подключить-первый-авторский-виджет-и-передать-apk: done
+  13-4-зафиксировать-ограниченный-стартовый-состав: done
+  13-5-провести-второй-цикл-на-первой-авторской-сцене: done
+  epic-13-retrospective: optional
+
+  epic-14: in-progress
+  14-0-обновить-launcher-иконку-хаба-из-pen-dev: done
+  14-1-собрать-неизменяемый-phone-release-candidate: in-progress
+  14-2-проверить-функциональные-пути-на-выпускном-кандидате: backlog
+  14-3-подтвердить-физическую-производительность-обоев: backlog
+  14-4-подтвердить-батарею-обоев-виджетов-и-сочетания: backlog
+  14-5-подготовить-актуальные-материалы-и-проверить-rustore-deliver: backlog
+  14-6-принять-выпуск-и-опубликовать-разрешённую-версию: backlog
+  epic-14-retrospective: optional
+
+  epic-15: backlog
+  15-1-зафиксировать-протокол-нового-эксперимента: backlog
+  15-2-провести-семидневный-внешний-пилот: backlog
+  15-3-собрать-двадцать-дней-публичных-наблюдений: backlog
+  15-4-принять-решение-о-следующей-итерации: backlog
+  epic-15-retrospective: optional
+
+  epic-16: done
+  16-1-зафиксировать-принятые-кадры-и-происхождение: done
+  16-2-поддержать-самостоятельные-статичные-обои: done
+  16-3-подключить-весь-принятый-pencil-состав: done
+  16-4-принять-интегрированный-debug-apk: done
+  epic-16-retrospective: optional

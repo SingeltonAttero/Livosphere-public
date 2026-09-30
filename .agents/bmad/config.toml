@@ -1,0 +1,8 @@
+# Shared project paths. scripts/setup-agents.sh copies this into local _bmad/custom/.
+[core]
+output_folder = "docs"
+
+[modules.bmm]
+planning_artifacts = "{project-root}/docs/planning"
+implementation_artifacts = "{project-root}/docs/development"
+project_knowledge = "{project-root}/docs"

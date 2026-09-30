@@ -4,7 +4,7 @@ Baseline: 30 September 2026. Maintainer and application author: Yakov Weber (Ð’Ð
 
 ## Start on another machine
 
-Read [building](BUILDING.md), run `make doctor` and `make phone`, then read [architecture](architecture/README.md). For agent-assisted work, follow [agent setup](AGENTS-SETUP.md). Neither the owner's signing key nor the historical planning archive is needed for a debug build.
+Read [building](BUILDING.md), run `make doctor` and `make phone`, then read [architecture](architecture/README.md). For agent-assisted work, follow [agent setup](AGENTS-SETUP.md). Neither the owner's signing key nor the historical planning archive is needed for a debug build. Accepted planning documents and editable design are linked from [docs index](README.md).
 
 ## Current product
 
@@ -16,7 +16,7 @@ The owner reports that the application has been submitted to RuStore and says pu
 
 Choose a concrete outcome and affected surface. Check current code and manifests, record a small plan and selected checks, implement a focused change, run those checks and arrange independent review. Art revisions need the author's explicit approval. Use `docs/content/` for new content workspaces and `docs/decisions/` for accepted decisions.
 
-The optional BMAD installation creates a new local workspace. Read this handoff and current implementation before using it; do not fabricate completed historical stories or recreate the old archive as if it were accepted. If the owner needs historical release proofs on another machine, transfer that private archive separately.
+The optional BMAD installation restores local support and points to checked-in planning and the canonical sprint state. Read [the docs index](README.md) and current implementation before using it; do not create a second tracker or fabricate completed historical stories. If the owner needs historical release proofs on another machine, transfer that private archive separately.
 
 ## Next release checkpoint
 

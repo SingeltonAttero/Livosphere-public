@@ -4,7 +4,7 @@ Live wallpapers and clock widgets for Android, created by **Yakov Weber (Веб�
 
 Browse a local collection of illustrated worlds, apply a wallpaper, and add clocks in S, M or L. Wallpapers and widgets work independently: mix them across collections or use either on its own.
 
-[Русский](README.ru.md) · [Build](docs/BUILDING.md) · [Architecture](docs/architecture/README.md) · [Contribute](CONTRIBUTING.md)
+[Русский](README.ru.md) · [Build](docs/BUILDING.md) · [Architecture](docs/architecture/README.md) · [Requirements & design](docs/README.md) · [Contribute](CONTRIBUTING.md)
 
 ## A look inside
 

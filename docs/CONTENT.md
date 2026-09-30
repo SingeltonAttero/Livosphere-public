@@ -26,3 +26,5 @@ Shared mechanisms must serve an accepted concrete need; do not expand to an unli
 - `.agents/skills/livosphere-content/SKILL.md`: project workflow and templates.
 
 Keep new decisions and source records in these public workspaces so another checkout can continue the work. Historical private design references document origins only; they are not required inputs to the current build. Bundled artwork is covered by [separate terms](../ASSET-LICENSE.md).
+
+Current planning and accepted UX workspaces are indexed in [docs/README.md](README.md). Reuse the existing surface workspace before creating a new one; editable pen.dev sources and local dependencies are in [pen-design](../pen-design/README.md). Changes to documented behavior or design follow the [MR documentation rule](process/change-documentation.md).

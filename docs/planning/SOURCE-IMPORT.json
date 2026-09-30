@@ -1,0 +1,572 @@
+{
+  "date": "2026-09-30",
+  "originalCheckoutCommit": "3499778",
+  "purpose": "Approved planning sources; paths relocated, unpublished diagnostic links removed. Original source hashes do not hash the adapted copies.",
+  "documents": [
+    {
+      "path": "docs/planning/prds/prd-Livosphere-2026-08-28/prd.md",
+      "originalSource": "_bmad-output/planning-artifacts/prds/prd-Livosphere-2026-08-28/prd.md",
+      "originalSha256": "4861f7ea6931d5fe525c98473b75586939ad6e66939f525af9a48d1cd750958a"
+    },
+    {
+      "path": "docs/planning/prds/prd-Livosphere-2026-08-28/addendum.md",
+      "originalSource": "_bmad-output/planning-artifacts/prds/prd-Livosphere-2026-08-28/addendum.md",
+      "originalSha256": "cce6b42d58fdba2ea52ffae396ee9b76ec13615d569f69ad45d65ca7dff6b56d"
+    },
+    {
+      "path": "docs/planning/architecture/architecture-Livosphere-2026-09-01/ARCHITECTURE-SPINE.md",
+      "originalSource": "_bmad-output/planning-artifacts/architecture/architecture-Livosphere-2026-09-01/ARCHITECTURE-SPINE.md",
+      "originalSha256": "4aaac483d16c9a749ec592be6a8bbcea054287d1d05770ebee7d48b796f949cb"
+    },
+    {
+      "path": "docs/planning/architecture/architecture-Livosphere-2026-09-01/phone-contracts.md",
+      "originalSource": "_bmad-output/planning-artifacts/architecture/architecture-Livosphere-2026-09-01/phone-contracts.md",
+      "originalSha256": "4d8919d8c3f1e1f35209d764f8cca5c63a7ae09fff67f849e9a7e402b73db47a"
+    },
+    {
+      "path": "docs/planning/architecture/architecture-Livosphere-2026-09-01/platform-evidence-2026-09-09.md",
+      "originalSource": "_bmad-output/planning-artifacts/architecture/architecture-Livosphere-2026-09-01/platform-evidence-2026-09-09.md",
+      "originalSha256": "42c5df8b9a75d8c3e5feab1c9138514799382e92d59eaec4f37a4f30e8431029"
+    },
+    {
+      "path": "docs/planning/epics.md",
+      "originalSource": "_bmad-output/planning-artifacts/epics.md",
+      "originalSha256": "dc6c8b64c7712da5560b87b6a045ab7babb09793e4ae75ff52ec728900c1fe7a"
+    },
+    {
+      "path": "docs/planning/sprint-plan-phone-2026-09-09.md",
+      "originalSource": "_bmad-output/planning-artifacts/sprint-plan-phone-2026-09-09.md",
+      "originalSha256": "a191512977478e12adcf5ca82bcd3d5df2fa5b5319eb2392c5971f39d82b08a2"
+    },
+    {
+      "path": "docs/planning/approval-2026-09-09-phone-baseline.md",
+      "originalSource": "_bmad-output/planning-artifacts/approval-2026-09-09-phone-baseline.md",
+      "originalSha256": "aafd6f43985c7ff7f0a754dba8433ae79b6e288e72202647d0bcbb7e96147907"
+    },
+    {
+      "path": "docs/planning/decision-2026-09-09-phone-themes-pivot.md",
+      "originalSource": "_bmad-output/planning-artifacts/decision-2026-09-09-phone-themes-pivot.md",
+      "originalSha256": "b2361ef9cd9be1703233057c4d0f5f1fa461294bdabcf7451753e69f1fdb1b56"
+    },
+    {
+      "path": "docs/planning/decision-2026-09-18-separate-install-flows.md",
+      "originalSource": "_bmad-output/planning-artifacts/decision-2026-09-18-separate-install-flows.md",
+      "originalSha256": "68321e1c78145f5f35734a744ab0f10ff8586c686e08a4bcfffdb0d13d65a4f7"
+    },
+    {
+      "path": "docs/planning/decision-2026-09-27-remove-wear.md",
+      "originalSource": "_bmad-output/planning-artifacts/decision-2026-09-27-remove-wear.md",
+      "originalSha256": "3da07efd4ffb4dd9d4c8e9ceab1732f5c22686b8e539a8b79d97ed6dd3ad868d"
+    },
+    {
+      "path": "docs/planning/sprint-change-proposal-2026-09-09.md",
+      "originalSource": "_bmad-output/planning-artifacts/sprint-change-proposal-2026-09-09.md",
+      "originalSha256": "0d23e2449f545ebdf5707e7678845ce9bae6647a371de6d65a7949e69ce3afa9"
+    },
+    {
+      "path": "docs/planning/sprint-change-proposal-2026-09-17.md",
+      "originalSource": "_bmad-output/planning-artifacts/sprint-change-proposal-2026-09-17.md",
+      "originalSha256": "bb41aa96fe5ae7d9f6123a04992fc8ed7051a34655d38665c9832f694fc18624"
+    },
+    {
+      "path": "docs/planning/sprint-change-proposal-2026-09-24-pencil-wallpapers.md",
+      "originalSource": "_bmad-output/planning-artifacts/sprint-change-proposal-2026-09-24-pencil-wallpapers.md",
+      "originalSha256": "f54ec77f5ce5ad72c9a4c73d416d2772906509de993ea7a3be591d53d5091323"
+    },
+    {
+      "path": "docs/planning/epics-phone-themes-2026-09-09.md",
+      "originalSource": "_bmad-output/planning-artifacts/epics-phone-themes-2026-09-09.md",
+      "originalSha256": "b6cb2788328122ab9bc060994d28dea66e142e00a9fa31edef61d84cd901e7a1"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/DESIGN.md",
+      "originalSha256": "b9d89ea756d7cd0b9c113c0d7d878831ccc790106ae72bfaf3ea28cdecf5e649"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/EXPERIENCE.md",
+      "originalSha256": "a311a243532ae4dbd6ce71be4cedb4eb51e98840dadfe1bb882f2e895384b210"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/approval.md",
+      "originalSha256": "5d6065cf7b6fd465cc7fcf6ecf83489f068f8e7be979a181f6cc5531330f1ef0"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/hub/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/hub/DESIGN.md",
+      "originalSha256": "63805c090fd7c59fcbbca5b1cd2dc5213df181c6d3d4495e53b506e2900996ac"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/hub/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/hub/EXPERIENCE.md",
+      "originalSha256": "9754a9373fd2fe774b797fdf804a2e4d33ed5797c84e26042476ea20486af5d3"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/hub/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/hub/approval.md",
+      "originalSha256": "9aed03ce8bc7ce44aeef339e1b7356edc4206439ea65729bb6c7ac5f55df4a9c"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/DESIGN.md",
+      "originalSha256": "71f2cdde8b87242b61165ccb8475aa0518ca28f25b1db96f2e03fb5677542c83"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/EXPERIENCE.md",
+      "originalSha256": "66caee98eea4eead7a31a6b2a50a5bf3b1187272736775b1d00514ae4fc00ea9"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/CONTRACT.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/CONTRACT.md",
+      "originalSha256": "7a5ad0fd94bf31e8e62da5039f6ad6b1c8bd59045a049f9e9d16579763edea1d"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/sets/CONTRACT.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/sets/CONTRACT.md",
+      "originalSha256": "9bc651c3fae5958abcfe91260113114740ee9fc3241471b5b51c1a6016259360"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/night-sakura/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/night-sakura/DESIGN.md",
+      "originalSha256": "bee4bce3b36ddbccbe08792a8019a6ebd5f1b3237cbaa2e62cdc21d1d0f340ee"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/night-sakura/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/night-sakura/EXPERIENCE.md",
+      "originalSha256": "d3e21c8e5ebe39a97cf52f4b4def15a00848653501b155dd5c44eba70cc40968"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/night-sakura/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/night-sakura/approval.md",
+      "originalSha256": "65cdc787ede3bbc55236151082777d8b02cf4d8c8bd46f3dd548ad1d9919b9d8"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/electric-harbor/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/electric-harbor/DESIGN.md",
+      "originalSha256": "52858e7cdaf5c5f7049a9c1ce0d2f5f245d26d23a62b54761abe0fdf8ae80d96"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/electric-harbor/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/electric-harbor/EXPERIENCE.md",
+      "originalSha256": "806cf23ecea7012f55d5ea8955c8197dffc880e0d5bcc1cb3a80ba1498810ab4"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/electric-harbor/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/electric-harbor/approval.md",
+      "originalSha256": "b2f4cd75f28d01f51bee5feebb81ec0cac57b03296f2cc70438419ffc7e0318a"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/last-light/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/last-light/DESIGN.md",
+      "originalSha256": "723ade37305dc54cf3b1cf65221683cb22c68eac96f8877148e43da6660f238a"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/last-light/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/last-light/EXPERIENCE.md",
+      "originalSha256": "b38e440a0d913e44ca3de6bc08578d5fce937ec680f4ede70a522bdc01df4fdc"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/last-light/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/last-light/approval.md",
+      "originalSha256": "778bf9464d00936f962bff43dbc2feae484bd632af1b9284f5a834b04e36d991"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/moscow-facets/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/moscow-facets/DESIGN.md",
+      "originalSha256": "f309d1f152c146f274dda8313d65d95a976c246f09ca6228cd1e8b9a723a9a52"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/moscow-facets/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/moscow-facets/EXPERIENCE.md",
+      "originalSha256": "5528f6c9710be9e69ecdd6ec1a870172343e4de5777043cbaab249bf4efec2b1"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/moscow-facets/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/moscow-facets/approval.md",
+      "originalSha256": "74b7f1af285273b081e5af439d213f419f71186b6d5048cbb06987d0456e3d29"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/moscow-facets/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/moscow-facets/DESIGN.md",
+      "originalSha256": "39eaceedabcd0997c17790d65c17989aa7005b72d5158892245aa1ef0e2b2177"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/moscow-facets/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/moscow-facets/EXPERIENCE.md",
+      "originalSha256": "be06d82e2a28ca2438871dc2a346974d77f8fd60288a347177d4f9f14253613e"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/moscow-facets/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/moscow-facets/approval.md",
+      "originalSha256": "e60270e6f4f780ca2019246d009577ad2efec96e106a56d4ff5545e0d412a36d"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/synthetic-dawn/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/synthetic-dawn/DESIGN.md",
+      "originalSha256": "d120155079d82130da7a923bca79965a3858a2f35a91e58c489116df90480a97"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/synthetic-dawn/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/synthetic-dawn/EXPERIENCE.md",
+      "originalSha256": "d5a7969c2a44fbad7ea9cc3648f33fb625a49f64773700a1a0011f4f92dc37f7"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/synthetic-dawn/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/synthetic-dawn/approval.md",
+      "originalSha256": "1d7173fce917ceb6434f5e7cc1186f759bac8915f57833bcbd2e09905fb87cb5"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/synthetic-dawn/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/synthetic-dawn/DESIGN.md",
+      "originalSha256": "3005eda16a3b9b48a06b3893eb41ccb68705448492c25aee95aeb9711a38db5b"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/synthetic-dawn/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/synthetic-dawn/EXPERIENCE.md",
+      "originalSha256": "b95064916804c2ba0189f68b2310d69803ead0cc9e80ed4df86ac3c6484ee4d0"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/synthetic-dawn/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/synthetic-dawn/approval.md",
+      "originalSha256": "acd6639027d31eb60f45fa4626a62b9d9a32b328682726a1c4db3c67ec8088d0"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/neon-express/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/neon-express/DESIGN.md",
+      "originalSha256": "a3664bc1fd824a40c5efb414d72441dca71792711ec052e554f813d3762a65b0"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/neon-express/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/neon-express/EXPERIENCE.md",
+      "originalSha256": "7695ef8bdfbbd00a41ee2285e69327c92287d7cef3e0ad3cc8f305e2933ba962"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/neon-express/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/neon-express/approval.md",
+      "originalSha256": "7e2451c235b0d1068b0c25f682844fa76782ac22d0e3cd89cd36ba6910cf4617"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/neon-express/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/neon-express/DESIGN.md",
+      "originalSha256": "546718622d14496aed0a56ba9da440dc43a2166cae21b1fc54efe82694081203"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/neon-express/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/neon-express/EXPERIENCE.md",
+      "originalSha256": "568f0698e241916031a834cbe14fda174d352ef36f8990d8926b34334b7dae82"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/neon-express/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/neon-express/approval.md",
+      "originalSha256": "7a43b7204482b4bba0fe8c4e23fc6257d93991db835fe26a5124e7166d4c8684"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/rainforest/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/rainforest/DESIGN.md",
+      "originalSha256": "dc3702a985c6331a805524d16d1a7deb1d9bfff14a42778acd89c9d46428f2fa"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/rainforest/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/rainforest/EXPERIENCE.md",
+      "originalSha256": "53eb305c2e47c55aeb3e072c9ba65abf0e9f3a778249065f81f92d2dcc71a0f0"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/rainforest/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/rainforest/approval.md",
+      "originalSha256": "9eb5a16881998502d569b9e0dc33b84020cf828f5d46fbb69a37c13f6fb96a43"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/rainforest/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/rainforest/DESIGN.md",
+      "originalSha256": "4dcaa86d4e4d6ca8f6176e4c7f6189bcc12cba0a8829c15292acb35376f99e1f"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/rainforest/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/rainforest/EXPERIENCE.md",
+      "originalSha256": "c5f7f6456531de4d47bb2eaedeb159bb036d914026ba436003081655a84729cf"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/rainforest/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/rainforest/approval.md",
+      "originalSha256": "7cc8e74db04b66bc4b7d79dc309bee92055d42ce9c725e970c16244a18ad8055"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/emerald-cove/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/emerald-cove/DESIGN.md",
+      "originalSha256": "999474a1ec3ee0341a2b21bc54be2aa689369f07b91e9c67dc2ed02fe3c06fe8"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/emerald-cove/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/emerald-cove/EXPERIENCE.md",
+      "originalSha256": "714e4a4379ed6980a7c71e3719505cea4883e95e08557922f0b1ac8469541935"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/emerald-cove/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/emerald-cove/approval.md",
+      "originalSha256": "d610af77d60b2268fb45d11d27ba547c129622bcdd0d4f8b66410853bc432b42"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/emerald-cove/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/emerald-cove/DESIGN.md",
+      "originalSha256": "9a1c03d266301c1af4f06c464198a5c198c367e49718e66ef87f29ad1b7368b7"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/emerald-cove/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/emerald-cove/EXPERIENCE.md",
+      "originalSha256": "057b9e264472435a6b75f878ac38de2340db5b7e2f873e3ddab58050293c54d1"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/emerald-cove/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/emerald-cove/approval.md",
+      "originalSha256": "9449c97925db1a1e75c90844cd745ac173f3ef44f7030cc74bbf773d7e9e8314"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/orbital-window/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/orbital-window/DESIGN.md",
+      "originalSha256": "02df929ad42e613896d4625cd04b63dfd9074aa02b45d6c749eb88544e9330f6"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/orbital-window/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/orbital-window/EXPERIENCE.md",
+      "originalSha256": "96fb463e8a862e7f42e1e77714fb125115d3663894afee41bb970dfe942e2428"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/orbital-window/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/orbital-window/approval.md",
+      "originalSha256": "e26946b38e51b35397b60d3cd3cbac8e24da14664571b5f066acfb59829467a2"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/orbital-window/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/orbital-window/DESIGN.md",
+      "originalSha256": "8287ae9559b2066e02863043cdf051164e06f83cc3b51b02b08f1ff55e3719a6"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/orbital-window/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/orbital-window/EXPERIENCE.md",
+      "originalSha256": "4077708c2a3cd3387e7596c488d3663a5264e5eb01f9c16505d2f5e499e7b5d6"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/orbital-window/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/orbital-window/approval.md",
+      "originalSha256": "ae385553851a1a721a38fd7678c9d62e4b7ccc7ddede32686a9f2110d8b4daa1"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/star-river/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/star-river/DESIGN.md",
+      "originalSha256": "e3fc49dd704bb17efb4b7b14219382e1b70c26117c63e913da6396bc74268c6b"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/star-river/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/star-river/EXPERIENCE.md",
+      "originalSha256": "7a661031b1f419218e23d1d2cb19f56e3eb0d4518734b4952f92fadceb4c5166"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/star-river/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/star-river/approval.md",
+      "originalSha256": "b41e3e884d36b0158e40f71880c9abf5a8ef6806d5ffc04803b4042c79c3c461"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/star-river/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/star-river/DESIGN.md",
+      "originalSha256": "e9a9e042df2a5613e1af4ca3aaa397e571f6eab0f5d03df581dc364c408b6250"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/star-river/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/star-river/EXPERIENCE.md",
+      "originalSha256": "97796c1c87652454620bd69b0b12e6422436bb4d23ff8a2863b33712c7d240fb"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/star-river/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/star-river/approval.md",
+      "originalSha256": "e68c19b0a57ba9a8b3156a3cc64392cd087ebbb215883f3becd640a6dd379aa9"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/golden-dunes/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/golden-dunes/DESIGN.md",
+      "originalSha256": "1fc0cc0d8e16386932ce4cd613673bb9767edf12463a84dc1d25e0f41a345f14"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/golden-dunes/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/golden-dunes/EXPERIENCE.md",
+      "originalSha256": "61ec29704bc70df63f00aa06bf69372bdd16d58896189985344e5edf1c73a19a"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/golden-dunes/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/golden-dunes/approval.md",
+      "originalSha256": "32c9a5831d6f73b279df159b421a6bd392b20db0060865dfddda43d34f21f918"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/golden-dunes/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/golden-dunes/DESIGN.md",
+      "originalSha256": "9d0efc0fff71f84cd00bbb998caf823307438f5f8552531d1a714ecfcbd5b484"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/golden-dunes/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/golden-dunes/EXPERIENCE.md",
+      "originalSha256": "20238c466315c5bbcc69a4377988e93ced8cd5c8d5ca5d78b05b7f962f5e2eae"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/golden-dunes/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/golden-dunes/approval.md",
+      "originalSha256": "7e356d67e9e90faf8f9592dc33a9cd1eca337d6a1b3c1c8dce587029698bd936"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/moon-tide/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/moon-tide/DESIGN.md",
+      "originalSha256": "b342f52f2d16b4e7d3b2e88298f6b1f24dd11c29ef3764e05e99aef1444709ab"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/moon-tide/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/moon-tide/EXPERIENCE.md",
+      "originalSha256": "248910aa0fdfc813928e9ac583bda1f7bf46e24b597553a020567d1aa25ade25"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/moon-tide/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/moon-tide/approval.md",
+      "originalSha256": "b97075a7e4347f716c54ae1f7e62027335ba9882a08b3800bc00e2f6146817a3"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/moon-tide/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/moon-tide/DESIGN.md",
+      "originalSha256": "d9c3f236ef5ca01aabaa62828245251999160da28e3f752fea896c8512a87615"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/moon-tide/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/moon-tide/EXPERIENCE.md",
+      "originalSha256": "ebdc083f804fb21277ed6c6a798d3a288964f2e55300e59f3fd25c72f36dd999"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/moon-tide/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/moon-tide/approval.md",
+      "originalSha256": "60f1d16159185409a7a8337e1a114b75048f6b59f2dad8c1db47a2b353d9402e"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/chromatic-flow/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/chromatic-flow/DESIGN.md",
+      "originalSha256": "18438f20c5398ebb6aaca9458ce089b270c44f6f32b2426afb9374b3037bb770"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/chromatic-flow/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/chromatic-flow/EXPERIENCE.md",
+      "originalSha256": "5f6207ff406bb48a3e8081acd0947bec2c6dbf82738e0a81749444dd02eee07e"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/wallpapers/chromatic-flow/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/wallpapers/chromatic-flow/approval.md",
+      "originalSha256": "cab3a02ce8a51d7f184869743f1fff2cae965d1f9455093c79bb000ad3d69da5"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/chromatic-flow/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/chromatic-flow/DESIGN.md",
+      "originalSha256": "19136786ce5d70b9598e7f45242d090a14059f72e2547b089f57644fd16fe78d"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/chromatic-flow/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/chromatic-flow/EXPERIENCE.md",
+      "originalSha256": "22ef19581c33881114eefd3bf1ee552b39bee6af6be9d53035b0a8c21a443249"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/chromatic-flow/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/chromatic-flow/approval.md",
+      "originalSha256": "0ac6d4e4bc88d0bbefcd7c7785c91b6b2e97979d7664fc274f75ebd0f5acda0d"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/sakura-clock/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/sakura-clock/DESIGN.md",
+      "originalSha256": "b64d6505f2800898751662e18979fe0f7f1ef03739a4314a572421494dcfefb5"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/sakura-clock/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/sakura-clock/EXPERIENCE.md",
+      "originalSha256": "f01543c133b479c6a6c35822d1fa4a10900cc043b820d8d5407aa11f324b09dd"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/sakura-clock/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/sakura-clock/approval.md",
+      "originalSha256": "6cb5a86ebfca22248d1910b1fb09ad911c5557dbc625ba17e4eb497d04c89168"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/harbor-clock/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/harbor-clock/DESIGN.md",
+      "originalSha256": "0613e0e911af8bdf74813de8c35c05b2d94a654e5eef2b411f70bd4e03b809dc"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/harbor-clock/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/harbor-clock/EXPERIENCE.md",
+      "originalSha256": "105547a170d969eb2af25b10a1026db04fc6afbf31242d0dfeee4cd9cfa87401"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/harbor-clock/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/harbor-clock/approval.md",
+      "originalSha256": "f6b87b1f1165201bb49eee369362b6efa27643f88dd2013e8becb0e62e2f6b81"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/sunset-clock/DESIGN.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/sunset-clock/DESIGN.md",
+      "originalSha256": "80d03753e0241a76b9bd1f848df3f24a87b0236f8d3c2a265da78f6de1f32c3d"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/sunset-clock/EXPERIENCE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/sunset-clock/EXPERIENCE.md",
+      "originalSha256": "f1921f4763cb891263d460f71eadfff87e597c86e57b9b1d93394a205193f6a1"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/widgets/sunset-clock/approval.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/widgets/sunset-clock/approval.md",
+      "originalSha256": "8362eaad4ffc0fca4e7fb3a7d021303bbf2e03dee40b697d7587d7fba6ee56de"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/sets/night-sakura/STYLE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/sets/night-sakura/STYLE.md",
+      "originalSha256": "98cd7901085c332c13b567e26a9ffebc7c7d7eeaeebaa6ed807ff83acca212f2"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/sets/electric-harbor/STYLE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/sets/electric-harbor/STYLE.md",
+      "originalSha256": "2c500cfc6b13c30761552f97360b97ef4aaee8af40f50686039780291c732258"
+    },
+    {
+      "path": "docs/planning/ux-designs/ux-Livosphere-2026-08-31/sets/last-light/STYLE.md",
+      "originalSource": "_bmad-output/planning-artifacts/ux-designs/ux-Livosphere-2026-08-31/sets/last-light/STYLE.md",
+      "originalSha256": "95399841a672b83a0c193583c526ce73ff8ead78f251dc3d07a040d4e3ec242a"
+    },
+    {
+      "path": "docs/specs/spec-livosphere/.memlog.md",
+      "originalSource": "_bmad-output/specs/spec-livosphere/.memlog.md",
+      "originalSha256": "8e33b8ddab53513482c6f9c7394e1aeb5946a158daa0bc3d247b82da2d84277d"
+    },
+    {
+      "path": "docs/specs/spec-livosphere/capability-history.md",
+      "originalSource": "_bmad-output/specs/spec-livosphere/capability-history.md",
+      "originalSha256": "5643a8eaa49abdfa6147c6e55e90f1be64c521e8c288e5f04a8cbc3a905977ee"
+    },
+    {
+      "path": "docs/specs/spec-livosphere/SPEC.md",
+      "originalSource": "_bmad-output/specs/spec-livosphere/SPEC.md",
+      "originalSha256": "493224b06f1600920cce3125296d96fa11dc0b70e7fce166ecc15bfeb2ade7c0"
+    },
+    {
+      "path": "docs/development/sprint-status.yaml",
+      "originalSource": "_bmad-output/implementation-artifacts/sprint-status.yaml",
+      "originalSha256": "feaa25eb9d99be6d6af1f844a3b3458406b03e3f2b309cf297c905223cdda2d9"
+    },
+    {
+      "path": "docs/development/pencil-wallpaper-source-map.md",
+      "originalSource": "_bmad-output/implementation-artifacts/pencil-wallpaper-source-map.md",
+      "originalSha256": "b0cd766705ddbe25c7a0677a7cfe6b9729ceeba80830cc1a73c3b4bd63fe9753"
+    },
+    {
+      "path": "docs/development/checkpoint-hub-carousel.md",
+      "originalSource": "_bmad-output/implementation-artifacts/checkpoint-hub-carousel.md",
+      "originalSha256": "f015d4b617419bb4a8ce35692a21002ef33a69967cf00478278f429dff0c37de"
+    },
+    {
+      "path": "docs/development/livosphere-hub-icon-provenance.md",
+      "originalSource": "_bmad-output/implementation-artifacts/livosphere-hub-icon-provenance.md",
+      "originalSha256": "2465867ed0f2476beaefb27989546694d2dc4833534ef8764f4f7fb9b737b8f8"
+    }
+  ]
+}
