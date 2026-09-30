@@ -54,7 +54,7 @@ Story 13.5 проводит второй цикл на настоящей сце
 
 ## Закрытый список проверок подготовки
 
-1. Skill: `python3 /Users/macbook/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/livosphere-content`. Если системный Python без PyYAML — тот же script через bundled Python. Проверка frontmatter, имени, незавершённых инструкций; это не native acceptance.
+1. Skill: `python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-creator/scripts/quick_validate.py" .agents/skills/livosphere-content`. Команда применима при установленном системном skill-creator в Codex; это внешний необязательный валидатор, а не файл репозитория. Если системный Python без PyYAML — тот же script через bundled Python. Проверка frontmatter, имени, незавершённых инструкций; это не native acceptance.
 2. Документы: `python3 /private/tmp/livosphere-content-prep-check.py` — локальные ссылки изменённых Markdown (без исполнения примеров), YAML/frontmatter, 39 уникальных story IDs, DAG зависимостей, проекция Markdown→JSON, сохранённые 12 completed stories, согласованность ключей sprint. Скрипт — одноразовая проверка этого документационного изменения; отчёт сохраняется в `validation-content-2026-09-17/checks.json`.
 3. Sprint: штатный `sprint_plan.py validate --status-file docs/development/sprint-status.yaml` и `generate --dry-run` с epic-file/stories-dir/project/date. Не использовать `--fresh`, не сбрасывать done.
 4. Авторский проход трёх запросов: отдельные часы без обоев; wallpaper без AP-IMAGE; второй продукт на доступной/новой capability. Проверить правильные маршруты, границы approvals и отсутствие обещания автоматической интеграции до 13.3. Записать наблюдения, не называть независимым review.
