@@ -14,7 +14,7 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
-EVIDENCE = ROOT / "_bmad-output/implementation-artifacts/evidence/phone-v2"
+EVIDENCE = ROOT / ".local/evidence/phone-v2"
 PACKAGE = "app.livosphere"
 COMMAND_TIMEOUT = 20
 INSTALL_TIMEOUT = 180

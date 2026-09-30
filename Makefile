@@ -5,6 +5,8 @@ GRADLE = cd $(ANDROID_DIR) && $(if $(strip $(LIVOSPHERE_JAVA_HOME)),JAVA_HOME="$
 PHONE_GRADLE = $(GRADLE) -Plivosphere.buildProfile=phone
 DOCTOR_SCRIPT ?= ./android/scripts/doctor.sh
 VERIFY_ARTIFACTS_SCRIPT ?= ./android/scripts/verify-artifacts.sh
+SP06_EVIDENCE_DIR ?= .local/evidence/sp06
+SP07_EVIDENCE_DIR ?= .local/evidence/sp07
 
 ifeq ($(shell uname -s),Darwin)
 HOMEBREW_JAVA_17 := $(shell brew --prefix openjdk@17 2>/dev/null)/libexec/openjdk.jdk/Contents/Home
@@ -62,10 +64,10 @@ phone-install:
 
 benchmark-sp06:
 	$(GRADLE) :quality:macrobenchmark:verifySp06Setup
-	./android/scripts/validate-epic-3-evidence.sh _bmad-output/implementation-artifacts/evidence/story-3-7
+	./android/scripts/validate-epic-3-evidence.sh "$(SP06_EVIDENCE_DIR)"
 
 protocol-sp07:
-	./android/scripts/validate-epic-3-evidence.sh _bmad-output/implementation-artifacts/evidence/story-3-8
+	./android/scripts/validate-epic-3-evidence.sh "$(SP07_EVIDENCE_DIR)"
 
 evidence-validator-check:
 	./android/scripts/test-validate-epic-3-evidence.sh

@@ -27,3 +27,16 @@ __pycache__/
 
 # Generated local files
 *.log
+
+# Local agent runtime, private planning/design archive and release evidence
+/_bmad/
+/_bmad-output/
+/pen-design/
+/design-system/
+/.local/
+# Owner signing/export files
+.m
+*.p12
+*.pfx
+*.pem
+*.key

@@ -315,7 +315,7 @@ def build():
     run_id = env.get("LIVOSPHERE_RUN_ID") or dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + f"-{os.getpid()}"
     if not re.fullmatch(r"[A-Za-z0-9._-]+", run_id):
         fail("invalid run id")
-    evidence = Path(env.get("LIVOSPHERE_EVIDENCE_DIR", str(ROOT / "_bmad-output/implementation-artifacts/evidence/phone-v2"))).resolve()
+    evidence = Path(env.get("LIVOSPHERE_EVIDENCE_DIR", str(ROOT / ".local/evidence/phone-v2"))).resolve()
     target = evidence / run_id
     if target.exists():
         fail("refusing to overwrite existing run")
