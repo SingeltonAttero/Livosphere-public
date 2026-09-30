@@ -2,6 +2,8 @@
 
 Start with [repository policy](docs/REPOSITORY-POLICY.md), [building](docs/BUILDING.md), [architecture](docs/architecture/README.md) and [content development](docs/CONTENT.md). Agent tooling is optional; see [setup](docs/AGENTS-SETUP.md).
 
+Documentation and design must follow [the MR rule](docs/process/change-documentation.md): update affected sources in the same PR or explain why no contract changed.
+
 Before editing, state the user outcome, affected modules and selected checks. Keep the change focused. Run the relevant tests and module build, inspect the final diff and run `git diff --check`. UI changes need a manual path and the applicable accessibility/host checks. Record the device, OS and launcher when reporting native behaviour. Screenshots and emulators do not establish physical battery performance.
 
 Choose the checks for the changed boundary rather than copying an old test total. Explain what passed, what was skipped and what remains unknown in the pull request. Obtain independent review and resolve supported blockers before acceptance.

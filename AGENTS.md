@@ -10,7 +10,7 @@ Livosphere — Android-приложение Вебера Якова: локал�
 
 BMAD Method закреплён на 6.11.0, не обновляй без решения владельца. Инструкции навыков включены в .agents/skills/. Runtime восстанавливается через scripts/setup-agents.sh; см. docs/AGENTS-SETUP.md. Сборка Android не требует BMAD. Перед выбором workflow используй bmad-help и фактические файлы; новый checkout существующего приложения не является пустым проектом.
 
-Исторический _bmad-output остаётся локальным архивом. Если он присутствует, учитывай канонические решения и sprint state для продолжаемой исторической story. Не объявляй новые документы принятыми только потому, что они созданы; новые архитектурные/продуктовые переходы согласуются с владельцем. На другой машине используй публичный handoff и текущий код, не выдумывай недостающую историю. Общие принятые решения сохраняй в docs/decisions/, новый арт — в docs/content/; перед закрытием исторической story обновляй её существующий канонический статус без второго tracker.
+Канонические требования, UX, architecture и backlog опубликованы в docs/; навигация — docs/README.md. Канонический sprint state — docs/development/sprint-status.yaml. _bmad-output остаётся закрытым историческим архивом, а не активным источником нового спринта. Настройка BMAD берёт общие пути из .agents/bmad/config.toml; setup-agents.sh применяет их к локальному runtime. Не создавай второй tracker и не копируй active docs в ignored output. Продуктовые/архитектурные переходы и художественная приёмка остаются явными решениями владельца; сам перенос документа не является приёмкой.
 
 ## UI и контент
 
@@ -30,4 +30,8 @@ BMAD Method закреплён на 6.11.0, не обновляй без реш�
 
 Не коммить и не логируй .env, ключи подписи, токены, local.properties, персональные данные, generated builds или сырые device logs. Постоянный ключ находится вне checkout. Для debug сборки он не нужен. Исторические локальные материалы и signed release evidence остаются вне публичной истории.
 
-Полный состав tracked/ignored описан в docs/REPOSITORY-POLICY.md. Навыки с templates/data/scripts, код, tests, required source assets и публичная документация должны оставаться в Git. Локальные BMAD runtime/output, raw evidence и signing/build artifacts игнорируются; полезный redacted итог сохраняй в публичных docs. Новый shareable design workspace — docs/content/, не legacy pen-design/. Не обходи .gitignore через git add -f для секретов или raw evidence. Игнорирование не удаляет ранее tracked данные и историю.
+Полный состав tracked/ignored описан в docs/REPOSITORY-POLICY.md. Навыки с templates/data/scripts, код, tests, required source assets и публичная документация должны оставаться в Git. Локальный BMAD runtime, приватный исторический output и raw evidence и signing/build artifacts игнорируются; полезный redacted итог сохраняй в публичных docs. Редактируемые .pen и необходимые assets хранятся в pen-design/ и коммитятся; описания/provenance нового контента — docs/content/. Не обходи .gitignore через git add -f для секретов или raw evidence. Игнорирование не удаляет ранее tracked данные и историю.
+
+## MR: синхронизация кода, документации и дизайна
+
+Перед созданием MR/PR оцени влияние изменения на PRD, SPEC, UX, архитектуру, сборку/выпуск и рабочий дизайн. Затронутые docs и .pen/assets обновляются в том же MR, до merge; при изменении planning docs обновляется зависимый epic context. Рассинхронизация является blocker review. Если контракт и дизайн не менялись, укажи конкретную причину в MR, без искусственных правок ради галочки. Следуй docs/process/change-documentation.md и .github/pull_request_template.md. Новый визуальный результат требует согласования автора на точную ревизию.
