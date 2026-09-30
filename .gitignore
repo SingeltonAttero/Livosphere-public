@@ -1,17 +1,24 @@
-# macOS and IDE
+# OS and personal IDE state
 .DS_Store
 .idea/
 *.iml
+.vscode/*.local.json
 
-# Local configuration and secrets
+# Local SDK/configuration and signing secrets
 local.properties
-*.jks
-*.keystore
 .env
 .env.*
 !.env.example
+.m
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+.claude/settings.local.json
 
-# Android / Gradle
+# Android / Gradle generated state and distributable builds
 .gradle/
 .kotlin/
 build/
@@ -19,24 +26,30 @@ build/
 captures/
 .externalNativeBuild/
 .cxx/
+*.apk
+*.aab
+*.apks
+*.hprof
+*.heapdump
 
-# Python tooling
+# Python and optional Node tooling caches
 __pycache__/
 *.py[cod]
 .venv/
+venv/
+node_modules/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Generated local files
-*.log
-
-# Local agent runtime, private planning/design archive and release evidence
+# Private owner workspace, restored agent runtime and raw evidence
 /_bmad/
 /_bmad-output/
 /pen-design/
 /design-system/
 /.local/
-# Owner signing/export files
-.m
-*.p12
-*.pfx
-*.pem
-*.key
+*.log
+
+# Intentionally tracked: .agents/skills/, scripts/, docs/, Android source assets,
+# Gradle wrapper, dependency/version files, licenses and .env.example.
+# New shareable design/decision records belong in docs/content/ and docs/decisions/.

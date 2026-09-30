@@ -1,6 +1,6 @@
 # Contributing
 
-Start with [building](docs/BUILDING.md), [architecture](docs/architecture/README.md) and [content development](docs/CONTENT.md). Agent tooling is optional; see [setup](docs/AGENTS-SETUP.md).
+Start with [repository policy](docs/REPOSITORY-POLICY.md), [building](docs/BUILDING.md), [architecture](docs/architecture/README.md) and [content development](docs/CONTENT.md). Agent tooling is optional; see [setup](docs/AGENTS-SETUP.md).
 
 Before editing, state the user outcome, affected modules and selected checks. Keep the change focused. Run the relevant tests and module build, inspect the final diff and run `git diff --check`. UI changes need a manual path and the applicable accessibility/host checks. Record the device, OS and launcher when reporting native behaviour. Screenshots and emulators do not establish physical battery performance.
 
