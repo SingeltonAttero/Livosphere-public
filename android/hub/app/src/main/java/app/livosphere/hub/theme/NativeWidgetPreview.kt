@@ -27,16 +27,17 @@ import app.livosphere.widgets.runtime.ClockLayoutAdapter
 internal fun NativeWidgetPreview(widgetId: String, size: WidgetSize, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val density = LocalDensity.current
+    val unavailableText = stringResource(R.string.theme_preview_unavailable)
     val catalog = remember(context) { RegistryWidgetCatalog(context) }
     val layoutId = catalog.layoutResource(context, widgetId, size)
     if (layoutId == 0) {
-        Text(stringResource(R.string.theme_preview_unavailable), modifier)
+        Text(unavailableText, modifier)
         return
     }
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val width = if (size == WidgetSize.S) minOf(maxWidth, 144.dp) else maxWidth
         val height = width * when (size) { WidgetSize.S -> 1f; WidgetSize.M -> 110f / 250; WidgetSize.L -> 180f / 250 }
-        val views = remember(widgetId, size, width, height, density.fontScale) {
+        val views = remember(context, layoutId, widgetId, size, width, height, density.fontScale, unavailableText) {
             RemoteViews(context.packageName, layoutId).also {
                 ClockLayoutAdapter.adapt(context, it, size, Bundle().apply {
                     putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, width.value.toInt())
@@ -49,7 +50,7 @@ internal fun NativeWidgetPreview(widgetId: String, size: WidgetSize, modifier: M
                 parent.removeAllViews()
                 val nativeView = runCatching { views.apply(context, parent) }.getOrElse {
                     android.widget.TextView(context).apply {
-                        text = context.getString(R.string.theme_preview_unavailable)
+                        text = unavailableText
                         gravity = android.view.Gravity.CENTER
                     }
                 }
