@@ -6,6 +6,8 @@ Browse a local collection of illustrated worlds, apply a wallpaper, and add cloc
 
 [Русский](README.ru.md) · [Build](docs/BUILDING.md) · [Architecture](docs/architecture/README.md) · [Screen specifications](docs/README.md) · [Contribute](CONTRIBUTING.md)
 
+[Privacy policy (Russian)](https://singeltonattero.github.io/Livosphere-public/privacy/)
+
 ## A look inside
 
 <p align="center">
