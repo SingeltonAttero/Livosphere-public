@@ -24,3 +24,9 @@
 - [Добавление контента](CONTENT.md)
 - [Дизайн](design/README.md)
 - [Подписанная сборка](RELEASE.md)
+
+## Публичные документы
+
+- [Политика конфиденциальности](https://singeltonattero.github.io/Livosphere-public/privacy/)
+- [Исходники и порядок обновления публичных страниц](../site/README.md)
+- [Лицензия кода](../LICENSE) и [условия использования авторского арта](../ASSET-LICENSE.md)
